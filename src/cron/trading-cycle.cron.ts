@@ -14,8 +14,6 @@ const tradingCycleCronJob = (): void => {
 
     cron.schedule(env.cronSchedule, async () => {
         const startTime = Date.now();
-        const startDate = new Date(startTime).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
-
 
         const config = TradingConfig.getConfig();
         let success = true;
