@@ -1,0 +1,24 @@
+{
+  "name": "express-api-project",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "tsx --watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "mongoose": "^9.0.0",
+    "node-cron": "^4.2.1",
+    "dotenv": "^17.2.3",
+    "winston": "^3.18.3"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "@types/node": "^24.10.1",
+    "@types/express": "^5.0.5",
+    "@types/node-cron": "^3.0.11",
+    "tsx": "^4.20.6"
+  }
+}
