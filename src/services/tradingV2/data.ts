@@ -1,5 +1,7 @@
+import { env } from "../../config";
 import { IMartingaleState, MartingaleState } from "../../models/martingaleState.model";
 import { TradingConfig } from "./config";
+import { ConfigType } from "./type";
 
 export class Data {
 
@@ -25,4 +27,26 @@ export class Data {
         console.log(`[data] Loaded state for ${sym}:`, st);
         return st;
     }
+
+    static async fetchTradingConfigs(
+        params: { timeframe: string; limit: number; }
+    ): Promise<ConfigType[]> {
+        const query = new URLSearchParams({
+            timeframe: params.timeframe,
+            limit: String(params.limit)
+        }).toString();
+
+        const res = await fetch(
+            `${env.clientServiceUrl}/internal/trading-configs?${query}`
+        );
+
+        if (!res.ok) {
+            throw new Error(
+                `[fetchTradingConfigs] Failed (${res.status})`
+            );
+        }
+
+        return res.json() as Promise<ConfigType[]>;
+    }
+
 }

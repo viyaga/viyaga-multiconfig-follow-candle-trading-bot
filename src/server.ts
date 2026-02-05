@@ -1,6 +1,7 @@
 import { env, connectDB } from './config';
 import app from './app';
 import startCronJobs from './cron';
+import './services/tradingV2/trading.worker';
 
 
 const startServer = async (): Promise<void> => {

@@ -1,4 +1,5 @@
 export interface ConfigType {
+    id?: string,
     USER_ID: string,
     DELTAEX_USER_ID: number,
     DELTA_EXCHANGE_API_KEY: string,
