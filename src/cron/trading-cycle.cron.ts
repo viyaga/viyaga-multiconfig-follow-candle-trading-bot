@@ -3,6 +3,7 @@ import { env } from "../config";
 import errorLogger from "../utils/errorLogger";
 import { TradingV2 } from "../services/tradingV2";
 import { Data } from "../services/tradingV2/data";
+import { TradingConfig } from "../services/tradingV2/config";
 
 /* ============================================================================
  * Cron Scheduler
@@ -14,10 +15,12 @@ const tradingCycleCronJob = (): void => {
         const startTime = Date.now();
 
         try {
-            const configs = await Data.fetchTradingConfigs({
-                timeframe: "1m",
-                limit: 500
-            });
+
+            const configs = [TradingConfig.getConfig(), TradingConfig.getConfig()];
+            // const configs = await Data.fetchTradingConfigs({
+            //     timeframe: "1m",
+            //     limit: 500
+            // });
 
             await Promise.allSettled(
                 configs.map(cfg =>
