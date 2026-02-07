@@ -9,6 +9,8 @@ interface EnvConfig {
     redisHost: string;
     redisPort: number;
     clientServiceUrl: string;
+    REDIS_URL: string;
+    KV_REST_API_TOKEN: string;
 }
 
 const env: EnvConfig = {
@@ -18,6 +20,8 @@ const env: EnvConfig = {
     redisHost: process.env.REDIS_HOST || 'localhost',
     redisPort: parseInt(process.env.REDIS_PORT || '6379', 10),
     clientServiceUrl: process.env.CLIENT_SERVICE_URL || 'http://localhost:3000',
+    REDIS_URL: process.env.REDIS_URL || '',
+    KV_REST_API_TOKEN: process.env.KV_REST_API_TOKEN || ''
 };
 
 export default env;

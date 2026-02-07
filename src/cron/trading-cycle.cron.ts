@@ -14,26 +14,25 @@ const tradingCycleCronJob = (): void => {
         const startTime = Date.now();
 
         try {
-            // 1️⃣ Fetch configs from external app
             const configs = await Data.fetchTradingConfigs({
                 timeframe: "1m",
                 limit: 500
             });
 
-            // 2️⃣ Enqueue jobs (FAST)
-            for (const cfg of configs) {
-                await TradingV2.tradingQueue.add("trade", {
-                    config: cfg
-                });
-            }
+            await Promise.allSettled(
+                configs.map(cfg =>
+                    TradingV2.runTradingCycle(cfg)
+                )
+            );
 
-            console.log(`[TradingCron] Enqueued ${configs.length} jobs`);
+            console.log(`[TradingCron] Processed ${configs.length} configs`);
 
         } catch (error) {
-            errorLogger.error("[TradingCron] Failed to enqueue jobs", error);
+            errorLogger.error("[TradingCron] Failed", error);
         } finally {
-            const executionTimeMs = Date.now() - startTime;
-            console.log(`[TradingCron] Finished in ${executionTimeMs}ms`);
+            console.log(
+                `[TradingCron] Finished in ${Date.now() - startTime}ms`
+            );
         }
     });
 
