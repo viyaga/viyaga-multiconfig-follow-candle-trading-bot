@@ -138,7 +138,12 @@ export class TradingV2 {
                         lastEntryPrice: entryPrice,
                         lastSlPrice: sl,
                         lastTpPrice: tp,
-                        lastTradeQuantity: qty
+                        lastTradeQuantity: qty,
+                        currentLevel: state.currentLevel,
+                        pnl: state.pnl,
+                        cumulativeFees: state.cumulativeFees,
+                        allTimePnl: state.allTimePnl,
+                        allTimeFees: state.allTimeFees
                     }
                 },
                 { new: true }

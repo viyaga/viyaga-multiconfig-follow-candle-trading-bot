@@ -51,5 +51,4 @@ export class Data {
 
         return [TradingConfig.getConfig()];
     }
-
 }
