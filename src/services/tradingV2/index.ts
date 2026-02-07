@@ -1,6 +1,6 @@
 import { Data } from "./data";
 import { deltaExchange } from "./delta-exchange";
-import { tradingCycleErrorLogger } from "./logger";
+import { tradingCycleErrorLogger, martingaleTradeLogger } from "./logger";
 import { ConfigType, TargetCandle } from "./type";
 import { Utils } from "./utils";
 import { ProcessPendingState } from "./ProcessPendingState";
@@ -68,6 +68,8 @@ export class TradingV2 {
             return; // already running somewhere else
         }
 
+        console.log({ lockKey, locked, c });
+
         try {
             const targetCandle = await TradingV2.getTargetCandle(c);
             if (!Utils.isCandleBodyAboveMinimum(targetCandle)) return;
@@ -124,7 +126,7 @@ export class TradingV2 {
             const tpSlResult =
                 await deltaExchange.placeTPSLBracketOrder(tp, sl, side);
 
-            await MartingaleState.findOneAndUpdate(
+            const updatedState = await MartingaleState.findOneAndUpdate(
                 { userId: c.USER_ID, symbol: c.SYMBOL },
                 {
                     $set: {
@@ -137,8 +139,19 @@ export class TradingV2 {
                         lastTpPrice: tp,
                         lastTradeQuantity: qty
                     }
-                }
+                },
+                { new: true }
             );
+
+            martingaleTradeLogger.info("Trade Executed", {
+                symbol: c.SYMBOL,
+                side,
+                quantity: qty,
+                entryPrice,
+                slPrice: sl,
+                tpPrice: tp,
+                martingaleState: updatedState
+            });
 
         } catch (err) {
             tradingCycleErrorLogger.error("[workflow] Cycle error", err);

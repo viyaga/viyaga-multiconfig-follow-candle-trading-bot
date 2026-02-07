@@ -16,11 +16,10 @@ const tradingCycleCronJob = (): void => {
 
         try {
 
-            const configs = [TradingConfig.getConfig(), TradingConfig.getConfig()];
-            // const configs = await Data.fetchTradingConfigs({
-            //     timeframe: "1m",
-            //     limit: 500
-            // });
+            const configs = await Data.fetchTradingConfigs({
+                timeframe: "1m",
+                limit: 500
+            });
 
             await Promise.allSettled(
                 configs.map(cfg =>

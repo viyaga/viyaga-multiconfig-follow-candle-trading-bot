@@ -36,17 +36,20 @@ export class Data {
             limit: String(params.limit)
         }).toString();
 
-        const res = await fetch(
-            `${env.clientServiceUrl}/internal/trading-configs?${query}`
-        );
+        // const res = await fetch(
+        //     `${env.clientServiceUrl}/internal/trading-configs?${query}`
+        // );
 
-        if (!res.ok) {
-            throw new Error(
-                `[fetchTradingConfigs] Failed (${res.status})`
-            );
-        }
+        // if (!res.ok) {
+        //     throw new Error(
+        //         `[fetchTradingConfigs] Failed (${res.status})`
+        //     );
+        // }
 
-        return res.json() as Promise<ConfigType[]>;
+        // const json: any = await res.json()
+        // const configs: ConfigType[] = json?.configs
+
+        return [TradingConfig.getConfig()];
     }
 
 }
