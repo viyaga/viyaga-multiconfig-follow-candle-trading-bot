@@ -7,6 +7,7 @@ import { ProcessPendingState } from "./ProcessPendingState";
 import { MartingaleState } from "../../models/martingaleState.model";
 import { TradingConfig } from "./config";
 import { redis } from "../../lib/redis";
+import { ExecutedTrade } from "../../models/executedTrade.model";
 
 export class TradingV2 {
 
@@ -143,7 +144,11 @@ export class TradingV2 {
                 { new: true }
             );
 
-            martingaleTradeLogger.info("Trade Executed", {
+            if (!updatedState) {
+                throw new Error("Failed to update martingale state");
+            }
+
+            await ExecutedTrade.create({
                 symbol: c.SYMBOL,
                 side,
                 quantity: qty,
