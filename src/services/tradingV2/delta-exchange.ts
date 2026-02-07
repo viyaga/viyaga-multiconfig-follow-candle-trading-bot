@@ -96,10 +96,6 @@ export class DeltaExchange {
         return (await this.signedRequest("DELETE", "/orders/all", p))?.success ? { success: true } : { success: false };
     }
 
-    async closeAllPositions(uid = 0, p = true, iso = true) {
-        return (await this.signedRequest("POST", "/positions/close_all", { close_all_portfolio: p, close_all_isolated: iso, user_id: uid }))?.success ? { success: true } : { success: false };
-    }
-
     async getPositions(pid?: number): Promise<Position | Position[] | null> {
         return (await this.signedRequest("GET", "/positions", undefined, pid ? new URLSearchParams({ product_id: String(pid) }) : undefined))?.result ?? null;
     }

@@ -20,7 +20,6 @@ export class TradingConfig {
     ------------------------------------------------------------------------- */
     private static readonly config: ConfigType = {
         USER_ID: "12345",
-        DELTAEX_USER_ID: 70111043,
         DELTA_EXCHANGE_API_KEY: "jb5K5wanfp4HNz9naTruYTOEjfq8eZ",
         DELTA_EXCHANGE_SECRET_KEY: "he9E1B0eeJfhJnxlM49EXhKrYOfNln5b4EOLMZotCLWl6gRFip510Z6yxci1",
         DELTA_EXCHANGE_BASE_URL_INDIA: "https://api.india.delta.exchange/v2",

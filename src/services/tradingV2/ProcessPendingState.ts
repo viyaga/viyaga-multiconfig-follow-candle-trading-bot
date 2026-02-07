@@ -91,60 +91,8 @@ export class ProcessPendingState {
    PENDING ORDER HANDLING
 ========================================================================= */
 
-    private static async handleOpenEntryOrder(
-        s: IMartingaleState
-    ): Promise<IMartingaleState> {
-
-        try {
-            const res = await deltaExchange.cancelAllOpenOrders({ product_id: TradingConfig.getConfig().PRODUCT_ID });
-            if (res?.success) {
-                return this.markCancelled(s);
-            }
-        } catch (err) {
-            tradingCycleErrorLogger.error("[cleanup] Failed to cancel open entry", err);
-        }
-
-        return s;
-    }
-
     private static handleCanceledEntryOrder(s: IMartingaleState): IMartingaleState {
         return this.markCancelled(s);
-    }
-
-
-    static async handlePartiallyFilledEntryOrder(
-        s: IMartingaleState,
-        ep: number,
-        pc: number
-    ): Promise<IMartingaleState> {
-
-        try {
-            await deltaExchange.cancelAllOpenOrders({ product_id: TradingConfig.getConfig().PRODUCT_ID });
-        } catch (err) {
-            tradingCycleErrorLogger.error(
-                "[partialFill] cancelAllOpenOrders failed",
-                err
-            );
-        }
-
-        try {
-            await deltaExchange.closeAllPositions(
-                TradingConfig.getConfig().DELTAEX_USER_ID
-            );
-        } catch (err) {
-            tradingCycleErrorLogger.error(
-                "[partialFill] closeAllPositions failed",
-                err
-            );
-        }
-
-        return {
-            ...s,
-            cumulativeFees: s.cumulativeFees + pc,
-            allTimeFees: (s.allTimeFees || 0) + pc,
-            lastEntryPrice: ep,
-            lastTradeOutcome: "cancelled",
-        };
     }
 
     /* =========================================================================
@@ -259,14 +207,10 @@ export class ProcessPendingState {
         try {
 
             switch (order.status.toUpperCase()) {
-                case "OPEN":
-                    return this.handleOpenEntryOrder(state);
                 case "CANCELLED":
                     return this.handleCanceledEntryOrder(state);
                 case "CLOSED":
                     return this.handleClosedEntryOrder(sym, state, order, targetCandle, currentPrice);
-                case "PENDING":
-                    return this.handlePartiallyFilledEntryOrder(state, Utils.resolveEntryPrice(order), Number(order.paid_commission) || 0);
                 default:
                     return state;
             }
