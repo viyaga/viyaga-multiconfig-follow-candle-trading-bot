@@ -54,7 +54,7 @@ export class Utils {
         const bodyPercent =
             (Math.abs(candle.close - candle.open) / candle.open) * 100;
 
-        console.log({ bodyPercent, minBodyPercent });
+        console.log({ bodyPercent, minBodyPercent, candle });
 
         return bodyPercent >= minBodyPercent;
     }

@@ -90,8 +90,8 @@ export class DeltaExchange {
         return deltaExchange.signedRequest("POST", "/orders", { product_id: c.PRODUCT_ID, product_symbol: symbol, side, size: Math.floor(qty), order_type: "market_order", time_in_force: "gtc", client_order_id: cid || `viy-${Date.now()}` });
     }
 
-    async cancelAllOpenOrders(f: CancelAllOrdersFilter): Promise<{ success: boolean }> {
-        const p: CancelAllOrdersPayload = { contract_types: f.contract_types ?? "perpetual_futures", cancel_limit_orders: f.cancel_limit_orders ?? false, cancel_stop_orders: f.cancel_stop_orders ?? false, cancel_reduce_only_orders: f.cancel_reduce_only_orders ?? false };
+    async cancelStopOrders(f: CancelAllOrdersFilter): Promise<{ success: boolean }> {
+        const p: CancelAllOrdersPayload = { contract_types: "perpetual_futures", cancel_limit_orders: false, cancel_stop_orders: true, cancel_reduce_only_orders: true };
         if (f.product_id) p.product_id = f.product_id;
         return (await this.signedRequest("DELETE", "/orders/all", p))?.success ? { success: true } : { success: false };
     }

@@ -32,8 +32,6 @@ export class Data {
         return st;
     }
 
-
-
     static async fetchTradingConfigs(
         params: { timeframe: string; limit: number; offset: number; }
     ): Promise<ConfigType[]> {
