@@ -59,17 +59,15 @@ export class Utils {
         return bodyPercent >= minBodyPercent;
     }
 
-    static isPriceMovingInCandleDirection(
+    static isPriceMovingOrderDirection(
+        side: OrderSide,
         candle: TargetCandle,
         currentPrice: number
     ): boolean {
-        if (candle.color === "red") {
-            // red candle → price should less than high
-            return currentPrice < candle.high;
+        if (side === "buy") {
+            return currentPrice > candle.low;
         }
-
-        // green candle → price should more than low
-        return currentPrice > candle.low;
+        return currentPrice < candle.high;
     }
 
     static isPriceMovementPercentWithinRange(

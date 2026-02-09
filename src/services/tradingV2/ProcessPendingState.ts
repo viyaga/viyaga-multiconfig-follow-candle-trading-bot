@@ -155,7 +155,7 @@ export class ProcessPendingState {
         );
 
         if (slOrder?.status !== "CANCELLED") {
-            throw new Error("SL update failed");
+            throw new Error("SL update failed in placeCancelledBracketOrders");
         }
 
         await deltaExchange.cancelStopOrders({
@@ -253,7 +253,7 @@ export class ProcessPendingState {
                 return s;
             }
 
-            // SL update failed → recover
+            // SL order cancelled → place new SL order
             if (!updateRes.success) {
                 return this.placeCancelledBracketOrders(s, e, sl);
             }
@@ -265,7 +265,7 @@ export class ProcessPendingState {
                     userId: s.userId,
                     symbol: s.symbol,
                 },
-                { $set: { lastSlPrice: sl } },
+                { $set: { lastSlPrice: updateRes.slLimitPrice } },
                 { new: true }
             );
 
