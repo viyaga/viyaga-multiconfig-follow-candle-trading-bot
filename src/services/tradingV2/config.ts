@@ -19,6 +19,7 @@ export class TradingConfig {
        BASE DEFAULT CONFIG
     ------------------------------------------------------------------------- */
     private static readonly config: ConfigType = {
+        id: "1",
         USER_ID: "12345",
         DELTA_EXCHANGE_API_KEY: "jb5K5wanfp4HNz9naTruYTOEjfq8eZ",
         DELTA_EXCHANGE_SECRET_KEY: "he9E1B0eeJfhJnxlM49EXhKrYOfNln5b4EOLMZotCLWl6gRFip510Z6yxci1",
@@ -29,7 +30,7 @@ export class TradingConfig {
         PRICE_DECIMAL_PLACES: 2,
         TIMEFRAME: "4h",
         LEVERAGE: 20,
-        INITIAL_BASE_QUANTITY: 10,
+        INITIAL_BASE_QUANTITY: 1,
         MIN_CANDLE_BODY_PERCENT: 0.2,
         MAX_ALLOWED_PRICE_MOVEMENT_PERCENT: 4,
         MIN_ALLOWED_PRICE_MOVEMENT_PERCENT: 0.2,
@@ -37,7 +38,7 @@ export class TradingConfig {
         SL_TRIGGER_BUFFER_PERCENT: 0.1,
         SL_LIMIT_BUFFER_PERCENT: 0.2,
         DRY_RUN: false,
-        IS_TESTING: String(process.env.IS_TESTING).toLowerCase() === "true"
+        IS_TESTING: true
     };
 
     /* -------------------------------------------------------------------------

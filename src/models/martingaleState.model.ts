@@ -5,6 +5,7 @@ import mongoose, { Schema, Document } from 'mongoose';
 export interface IMartingaleState {
     id: string;
     userId: string;
+    configId: string;
     symbol: string;
     productId: number;
     currentLevel: number;
@@ -29,6 +30,7 @@ export interface IMartingaleState {
 const MartingaleStateSchema: Schema = new Schema(
     {
         userId: { type: String, required: true, index: true },
+        configId: { type: String, required: true, index: true, unique: true },
         symbol: { type: String, required: true, index: true },
         productId: { type: Number },
         currentLevel: { type: Number, required: true, default: 1 },

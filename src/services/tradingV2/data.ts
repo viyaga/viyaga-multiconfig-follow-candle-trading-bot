@@ -1,15 +1,19 @@
 import { env } from "../../config";
+
 import { IMartingaleState, MartingaleState } from "../../models/martingaleState.model";
 import { TradingConfig } from "./config";
 import { ConfigType } from "./type";
 
 export class Data {
 
-    static async getOrCreateState(userId: string, sym: string, pid: number): Promise<IMartingaleState> {
-        let st = await MartingaleState.findOne({ userId, symbol: sym });
+    static async getOrCreateState(configId: string, userId: string, sym: string, pid: number): Promise<IMartingaleState> {
+        let st = await MartingaleState.findOne({ configId, userId, symbol: sym });
+
         if (!st) {
+            console.log(`[data] Creating new state for ${sym}`);
             st = new MartingaleState({
                 userId,
+                configId,
                 symbol: sym,
                 productId: pid,
                 currentLevel: 1,
@@ -28,27 +32,34 @@ export class Data {
         return st;
     }
 
+
+
     static async fetchTradingConfigs(
-        params: { timeframe: string; limit: number; }
+        params: { timeframe: string; limit: number; offset: number; }
     ): Promise<ConfigType[]> {
+        if (process.env.IS_SERVER_TESTING) {
+            return [TradingConfig.getConfig()]
+        }
+
         const query = new URLSearchParams({
             timeframe: params.timeframe,
-            limit: String(params.limit)
+            limit: String(params.limit),
+            offset: String(params.offset)
         }).toString();
 
-        // const res = await fetch(
-        //     `${env.clientServiceUrl}/internal/trading-configs?${query}`
-        // );
+        const res = await fetch(
+            `${env.clientServiceUrl}/internal/trading-configs?${query}`
+        );
 
-        // if (!res.ok) {
-        //     throw new Error(
-        //         `[fetchTradingConfigs] Failed (${res.status})`
-        //     );
-        // }
+        if (!res.ok) {
+            throw new Error(
+                `[fetchTradingConfigs] Failed (${res.status})`
+            );
+        }
 
-        // const json: any = await res.json()
-        // const configs: ConfigType[] = json?.configs
+        const json: any = await res.json()
+        const configs: ConfigType[] = json?.configs
 
-        return [TradingConfig.getConfig()];
+        return configs
     }
 }

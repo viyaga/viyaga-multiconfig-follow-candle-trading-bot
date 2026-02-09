@@ -4,7 +4,7 @@ import { TradingConfig } from "./config";
 import { deltaExchange } from "./delta-exchange";
 import { tradingCycleErrorLogger } from "./logger";
 import { OrderDetails, TargetCandle } from "./type";
-import { Utils } from "./utils";
+
 
 export class ProcessPendingState {
 
@@ -178,7 +178,7 @@ export class ProcessPendingState {
             }
 
             const updatedState = await MartingaleState.findOneAndUpdate(
-                { userId: s.userId, symbol: s.symbol },
+                { configId: s.configId, userId: s.userId, symbol: s.symbol },
                 {
                     $set: {
                         lastSlPrice: res.slLimitPrice,
@@ -188,6 +188,8 @@ export class ProcessPendingState {
             );
 
             if (!updatedState) throw new Error("Martingale state not found");
+
+
 
             return updatedState as IMartingaleState;
         } catch (err) {

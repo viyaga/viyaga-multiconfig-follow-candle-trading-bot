@@ -6,7 +6,7 @@ import { Utils } from "./utils";
 import { ProcessPendingState } from "./ProcessPendingState";
 import { MartingaleState } from "../../models/martingaleState.model";
 import { TradingConfig } from "./config";
-import { redis } from "../../lib/redis";
+
 import { ExecutedTrade } from "../../models/executedTrade.model";
 
 export class TradingV2 {
@@ -57,20 +57,6 @@ export class TradingV2 {
 
     static async runTradingCycle(c: ConfigType) {
 
-        const lockKey = `lock:trade:${c.USER_ID}:${c.SYMBOL}:${c.PRODUCT_ID}`;
-
-        // 🔐 distributed lock (55s)
-        const locked = await redis.set(lockKey, "1", {
-            nx: true,
-            ex: 55
-        });
-
-        if (!locked) {
-            return; // already running somewhere else
-        }
-
-        console.log({ lockKey, locked, c });
-
         try {
             const targetCandle = await TradingV2.getTargetCandle(c);
             if (!Utils.isCandleBodyAboveMinimum(targetCandle)) return;
@@ -79,9 +65,10 @@ export class TradingV2 {
             if (!Utils.isPriceMovingInCandleDirection(targetCandle, currentPrice)) return;
 
             let state = await Data.getOrCreateState(
+                c.id,
                 c.USER_ID,
                 c.SYMBOL,
-                c.PRODUCT_ID
+                c.PRODUCT_ID,
             );
 
             if (state.lastEntryOrderId && Utils.isTradePending(state)) {
@@ -128,7 +115,7 @@ export class TradingV2 {
                 await deltaExchange.placeTPSLBracketOrder(tp, sl, side);
 
             const updatedState = await MartingaleState.findOneAndUpdate(
-                { userId: c.USER_ID, symbol: c.SYMBOL },
+                { configId: c.id, userId: c.USER_ID, symbol: c.SYMBOL },
                 {
                     $set: {
                         lastTradeOutcome: "pending",
@@ -166,8 +153,6 @@ export class TradingV2 {
         } catch (err) {
             tradingCycleErrorLogger.error("[workflow] Cycle error", err);
             throw err;
-        } finally {
-            await redis.del(lockKey);
         }
     }
 }
