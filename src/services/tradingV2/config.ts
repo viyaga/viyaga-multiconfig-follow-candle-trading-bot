@@ -39,7 +39,7 @@ export class TradingConfig {
         SL_LIMIT_BUFFER_PERCENT: 0.1,
         DRY_RUN: false,
         IS_TESTING: false
-    };
+    };  
 
     /* -------------------------------------------------------------------------
        CONFIG RESOLVER
