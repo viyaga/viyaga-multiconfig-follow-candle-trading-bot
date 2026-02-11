@@ -4,6 +4,7 @@ import { TradingConfig } from "./config";
 import { deltaExchange } from "./delta-exchange";
 import { tradingCycleErrorLogger } from "./logger";
 import { OrderDetails, TargetCandle } from "./type";
+import { Utils } from "./utils";
 
 
 export class ProcessPendingState {
@@ -144,6 +145,87 @@ export class ProcessPendingState {
         throw new Error("[processClosedPosition] Neither TP nor SL orders are filled/closed.");
     }
 
+    static async placeCancelledBracketOrders(
+        state: IMartingaleState,
+        e: OrderDetails,
+        sl: number
+    ): Promise<IMartingaleState> {
+        const slOrder = await deltaExchange.getOrderDetails(
+            state.lastStopLossOrderId!
+        );
+
+        if (slOrder?.status !== "CANCELLED") {
+            throw new Error("SL update failed");
+        }
+
+        await deltaExchange.cancelStopOrders({
+            product_id: TradingConfig.getConfig().PRODUCT_ID,
+        });
+
+        const entryPrice =
+            e.average_fill_price ?? e.meta_data?.entry_price;
+
+        if (!entryPrice) {
+            throw new Error("Entry price not found");
+        }
+
+        const tp = Utils.calculateTpPrice(Number(entryPrice), e.side);
+        if (!tp) {
+            throw new Error("TP calculation failed");
+        }
+
+        const bracketRes =
+            await deltaExchange.placeTPSLBracketOrder(tp, sl, e.side);
+
+        if (!bracketRes.success) {
+            throw new Error("TP/SL placement failed");
+        }
+
+        const updated = await MartingaleState.findOneAndUpdate(
+            {
+                configId: state.configId,
+                userId: state.userId,
+                symbol: state.symbol,
+            },
+            {
+                $set: {
+                    lastSlPrice: sl,
+                    lastTpPrice: tp,
+                    lastStopLossOrderId: bracketRes.ids.sl,
+                    lastTakeProfitOrderId: bracketRes.ids.tp,
+                },
+            },
+            { new: true }
+        );
+
+        if (!updated) {
+            throw new Error("Martingale state not found");
+        }
+
+        return updated as IMartingaleState;
+    }
+
+    static async updateStateSl(
+        state: IMartingaleState,
+        sl: number
+    ): Promise<IMartingaleState> {
+        const updated = await MartingaleState.findOneAndUpdate(
+            {
+                configId: state.configId,
+                userId: state.userId,
+                symbol: state.symbol,
+            },
+            { $set: { lastSlPrice: sl } },
+            { new: true }
+        );
+
+        if (!updated) {
+            throw new Error("Martingale state not found");
+        }
+
+        return updated as IMartingaleState;
+    }
+
     static async manageOpenPosition(
         sym: string,
         s: IMartingaleState,
@@ -151,49 +233,42 @@ export class ProcessPendingState {
         targetCandle: TargetCandle
     ): Promise<IMartingaleState> {
         try {
-
-            const sl = e.side === "buy" && targetCandle.color === "green" ? targetCandle.low : e.side === "sell" && targetCandle.color === "red" ? targetCandle.high : null;
-
-            if (!sl) {
-                console.log("[manageOpenPosition] Candle color is not in the direction of the trade.Skipping this cycle")
-                return s;
-            }
-
             if (!s.lastStopLossOrderId || !s.lastSlPrice) {
-                throw new Error("[manageOpenPosition] SL order ID not found. Skipping this cycle");
+                throw new Error("SL order or price missing in state");
             }
 
-            const res = await deltaExchange.updateStopLossOrder(
+            const sl = e.side === "buy" ? targetCandle.low : targetCandle.high;
+
+            const updateRes = await deltaExchange.updateStopLossOrder(
                 s.lastStopLossOrderId,
                 s.lastSlPrice,
                 TradingConfig.getConfig().PRODUCT_ID,
                 sym,
                 e.side,
-                sl,
+                sl
             );
 
-            if (!res.success) {
-                if (res.isSlSame) return s;
-                throw new Error("[manageOpenPosition] Failed to update SL. Skipping update.");
+            // SL unchanged → nothing to do
+            if (!updateRes.success && updateRes.isSlSame) {
+                return s;
             }
 
-            const updatedState = await MartingaleState.findOneAndUpdate(
-                { configId: s.configId, userId: s.userId, symbol: s.symbol },
-                {
-                    $set: {
-                        lastSlPrice: res.slLimitPrice,
-                    },
-                },
-                { new: true } // 🔥 return updated document
-            );
+            // SL update failed → recover
+            if (!updateRes.success) {
+                return this.placeCancelledBracketOrders(s, e, sl);
+            }
 
-            if (!updatedState) throw new Error("Martingale state not found");
+            // SL updated successfully
+            const updated = await this.updateStateSl(s, Number(updateRes.slLimitPrice));
 
+            if (!updated) {
+                throw new Error("Martingale state not found");
+            }
 
+            return updated as IMartingaleState;
 
-            return updatedState as IMartingaleState;
         } catch (err) {
-            tradingCycleErrorLogger.error("[manageOpenPosition] error", err);
+            tradingCycleErrorLogger.error("[manageOpenPosition]", err);
             return s;
         }
     }
