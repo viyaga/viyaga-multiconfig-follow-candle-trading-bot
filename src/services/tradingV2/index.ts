@@ -62,6 +62,7 @@ export class TradingV2 {
             if (!Utils.isCandleBodyAboveMinimum(targetCandle)) return;
 
             const currentPrice = await TradingV2.getCurrentPrice(c.SYMBOL);
+            if (!Utils.isPriceMovingInCandleDirection(targetCandle, currentPrice)) return;
 
             let state = await Data.getOrCreateState(
                 c.id,
@@ -77,8 +78,6 @@ export class TradingV2 {
                 if (!orderDetails) {
                     throw new Error("Failed to fetch order details for pending trade.");
                 }
-
-                if (!Utils.isPriceMovingOrderDirection(orderDetails.side, targetCandle, currentPrice)) return;
 
                 state = await ProcessPendingState.processStateOfPendingTrade(
                     c.SYMBOL,

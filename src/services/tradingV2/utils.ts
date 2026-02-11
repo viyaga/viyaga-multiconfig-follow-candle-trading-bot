@@ -54,20 +54,22 @@ export class Utils {
         const bodyPercent =
             (Math.abs(candle.close - candle.open) / candle.open) * 100;
 
-        console.log({ bodyPercent, minBodyPercent, candle });
+        console.log({ bodyPercent, minBodyPercent });
 
         return bodyPercent >= minBodyPercent;
     }
 
-    static isPriceMovingOrderDirection(
-        side: OrderSide,
+    static isPriceMovingInCandleDirection(
         candle: TargetCandle,
         currentPrice: number
     ): boolean {
-        if (side === "buy") {
-            return currentPrice > candle.low;
+        if (candle.color === "red") {
+            // red candle → price should less than high
+            return currentPrice < candle.high;
         }
-        return currentPrice < candle.high;
+
+        // green candle → price should more than low
+        return currentPrice > candle.low;
     }
 
     static isPriceMovementPercentWithinRange(
