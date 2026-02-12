@@ -28,7 +28,7 @@ export class TradingConfig {
         SYMBOL: "ETHUSD",
         LOT_SIZE: 0.01,
         PRICE_DECIMAL_PLACES: 2,
-        TIMEFRAME: "5m",
+        TIMEFRAME: "4h",
         LEVERAGE: 20,
         INITIAL_BASE_QUANTITY: 1,
         MIN_CANDLE_BODY_PERCENT: 0.01,
@@ -38,7 +38,7 @@ export class TradingConfig {
         SL_TRIGGER_BUFFER_PERCENT: 0.1,
         SL_LIMIT_BUFFER_PERCENT: 0.2,
         DRY_RUN: false,
-        IS_TESTING: true
+        IS_TESTING: false
     };
 
     /* -------------------------------------------------------------------------

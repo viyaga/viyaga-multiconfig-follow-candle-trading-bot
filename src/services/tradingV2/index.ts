@@ -130,7 +130,7 @@ export class TradingV2 {
                 return;
             }
 
-            if (!Utils.isMarketTradable(candles)) {
+            if (!Utils.isChoppyMarket(candles)) {
                 console.log(`[TradingCycle:${symbol}] SKIP: Market is sideways/choppy - not tradable`);
                 tradingCycleErrorLogger.info(`[workflow] Market is always sideways/choppy, skipping trade for ${c.SYMBOL}`);
                 return;

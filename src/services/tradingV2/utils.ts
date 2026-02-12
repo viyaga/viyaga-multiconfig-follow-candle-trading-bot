@@ -165,148 +165,27 @@ export class Utils {
         };
     }
 
-
-    // =============================
-    //  ATR (Wilder's Smoothing)
-    // =============================
-    private static calculateATR(candles: Candle[], period: number = 14): number {
-        if (candles.length < period + 1) return 0;
+    static isChoppyMarket(candles: Candle[], lookback = 4): boolean {
+        if (candles.length < lookback) return false;
 
         const sorted = [...candles].sort((a, b) => a.timestamp - b.timestamp);
+        const recent = sorted.slice(-lookback);
 
-        let trs: number[] = [];
+        let totalMovement = 0;
 
-        for (let i = 1; i < sorted.length; i++) {
-            const high = sorted[i].high;
-            const low = sorted[i].low;
-            const prevClose = sorted[i - 1].close;
-
-            const tr = Math.max(
-                high - low,
-                Math.abs(high - prevClose),
-                Math.abs(low - prevClose)
-            );
-
-            trs.push(tr);
-        }
-
-        // Wilder's smoothing (more stable than simple average)
-        let atr = trs.slice(0, period).reduce((a, b) => a + b, 0) / period;
-
-        for (let i = period; i < trs.length; i++) {
-            atr = (atr * (period - 1) + trs[i]) / period;
-        }
-
-        return atr;
-    }
-
-    // =============================
-    // EMA (Stable Version)
-    // =============================
-    private static calculateEMA(values: number[], period: number): number {
-        if (values.length < period) return 0;
-
-        const k = 2 / (period + 1);
-
-        // Start from SMA to stabilize EMA
-        let ema =
-            values.slice(0, period).reduce((a, b) => a + b, 0) / period;
-
-        for (let i = period; i < values.length; i++) {
-            ema = values[i] * k + ema * (1 - k);
-        }
-
-        return ema;
-    }
-
-    // =============================
-    // SHORT TERM CHOP DETECTOR (15m Optimized)
-    // =============================
-    static isShortTermChoppy(candles: Candle[]): boolean {
-        if (candles.length < 20) return true;
-
-        const sorted = [...candles].sort((a, b) => a.timestamp - b.timestamp);
-        const atr = this.calculateATR(sorted, 14);
-
-        if (atr === 0) return true;
-
-        const recent = sorted.slice(-5);
-
-        const highs = recent.map(c => c.high);
-        const lows = recent.map(c => c.low);
-
-        const totalRange = Math.max(...highs) - Math.min(...lows);
-
-        // 1️⃣ Compression check (tight for scalping)
-        const isCompressed = totalRange < atr * 1.3;
-
-        // 2️⃣ Frequent flip detection
-        let flips = 0;
         for (let i = 1; i < recent.length; i++) {
-            const prevBull = recent[i - 1].close > recent[i - 1].open;
-            const currBull = recent[i].close > recent[i].open;
-            if (prevBull !== currBull) flips++;
-        }
-        const isFrequentFlip = flips >= 3;
-
-        // 3️⃣ No strong directional body expansion
-        const last = sorted[sorted.length - 1];
-        const lastRange = last.high - last.low;
-        const isBreakout = lastRange > atr * 1.2;
-
-        return isCompressed && isFrequentFlip && !isBreakout;
-    }
-
-    // =============================
-    // MAIN MARKET REGIME FILTER
-    // =============================
-    static isMarketTradable(history: Candle[]): boolean {
-        if (history.length < 50) return false;
-
-        const candles = [...history].sort((a, b) => a.timestamp - b.timestamp);
-
-        // First avoid short-term chop
-        if (this.isShortTermChoppy(candles)) {
-            return false;
+            totalMovement += Math.abs(recent[i].close - recent[i - 1].close);
         }
 
-        const closes = candles.map(c => c.close);
-        const highs = candles.map(c => c.high);
-        const lows = candles.map(c => c.low);
+        if (totalMovement === 0) return true;
 
-        const atr = this.calculateATR(candles, 14);
-        if (atr === 0) return false;
+        const netMovement = Math.abs(
+            recent[recent.length - 1].close - recent[0].close
+        );
 
-        const emaFast = this.calculateEMA(closes, 20);
-        const emaSlow = this.calculateEMA(closes, 50);
+        const efficiencyRatio = netMovement / totalMovement;
 
-        const recentHigh = Math.max(...highs.slice(-20));
-        const recentLow = Math.min(...lows.slice(-20));
-        const range = recentHigh - recentLow;
-
-        const emaDistance = Math.abs(emaFast - emaSlow);
-
-        // Normalize against ATR
-        const volatilityRatio = range / atr;
-        const trendStrength = emaDistance / atr;
-
-        const isCompressed = volatilityRatio < 1.8;  // tightened
-        const isWeakTrend = trendStrength < 0.8;     // tightened
-
-        // Breakout impulse detection
-        const last = candles[candles.length - 1];
-        const prev = candles[candles.length - 2];
-
-        const breakoutImpulse =
-            Math.abs(last.close - prev.close) > atr * 0.9 ||
-            (last.high - last.low) > atr * 1.3;
-
-        // Final sideways filter
-        if (isCompressed && isWeakTrend && !breakoutImpulse) {
-            return false;
-        }
-
-        return true;
+        return efficiencyRatio < 0.3;
     }
 
 
