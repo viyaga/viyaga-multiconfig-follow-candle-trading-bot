@@ -28,10 +28,10 @@ export class TradingConfig {
         SYMBOL: "ETHUSD",
         LOT_SIZE: 0.01,
         PRICE_DECIMAL_PLACES: 2,
-        TIMEFRAME: "4h",
+        TIMEFRAME: "5m",
         LEVERAGE: 20,
         INITIAL_BASE_QUANTITY: 1,
-        MIN_CANDLE_BODY_PERCENT: 0.1,
+        MIN_CANDLE_BODY_PERCENT: 0.01,
         MAX_ALLOWED_PRICE_MOVEMENT_PERCENT: 4,
         MIN_ALLOWED_PRICE_MOVEMENT_PERCENT: 0.1,
         TAKE_PROFIT_PERCENT: 3000, // 30x (3000%)
