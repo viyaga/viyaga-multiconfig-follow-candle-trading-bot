@@ -63,7 +63,7 @@ export class TradingV2 {
         const configId = c.id;
         const symbol = c.SYMBOL;
         const userId = c.USER_ID;
-        
+
         console.log(`\n[TradingCycle:${symbol}] Starting trading cycle for config ${configId} (User: ${userId})`);
 
         try {
@@ -79,7 +79,7 @@ export class TradingV2 {
             console.log(`[TradingCycle:${symbol}] Fetching current price...`);
             const currentPrice = await TradingV2.getCurrentPrice(c.SYMBOL);
             console.log(`[TradingCycle:${symbol}] Current price: ${currentPrice}`);
-            
+
             if (!Utils.isPriceMovingInCandleDirection(targetCandle, currentPrice)) {
                 console.log(`[TradingCycle:${symbol}] SKIP: Price is not moving in candle direction (Candle: ${targetCandle.color}, Price: ${currentPrice})`);
                 return;
@@ -124,7 +124,7 @@ export class TradingV2 {
                 console.log(`[TradingCycle:${symbol}] SKIP: Price movement percent is not within range`);
                 return;
             }
-            
+
             if (c.DRY_RUN) {
                 console.log(`[TradingCycle:${symbol}] DRY_RUN mode enabled. Skipping trade placement.`);
                 return;
@@ -138,7 +138,7 @@ export class TradingV2 {
 
             let qty = c.IS_TESTING ? 1 : state.lastTradeQuantity;
             console.log(`[TradingCycle:${symbol}] Quantity: ${qty} (IS_TESTING=${c.IS_TESTING})`);
-            
+
             if (!qty || qty <= 0) throw new Error("Invalid trade quantity");
 
             const side = targetCandle.color === "green" ? "buy" : "sell";
@@ -157,7 +157,7 @@ export class TradingV2 {
                 targetCandle.color === "green"
                     ? targetCandle.low
                     : targetCandle.high;
-            
+
             console.log(`[TradingCycle:${symbol}] Price levels - Entry: ${entryPrice}, TP: ${tp}, SL: ${sl}`);
             console.log(`[TradingCycle:${symbol}] Placing TP/SL bracket order...`);
 
@@ -206,7 +206,7 @@ export class TradingV2 {
             console.log(`[TradingCycle:${symbol}] ✓ TRADE COMPLETED SUCCESSFULLY\n`);
 
         } catch (err) {
-            console.error(`[TradingCycle:${symbol}] ✗ ERROR in trading cycle:`, err?.message || err);
+            console.error(`[TradingCycle:${symbol}] ✗ ERROR in trading cycle:`, err);
             tradingCycleErrorLogger.error("[workflow] Cycle error", err);
             throw err;
         }
