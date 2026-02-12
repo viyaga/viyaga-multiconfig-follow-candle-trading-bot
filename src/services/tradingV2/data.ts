@@ -48,7 +48,7 @@ export class Data {
         }).toString();
 
         const res = await fetch(
-            `${env.clientServiceUrl}/internal/trading-configs?${query}`
+            `${env.clientServerUrl}/internal/trading-configs?${query}`
         );
 
         if (!res.ok) {

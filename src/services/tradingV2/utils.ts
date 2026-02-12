@@ -165,4 +165,133 @@ export class Utils {
         };
     }
 
+
+    private static calculateATR(candles: Candle[], period: number = 14): number {
+        let trs: number[] = [];
+
+        for (let i = 1; i < candles.length; i++) {
+            const high = candles[i].high;
+            const low = candles[i].low;
+            const prevClose = candles[i - 1].close;
+
+            const tr = Math.max(
+                high - low,
+                Math.abs(high - prevClose),
+                Math.abs(low - prevClose)
+            );
+
+            trs.push(tr);
+        }
+
+        return trs.slice(-period).reduce((a, b) => a + b, 0) / period;
+    }
+
+    private static calculateEMA(values: number[], period: number): number {
+        const k = 2 / (period + 1);
+        let ema = values[0];
+
+        for (let i = 1; i < values.length; i++) {
+            ema = values[i] * k + ema * (1 - k);
+        }
+
+        return ema;
+    }
+
+    static isShortTermChoppy(candles: Candle[]): boolean {
+        if (candles.length < 6) return true;
+
+        const recent = candles.slice(-5);
+        const highs = recent.map(c => c.high);
+        const lows = recent.map(c => c.low);
+
+        const totalRange = Math.max(...highs) - Math.min(...lows);
+
+        // === ATR calculation ===
+        let trSum = 0;
+        for (let i = 1; i < recent.length; i++) {
+            const high = recent[i].high;
+            const low = recent[i].low;
+            const prevClose = recent[i - 1].close;
+
+            const tr = Math.max(
+                high - low,
+                Math.abs(high - prevClose),
+                Math.abs(low - prevClose)
+            );
+
+            trSum += tr;
+        }
+
+        const avgTR = trSum / 4;
+
+        const isLowExpansion = totalRange < avgTR * 2;
+
+        // === Direction flip detection ===
+        let flips = 0;
+        for (let i = 1; i < recent.length; i++) {
+            const prevBull = recent[i - 1].close > recent[i - 1].open;
+            const currBull = recent[i].close > recent[i].open;
+            if (prevBull !== currBull) flips++;
+        }
+
+        const isFrequentFlip = flips >= 3;
+
+        // === Structure detection ===
+        const isHigherHighs =
+            recent[4].high > recent[3].high &&
+            recent[3].high > recent[2].high;
+
+        const isLowerLows =
+            recent[4].low < recent[3].low &&
+            recent[3].low < recent[2].low;
+
+        const hasTrendStructure = isHigherHighs || isLowerLows;
+
+        return isLowExpansion && isFrequentFlip && !hasTrendStructure;
+    }
+
+
+    static isMarketTradable(history: Candle[]): boolean {
+        if (history.length < 80) return false;
+        const candles = [...history].sort((a, b) => a.timestamp - b.timestamp);
+
+        if (this.isShortTermChoppy(candles)) {
+            return false;
+        }
+
+        const closes = candles.map(c => c.close);
+        const highs = candles.map(c => c.high);
+        const lows = candles.map(c => c.low);
+
+        const atr = this.calculateATR(candles, 14);
+
+        const emaFast = this.calculateEMA(closes.slice(-20), 20);
+        const emaSlow = this.calculateEMA(closes.slice(-50), 50);
+
+        const recentHigh = Math.max(...highs.slice(-20));
+        const recentLow = Math.min(...lows.slice(-20));
+        const range = recentHigh - recentLow;
+
+        const emaSlope = Math.abs(emaFast - emaSlow);
+
+        // 🔹 Normalize metrics
+        const volatilityRatio = range / atr;
+        const trendStrength = emaSlope / atr;
+
+        const isCompressed = volatilityRatio < 2;
+        const isWeakTrend = trendStrength < 1;
+
+        // Detect breakout expansion
+        const lastClose = closes[closes.length - 1];
+        const prevClose = closes[closes.length - 2];
+
+        const breakoutMove = Math.abs(lastClose - prevClose) > atr * 0.8;
+
+        if (isCompressed && isWeakTrend && !breakoutMove) {
+            return false; // Sideways
+        }
+
+        return true; // Tradable
+    }
+
 }
