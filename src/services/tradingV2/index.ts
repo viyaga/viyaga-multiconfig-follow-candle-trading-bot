@@ -26,7 +26,7 @@ export class TradingV2 {
         const cd = await deltaExchange.getCandlestickData(
             c.SYMBOL,
             c.TIMEFRAME,
-            start - 80 * dur,
+            start - 10 * dur,
             Date.now()
         );
 
@@ -130,7 +130,7 @@ export class TradingV2 {
                 return;
             }
 
-            if (!Utils.isChoppyMarket(candles)) {
+            if (Utils.isChoppyMarket(candles)) {
                 console.log(`[TradingCycle:${symbol}] SKIP: Market is sideways/choppy - not tradable`);
                 tradingCycleErrorLogger.info(`[workflow] Market is always sideways/choppy, skipping trade for ${c.SYMBOL}`);
                 return;

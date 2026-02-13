@@ -165,7 +165,7 @@ export class Utils {
         };
     }
 
-    static isChoppyMarket(candles: Candle[], lookback = 4): boolean {
+    static isChoppyMarket(candles: Candle[], lookback = 3): boolean {
         if (candles.length < lookback) return false;
 
         const sorted = [...candles].sort((a, b) => a.timestamp - b.timestamp);
@@ -184,6 +184,7 @@ export class Utils {
         );
 
         const efficiencyRatio = netMovement / totalMovement;
+        console.log({ efficiencyRatio });
 
         return efficiencyRatio < 0.3;
     }
