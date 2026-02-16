@@ -230,14 +230,22 @@ export class ProcessPendingState {
         sym: string,
         s: IMartingaleState,
         e: OrderDetails,
-        targetCandle: TargetCandle
+        targetCandle: TargetCandle,
+        currentPrice: number
     ): Promise<IMartingaleState> {
         try {
             if (!s.lastStopLossOrderId || !s.lastSlPrice) {
                 throw new Error("SL order or price missing in state");
             }
 
-            const sl = e.side === "buy" ? targetCandle.low : targetCandle.high;
+            let sl = e.side === "buy" ? Math.min(targetCandle.low, currentPrice) : Math.max(targetCandle.high, currentPrice);
+            if (sl === currentPrice) {
+                // add buffer only for current price as sl
+                const buffer = 0.1
+                sl = e.side === "buy"
+                    ? sl * (1 - buffer / 100)
+                    : sl * (1 + buffer / 100);
+            }
 
             const updateRes = await deltaExchange.updateStopLossOrder(
                 s.lastStopLossOrderId,
@@ -313,7 +321,7 @@ export class ProcessPendingState {
                 : positions && Number(positions.size) !== 0;
 
         return hasOpenPosition
-            ? this.manageOpenPosition(sym, s, e, targetCandle)
+            ? this.manageOpenPosition(sym, s, e, targetCandle, currentPrice)
             : this.processClosedPosition(s, Number(e.paid_commission || 0), currentPrice);
     }
 }

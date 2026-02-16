@@ -1,6 +1,7 @@
 import { IMartingaleState } from "../../models/martingaleState.model";
 import { TradingConfig } from "./config";
 import { Candle, OrderDetails, OrderSide, TargetCandle } from "./type";
+import { ChoppyMarketLog } from "../../models/choppyMarketLog.model";
 
 export class Utils {
     static parseJsonSafe(t: string): unknown { try { return JSON.parse(t); } catch { return t; } }
@@ -45,32 +46,46 @@ export class Utils {
         return Number(price);
     }
 
-    static isCandleBodyAboveMinimum(
-        candle: TargetCandle,
-    ): boolean {
+    static hasVolatilityAndMomentum(candle: TargetCandle): boolean {
         const cfg = TradingConfig.getConfig();
-        const minBodyPercent = cfg.MIN_CANDLE_BODY_PERCENT;
 
+        const MIN_RANGE_PERCENT = cfg.MIN_RANGE_PERCENT ?? 1.2;
+        const MIN_BODY_PERCENT = cfg.MIN_BODY_PERCENT ?? 0.6;
+
+        // Full volatility (high-low)
+        const rangePercent =
+            ((candle.high - candle.low) / candle.open) * 100;
+
+        // Real momentum (open-close body)
         const bodyPercent =
             (Math.abs(candle.close - candle.open) / candle.open) * 100;
 
-        console.log({ bodyPercent, minBodyPercent });
+        console.log({
+            rangePercent,
+            bodyPercent,
+            MIN_RANGE_PERCENT,
+            MIN_BODY_PERCENT
+        });
 
-        return bodyPercent >= minBodyPercent;
+        const hasVolatility = rangePercent >= MIN_RANGE_PERCENT;
+        const hasMomentum = bodyPercent >= MIN_BODY_PERCENT;
+
+        return hasVolatility && hasMomentum;
     }
 
-    static isPriceMovingInCandleDirection(
-        candle: TargetCandle,
-        currentPrice: number
-    ): boolean {
-        if (candle.color === "red") {
-            // red candle → price should less than high
-            return currentPrice < candle.high;
-        }
+    // static isPriceMovingInCandleDirection(
+    //     candle: TargetCandle,
+    //     currentPrice: number
+    // ): boolean {
 
-        // green candle → price should more than low
-        return currentPrice > candle.low;
-    }
+    //     if (candle.color === "red") {
+    //         // red candle → price should less than high
+    //         return currentPrice < candle.high;
+    //     }
+
+    //     // green candle → price should more than low
+    //     return currentPrice > candle.low;
+    // }
 
     static isPriceMovementPercentWithinRange(
         candle: TargetCandle,
@@ -165,7 +180,7 @@ export class Utils {
         };
     }
 
-    static isChoppyMarket(candles: Candle[], lookback = 3): boolean {
+    static async isChoppyMarket(candles: Candle[], lookback = 3, symbol?: string): Promise<boolean> {
         if (candles.length < lookback) return false;
 
         const sorted = [...candles].sort((a, b) => a.timestamp - b.timestamp);
@@ -186,8 +201,25 @@ export class Utils {
         const efficiencyRatio = netMovement / totalMovement;
         console.log({ efficiencyRatio });
 
-        return efficiencyRatio < 0.3;
+        const isChoppy = efficiencyRatio < 0.3;
+
+        if (isChoppy && symbol) {
+            try {
+                // Log choppy market condition asynchronously
+                await ChoppyMarketLog.create({
+                    symbol,
+                    lookback,
+                    efficiencyRatio,
+                    totalMovement,
+                    netMovement,
+                    candles: recent
+                });
+                console.log(`[ChoppyMarket] Logged choppy condition for ${symbol}`);
+            } catch (err) {
+                console.error(`[ChoppyMarket] Failed to log choppy condition for ${symbol}:`, err);
+            }
+        }
+
+        return isChoppy;
     }
-
-
 }
