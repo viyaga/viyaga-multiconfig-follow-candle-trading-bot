@@ -180,7 +180,7 @@ export class Utils {
         };
     }
 
-    static async isChoppyMarket(candles: Candle[], lookback = 3, symbol?: string): Promise<boolean> {
+    static async isChoppyMarket(candles: Candle[], lookback = 3, symbol: string, timeFrame: string): Promise<boolean> {
         if (candles.length < lookback) return false;
 
         const sorted = [...candles].sort((a, b) => a.timestamp - b.timestamp);

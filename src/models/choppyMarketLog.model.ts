@@ -18,7 +18,7 @@ const ChoppyMarketLogSchema: Schema = new Schema({
     efficiencyRatio: { type: Number, required: true },
     totalMovement: { type: Number, required: true },
     netMovement: { type: Number, required: true },
-    candles: { type: Array, required: true }, // Storing array of candle objects
+    candles: { type: Array, required: true },
     timestamp: { type: Date, default: Date.now, index: true }
 });
 
