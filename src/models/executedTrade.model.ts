@@ -3,6 +3,7 @@ import { IMartingaleState } from './martingaleState.model';
 
 export interface IExecutedTrade extends Document {
     symbol: string;
+    candleTimeframe: string;
     side: 'buy' | 'sell';
     quantity: number;
     entryPrice: number;
@@ -15,6 +16,7 @@ export interface IExecutedTrade extends Document {
 const ExecutedTradeSchema: Schema = new Schema(
     {
         symbol: { type: String, required: true, index: true },
+        candleTimeframe: { type: String, required: false },
         side: { type: String, enum: ['buy', 'sell'], required: true },
         quantity: { type: Number, required: true },
         entryPrice: { type: Number, required: true },

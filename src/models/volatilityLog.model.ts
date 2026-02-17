@@ -4,6 +4,7 @@ export interface IVolatilityLog extends Document {
     configId: string;
     userId: string;
     symbol: string;
+    candleTimeframe: string;
     targetCandleData: any;
     rangePercent?: number;
     bodyPercent?: number;
@@ -19,6 +20,7 @@ const VolatilityLogSchema: Schema = new Schema({
     configId: { type: String, required: true, index: true },
     userId: { type: String, required: true, index: true },
     symbol: { type: String, required: true },
+    candleTimeframe: { type: String, required: false },
     targetCandleData: { type: Schema.Types.Mixed },
     rangePercent: { type: Number },
     bodyPercent: { type: Number },

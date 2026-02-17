@@ -6,6 +6,7 @@ export interface IChoppyMarketLog extends Document {
     configId: string;
     userId: string;
     symbol: string;
+    candleTimeframe: string;
     lookback?: number;
     efficiencyRatio?: number;
     totalMovement?: number;
@@ -18,6 +19,7 @@ const ChoppyMarketLogSchema: Schema = new Schema({
     configId: { type: String, required: true, index: true },
     userId: { type: String, required: true, index: true },
     symbol: { type: String, required: true, index: true },
+    candleTimeframe: { type: String, required: false },
     lookback: { type: Number, required: false },
     efficiencyRatio: { type: Number, required: false },
     totalMovement: { type: Number, required: false },
