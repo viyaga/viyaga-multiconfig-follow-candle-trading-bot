@@ -2,6 +2,9 @@ import { IMartingaleState } from "../../models/martingaleState.model";
 import { TradingConfig } from "./config";
 import { Candle, OrderDetails, OrderSide, TargetCandle } from "./type";
 import { ChoppyMarketLog } from "../../models/choppyMarketLog.model";
+import { VolatilityLog } from "../../models/volatilityLog.model";
+import { PriceTrendLog } from "../../models/priceTrendLog.model";
+import { PriceRangeLog } from "../../models/priceRangeLog.model";
 
 export class Utils {
     static parseJsonSafe(t: string): unknown { try { return JSON.parse(t); } catch { return t; } }
@@ -46,7 +49,12 @@ export class Utils {
         return Number(price);
     }
 
-    static hasVolatilityAndMomentum(candle: TargetCandle): boolean {
+    static async hasVolatilityAndMomentum(
+        candle: TargetCandle,
+        configId: string,
+        userId: string,
+        symbol: string
+    ): Promise<boolean> {
         const cfg = TradingConfig.getConfig();
 
         const MIN_RANGE_PERCENT = cfg.MIN_RANGE_PERCENT ?? 1.2;
@@ -69,28 +77,77 @@ export class Utils {
 
         const hasVolatility = rangePercent >= MIN_RANGE_PERCENT;
         const hasMomentum = bodyPercent >= MIN_BODY_PERCENT;
+        const isTrue = hasVolatility && hasMomentum;
 
-        return hasVolatility && hasMomentum;
+        if (!hasVolatility || !hasMomentum) {
+            try {
+                await VolatilityLog.create({
+                    configId,
+                    userId,
+                    symbol,
+                    targetCandleData: candle,
+                    rangePercent,
+                    bodyPercent,
+                    minRangePercent: MIN_RANGE_PERCENT,
+                    minBodyPercent: MIN_BODY_PERCENT,
+                    hasVolatility,
+                    hasMomentum,
+                    isTrue,
+                    timestamp: new Date()
+                });
+            } catch (error) {
+                console.error("Error creating VolatilityLog:", error);
+            }
+        }
+
+        return isTrue;
     }
 
-    static isPriceMovingInCandleDirection(
+    static async isPriceMovingInCandleDirection(
         candle: TargetCandle,
-        currentPrice: number
-    ): boolean {
+        currentPrice: number,
+        configId: string,
+        userId: string,
+        symbol: string
+    ): Promise<boolean> {
+        let isTrendValid = false;
 
         if (candle.color === "red") {
             // red candle → price should less than high
-            return currentPrice < candle.high;
+            isTrendValid = currentPrice < candle.high;
+        } else {
+            // green candle → price should more than low
+            isTrendValid = currentPrice > candle.low;
         }
 
-        // green candle → price should more than low
-        return currentPrice > candle.low;
+        if (!isTrendValid) {
+            try {
+                await PriceTrendLog.create({
+                    configId,
+                    userId,
+                    symbol,
+                    targetCandleDirection: candle.color,
+                    currentPrice,
+                    candleHigh: candle.high,
+                    candleLow: candle.low,
+                    isTrendValid,
+                    timestamp: new Date()
+                });
+            } catch (error) {
+                console.error("Error creating PriceTrendLog:", error);
+            }
+        }
+
+        return isTrendValid;
     }
 
-    static isPriceMovementPercentWithinRange(
+    static async isPriceMovementPercentWithinRange(
         candle: TargetCandle,
         currentPrice: number,
-    ): boolean {
+        configId: string,
+        userId: string,
+        symbol: string
+    ): Promise<boolean> {
         const cfg = TradingConfig.getConfig();
         const maxPercent = cfg.MAX_ALLOWED_PRICE_MOVEMENT_PERCENT;
         const minPercent = cfg.MIN_ALLOWED_PRICE_MOVEMENT_PERCENT;
@@ -103,13 +160,27 @@ export class Utils {
         const percentMove =
             Math.abs((currentPrice - basePrice) / basePrice) * 100;
 
-        console.log({ percentMove, minPercent, maxPercent })
+        console.log({ percentMove, minPercent, maxPercent });
 
-        if (percentMove < minPercent) {
-            return false;
-        }
+        const isWithinRange = percentMove >= minPercent && percentMove <= maxPercent;
 
-        if (percentMove > maxPercent) {
+        if (!isWithinRange) {
+            try {
+                await PriceRangeLog.create({
+                    configId,
+                    userId,
+                    symbol,
+                    targetCandleData: candle,
+                    currentPrice,
+                    percentMove,
+                    minPercent,
+                    maxPercent,
+                    isWithinRange,
+                    timestamp: new Date()
+                });
+            } catch (error) {
+                console.error("Error creating PriceRangeLog:", error);
+            }
             return false;
         }
 
@@ -203,7 +274,7 @@ export class Utils {
 
         const isChoppy = efficiencyRatio < 0.3;
 
-        if (isChoppy && symbol) {
+        if (isChoppy) {
             try {
                 // Log choppy market condition asynchronously
                 await ChoppyMarketLog.create({
