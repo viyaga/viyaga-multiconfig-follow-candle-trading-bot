@@ -73,19 +73,19 @@ export class Utils {
         return hasVolatility && hasMomentum;
     }
 
-    // static isPriceMovingInCandleDirection(
-    //     candle: TargetCandle,
-    //     currentPrice: number
-    // ): boolean {
+    static isPriceMovingInCandleDirection(
+        candle: TargetCandle,
+        currentPrice: number
+    ): boolean {
 
-    //     if (candle.color === "red") {
-    //         // red candle → price should less than high
-    //         return currentPrice < candle.high;
-    //     }
+        if (candle.color === "red") {
+            // red candle → price should less than high
+            return currentPrice < candle.high;
+        }
 
-    //     // green candle → price should more than low
-    //     return currentPrice > candle.low;
-    // }
+        // green candle → price should more than low
+        return currentPrice > candle.low;
+    }
 
     static isPriceMovementPercentWithinRange(
         candle: TargetCandle,

@@ -87,6 +87,7 @@ export class TradingV2 {
                 c.SYMBOL,
                 c.PRODUCT_ID,
             );
+
             console.log(`[TradingCycle:${symbol}] State loaded: Level=${state.currentLevel}, PnL=${state.pnl}, LastOutcome=${state.lastTradeOutcome}`);
 
             if (state.lastEntryOrderId && Utils.isTradePending(state)) {
@@ -112,6 +113,11 @@ export class TradingV2 {
                     console.log(`[TradingCycle:${symbol}] Trade still pending. Skipping new entry.`);
                     return;
                 }
+            }
+
+            if (!Utils.isPriceMovingInCandleDirection(targetCandle, currentPrice)) {
+                console.log(`[TradingCycle:${symbol}] SKIP: Price movement is not in candle direction`);
+                return;
             }
 
             if (!Utils.isPriceMovementPercentWithinRange(targetCandle, currentPrice)) {
