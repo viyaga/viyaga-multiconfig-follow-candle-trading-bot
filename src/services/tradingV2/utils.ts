@@ -175,6 +175,7 @@ export class Utils {
                     configId,
                     userId,
                     symbol,
+                    candleTimeframe,
                     targetCandleData: candle,
                     currentPrice,
                     percentMove,

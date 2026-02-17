@@ -75,7 +75,7 @@ export class TradingV2 {
             const { target: targetCandle, candles } = await TradingV2.getTargetCandle(c);
             console.log(`[TradingCycle:${symbol}] Candle data retrieved: Open=${targetCandle.open}, High=${targetCandle.high}, Low=${targetCandle.low}, Close=${targetCandle.close}, Color=${targetCandle.color}`);
 
-            if (!await Utils.hasVolatilityAndMomentum(targetCandle, configId, userId, symbol)) {
+            if (!await Utils.hasVolatilityAndMomentum(targetCandle, configId, userId, symbol, c.TIMEFRAME)) {
                 console.log(`[TradingCycle:${symbol}] SKIP: Candle body is below minimum threshold`);
                 return;
             }
@@ -119,12 +119,12 @@ export class TradingV2 {
                 }
             }
 
-            if (!await Utils.isPriceMovingInCandleDirection(targetCandle, currentPrice, configId, userId, symbol)) {
+            if (!await Utils.isPriceMovingInCandleDirection(targetCandle, currentPrice, configId, userId, symbol, c.TIMEFRAME)) {
                 console.log(`[TradingCycle:${symbol}] SKIP: Price movement is not in candle direction`);
                 return;
             }
 
-            if (!await Utils.isPriceMovementPercentWithinRange(targetCandle, currentPrice, configId, userId, symbol)) {
+            if (!await Utils.isPriceMovementPercentWithinRange(targetCandle, currentPrice, configId, userId, symbol, c.TIMEFRAME)) {
                 console.log(`[TradingCycle:${symbol}] SKIP: Price movement percent is not within range`);
                 return;
             }
@@ -200,6 +200,7 @@ export class TradingV2 {
             console.log(`[TradingCycle:${symbol}] Creating executed trade record...`);
             await ExecutedTrade.create({
                 symbol: c.SYMBOL,
+                candleTimeframe: c.TIMEFRAME,
                 side,
                 quantity: qty,
                 entryPrice,
