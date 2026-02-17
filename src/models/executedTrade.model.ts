@@ -16,7 +16,7 @@ export interface IExecutedTrade extends Document {
 const ExecutedTradeSchema: Schema = new Schema(
     {
         symbol: { type: String, required: true, index: true },
-        candleTimeframe: { type: String, required: false },
+        candleTimeframe: { type: String, required: true },
         side: { type: String, enum: ['buy', 'sell'], required: true },
         quantity: { type: Number, required: true },
         entryPrice: { type: Number, required: true },

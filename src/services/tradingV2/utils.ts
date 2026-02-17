@@ -53,7 +53,8 @@ export class Utils {
         candle: TargetCandle,
         configId: string,
         userId: string,
-        symbol: string
+        symbol: string,
+        candleTimeframe: string
     ): Promise<boolean> {
         const cfg = TradingConfig.getConfig();
 
@@ -85,6 +86,7 @@ export class Utils {
                     configId,
                     userId,
                     symbol,
+                    candleTimeframe,
                     targetCandleData: candle,
                     rangePercent,
                     bodyPercent,
@@ -108,7 +110,8 @@ export class Utils {
         currentPrice: number,
         configId: string,
         userId: string,
-        symbol: string
+        symbol: string,
+        candleTimeframe: string
     ): Promise<boolean> {
         let isTrendValid = false;
 
@@ -126,6 +129,7 @@ export class Utils {
                     configId,
                     userId,
                     symbol,
+                    candleTimeframe,
                     targetCandleDirection: candle.color,
                     currentPrice,
                     candleHigh: candle.high,
@@ -146,7 +150,8 @@ export class Utils {
         currentPrice: number,
         configId: string,
         userId: string,
-        symbol: string
+        symbol: string,
+        candleTimeframe: string
     ): Promise<boolean> {
         const cfg = TradingConfig.getConfig();
         const maxPercent = cfg.MAX_ALLOWED_PRICE_MOVEMENT_PERCENT;
@@ -279,6 +284,7 @@ export class Utils {
                 // Log choppy market condition asynchronously
                 await ChoppyMarketLog.create({
                     symbol,
+                    candleTimeframe: timeFrame,
                     lookback,
                     efficiencyRatio,
                     totalMovement,

@@ -18,7 +18,7 @@ const PriceRangeLogSchema: Schema = new Schema({
     configId: { type: String, required: true, index: true },
     userId: { type: String, required: true, index: true },
     symbol: { type: String, required: true },
-    candleTimeframe: { type: String, required: false },
+    candleTimeframe: { type: String, required: true },
     targetCandleData: { type: Schema.Types.Mixed },
     currentPrice: { type: Number },
     percentMove: { type: Number },
