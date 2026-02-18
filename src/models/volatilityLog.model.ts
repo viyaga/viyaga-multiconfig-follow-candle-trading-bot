@@ -8,10 +8,13 @@ export interface IVolatilityLog extends Document {
     targetCandleData: any;
     rangePercent?: number;
     bodyPercent?: number;
+    bodyDominance?: number;
     minRangePercent?: number;
     minBodyPercent?: number;
+    minBodyDominance?: number;
     hasVolatility?: boolean;
     hasMomentum?: boolean;
+    hasStrongBody?: boolean;
     isTrue?: boolean;
     timestamp: Date;
 }
@@ -24,10 +27,13 @@ const VolatilityLogSchema: Schema = new Schema({
     targetCandleData: { type: Schema.Types.Mixed },
     rangePercent: { type: Number },
     bodyPercent: { type: Number },
+    bodyDominance: { type: Number },
     minRangePercent: { type: Number },
     minBodyPercent: { type: Number },
+    minBodyDominance: { type: Number },
     hasVolatility: { type: Boolean },
     hasMomentum: { type: Boolean },
+    hasStrongBody: { type: Boolean },
     isTrue: { type: Boolean },
     timestamp: { type: Date, default: Date.now, index: true }
 }, {

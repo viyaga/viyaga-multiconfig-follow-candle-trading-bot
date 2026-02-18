@@ -56,31 +56,51 @@ export class Utils {
         symbol: string,
         candleTimeframe: string
     ): Promise<boolean> {
+
         const cfg = TradingConfig.getConfig();
 
-        const MIN_RANGE_PERCENT = cfg.MIN_RANGE_PERCENT ?? 1.2;
-        const MIN_BODY_PERCENT = cfg.MIN_BODY_PERCENT ?? 0.6;
+        const MIN_RANGE_PERCENT = cfg.MIN_RANGE_PERCENT;
+        const MIN_BODY_PERCENT = cfg.MIN_BODY_PERCENT;
+        const MIN_BODY_DOMINANCE = cfg.MIN_BODY_DOMINANCE;
+        // 60% of candle must be body
+
+        const range = candle.high - candle.low;
+
+        // Prevent division by zero
+        if (range === 0 || candle.open === 0) {
+            return false;
+        }
 
         // Full volatility (high-low)
-        const rangePercent =
-            ((candle.high - candle.low) / candle.open) * 100;
+        const rangePercent = (range / candle.open) * 100;
 
         // Real momentum (open-close body)
-        const bodyPercent =
-            (Math.abs(candle.close - candle.open) / candle.open) * 100;
+        const bodySize = Math.abs(candle.close - candle.open);
+        const bodyPercent = (bodySize / candle.open) * 100;
+
+        // Wick calculations
+        const upperWick = candle.high - Math.max(candle.open, candle.close);
+        const lowerWick = Math.min(candle.open, candle.close) - candle.low;
+
+        // Body dominance ratio
+        const bodyDominance = bodySize / range;
+
+        const hasVolatility = rangePercent >= MIN_RANGE_PERCENT;
+        const hasMomentum = bodyPercent >= MIN_BODY_PERCENT;
+        const hasStrongBody = bodyDominance >= MIN_BODY_DOMINANCE;
+
+        const isTrue = hasVolatility && hasMomentum && hasStrongBody;
 
         console.log({
             rangePercent,
             bodyPercent,
+            bodyDominance,
             MIN_RANGE_PERCENT,
-            MIN_BODY_PERCENT
+            MIN_BODY_PERCENT,
+            MIN_BODY_DOMINANCE
         });
 
-        const hasVolatility = rangePercent >= MIN_RANGE_PERCENT;
-        const hasMomentum = bodyPercent >= MIN_BODY_PERCENT;
-        const isTrue = hasVolatility && hasMomentum;
-
-        if (!hasVolatility || !hasMomentum) {
+        if (!isTrue) {
             try {
                 await VolatilityLog.create({
                     configId,
@@ -90,10 +110,13 @@ export class Utils {
                     targetCandleData: candle,
                     rangePercent,
                     bodyPercent,
+                    bodyDominance,
                     minRangePercent: MIN_RANGE_PERCENT,
                     minBodyPercent: MIN_BODY_PERCENT,
+                    minBodyDominance: MIN_BODY_DOMINANCE,
                     hasVolatility,
                     hasMomentum,
+                    hasStrongBody,
                     isTrue,
                     timestamp: new Date()
                 });
@@ -104,6 +127,7 @@ export class Utils {
 
         return isTrue;
     }
+
 
     static async isPriceMovingInCandleDirection(
         candle: TargetCandle,
