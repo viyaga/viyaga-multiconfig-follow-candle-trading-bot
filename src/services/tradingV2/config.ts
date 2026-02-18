@@ -29,7 +29,6 @@ export class TradingConfig {
         LOT_SIZE: 0.01,
         PRICE_DECIMAL_PLACES: 2,
         TIMEFRAME: "4h",
-        SECONDARY_TIMEFRAME: "1h",
         LEVERAGE: 20,
         INITIAL_BASE_QUANTITY: 1,
         MIN_BODY_PERCENT: 0.8,

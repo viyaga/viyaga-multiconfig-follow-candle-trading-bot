@@ -9,7 +9,6 @@ export interface ConfigType {
     LOT_SIZE: number,
     PRICE_DECIMAL_PLACES: number,
     TIMEFRAME: string,
-    SECONDARY_TIMEFRAME: string,
     LEVERAGE: number,
     INITIAL_BASE_QUANTITY: number,
     MIN_BODY_PERCENT: number,
