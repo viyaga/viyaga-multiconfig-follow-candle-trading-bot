@@ -12,6 +12,7 @@ import { VolatilityLog } from "../../models/volatilityLog.model";
 import { PriceTrendLog } from "../../models/priceTrendLog.model";
 import { PriceRangeLog } from "../../models/priceRangeLog.model";
 import { ChoppyMarketLog } from "../../models/choppyMarketLog.model";
+import { Validations } from "./validations";
 
 export class TradingV2 {
 
@@ -30,7 +31,7 @@ export class TradingV2 {
         const cd = await deltaExchange.getCandlestickData(
             c.SYMBOL,
             c.TIMEFRAME,
-            start - 10 * dur,
+            start - 80 * dur,
             Date.now()
         );
 
@@ -75,10 +76,10 @@ export class TradingV2 {
             const { target: targetCandle, candles } = await TradingV2.getTargetCandle(c);
             console.log(`[TradingCycle:${symbol}] Candle data retrieved: Open=${targetCandle.open}, High=${targetCandle.high}, Low=${targetCandle.low}, Close=${targetCandle.close}, Color=${targetCandle.color}`);
 
-            if (!await Utils.hasVolatilityAndMomentum(targetCandle, configId, userId, symbol, c.TIMEFRAME)) {
-                console.log(`[TradingCycle:${symbol}] SKIP: Candle body is below minimum threshold`);
-                return;
-            }
+            // if (!await Utils.hasVolatilityAndMomentum(targetCandle, configId, userId, symbol, c.TIMEFRAME)) {
+            //     console.log(`[TradingCycle:${symbol}] SKIP: Candle body is below minimum threshold`);
+            //     return;
+            // }
 
             console.log(`[TradingCycle:${symbol}] Fetching current price...`);
             const currentPrice = await TradingV2.getCurrentPrice(c.SYMBOL);
@@ -140,12 +141,24 @@ export class TradingV2 {
                 return;
             }
 
+            const { buySignal, sellSignal } = Validations.getSignal(candles, currentPrice, c);
+
+            if (!buySignal && !sellSignal) {
+                console.log(`[TradingCycle:${symbol}] SKIP: No signal generated`);
+                return;
+            }
+
             let qty = c.IS_TESTING ? 1 : state.lastTradeQuantity;
             console.log(`[TradingCycle:${symbol}] Quantity: ${qty} (IS_TESTING=${c.IS_TESTING})`);
 
             if (!qty || qty <= 0) throw new Error("Invalid trade quantity");
 
-            const side = targetCandle.color === "green" ? "buy" : "sell";
+            const side = targetCandle.color === "green" && buySignal ? "buy" : targetCandle.color === "red" && sellSignal ? "sell" : "";
+
+            if (!side) {
+                console.log(`[TradingCycle:${symbol}] SKIP: No side generated`);
+                return;
+            }
             console.log(`[TradingCycle:${symbol}] Placing entry order: Side=${side}, Qty=${qty}`);
 
             const entry = await deltaExchange.placeEntryOrder(

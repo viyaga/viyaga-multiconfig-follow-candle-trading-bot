@@ -302,7 +302,7 @@ export class Utils {
         const efficiencyRatio = netMovement / totalMovement;
         console.log({ efficiencyRatio });
 
-        const isChoppy = efficiencyRatio < 0.3;
+        const isChoppy = efficiencyRatio < 0.35;
 
         if (isChoppy) {
             try {

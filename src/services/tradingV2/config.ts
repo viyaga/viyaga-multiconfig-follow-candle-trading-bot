@@ -31,6 +31,8 @@ export class TradingConfig {
         TIMEFRAME: "1h",
         LEVERAGE: 20,
         INITIAL_BASE_QUANTITY: 1,
+        TARGET_PERCENT: 3,
+        RISK_MODE: "aggressive",
         MIN_BODY_PERCENT: 0.3,
         MIN_RANGE_PERCENT: 0.4,
         MIN_BODY_DOMINANCE: 0.6,
