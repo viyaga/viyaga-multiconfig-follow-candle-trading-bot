@@ -281,7 +281,7 @@ export class Utils {
         };
     }
 
-    static async isChoppyMarket(candles: Candle[], lookback = 3, symbol: string, timeFrame: string): Promise<boolean> {
+    static async isChoppyMarket(candles: Candle[], lookback = 3, symbol: string, timeFrame: string, configId: string, userId: string): Promise<boolean> {
         if (candles.length < lookback) return false;
 
         const sorted = [...candles].sort((a, b) => a.timestamp - b.timestamp);
@@ -308,6 +308,8 @@ export class Utils {
             try {
                 // Log choppy market condition asynchronously
                 await ChoppyMarketLog.create({
+                    configId,
+                    userId,
                     symbol,
                     candleTimeframe: timeFrame,
                     lookback,
