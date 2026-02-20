@@ -3,6 +3,7 @@ import { env } from "../config";
 import errorLogger from "../utils/errorLogger";
 import { TradingV2 } from "../services/tradingV2";
 import { Data } from "../services/tradingV2/data";
+import { TradingConfig } from "../services/tradingV2/config";
 
 /* ============================================================================
  * Cron Scheduler
@@ -43,7 +44,10 @@ const tradingCycleCronJob = (): void => {
                 const results = await Promise.allSettled(
                     configs.map(cfg => {
                         console.log(`[TradingCron] Starting cycle for config: ${cfg.id} (${cfg.SYMBOL})`);
-                        return TradingV2.runTradingCycle(cfg);
+                        // Wrap execution in AsyncLocalStorage context to ensure config isolation
+                        return TradingConfig.configStore.run(cfg, async () => {
+                            return TradingV2.runTradingCycle(cfg);
+                        });
                     })
                 );
 

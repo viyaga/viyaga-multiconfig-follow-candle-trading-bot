@@ -18,7 +18,7 @@ export class TradingConfig {
     /* -------------------------------------------------------------------------
        BASE DEFAULT CONFIG
     ------------------------------------------------------------------------- */
-    private static readonly config: ConfigType = {
+    static readonly defaultConfig: ConfigType[] = [{
         id: "1",
         USER_ID: "12345",
         DELTA_EXCHANGE_API_KEY: "jb5K5wanfp4HNz9naTruYTOEjfq8eZ",
@@ -43,7 +43,7 @@ export class TradingConfig {
         SL_LIMIT_BUFFER_PERCENT: 0.2,
         DRY_RUN: false,
         IS_TESTING: false
-    };
+    }];
 
     /* -------------------------------------------------------------------------
        CONFIG RESOLVER
@@ -55,7 +55,6 @@ export class TradingConfig {
             return stored;
         }
 
-        // 2. Always return the single config
-        return this.config;
+        throw new Error("No config found");
     }
 }

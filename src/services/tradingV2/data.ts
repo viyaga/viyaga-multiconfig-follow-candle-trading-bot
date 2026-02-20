@@ -32,13 +32,11 @@ export class Data {
         return st;
     }
 
-
-
     static async fetchTradingConfigs(
         params: { timeframe: string; limit: number; offset: number; }
     ): Promise<ConfigType[]> {
         if (process.env.IS_SERVER_TESTING) {
-            return [TradingConfig.getConfig()]
+            return TradingConfig.defaultConfig
         }
 
         const query = new URLSearchParams({
