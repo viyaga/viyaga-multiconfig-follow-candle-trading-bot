@@ -1,11 +1,25 @@
 import winston from "winston";
 
+// Helper for IST Timestamp
+const istTime = () => {
+    return new Date().toLocaleString("en-IN", {
+        timeZone: "Asia/Kolkata",
+        hour12: false,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+    });
+};
+
 // Logger for trade errors
 export const tradingCycleErrorLogger = winston.createLogger({
     level: 'error',
     format: winston.format.combine(
         winston.format.timestamp({
-            format: 'YYYY-MM-DD HH:mm:ss'
+            format: istTime
         }),
         winston.format.errors({ stack: true }),
         winston.format.splat(),
@@ -39,7 +53,7 @@ export const martingaleTradeLogger = winston.createLogger({
     level: 'info',
     format: winston.format.combine(
         winston.format.timestamp({
-            format: 'YYYY-MM-DD HH:mm:ss'
+            format: istTime
         }),
         winston.format.json()
     ),
@@ -54,20 +68,6 @@ export const martingaleTradeLogger = winston.createLogger({
         })
     ],
 });
-
-// Helper for IST Timestamp
-const istTime = () => {
-    return new Date().toLocaleString("en-IN", {
-        timeZone: "Asia/Kolkata",
-        hour12: false,
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-    });
-};
 
 // Logger for skip reasons
 export const skipTradingLogger = winston.createLogger({
@@ -88,6 +88,24 @@ export const skipTradingLogger = winston.createLogger({
         }),
         new winston.transports.File({
             filename: 'logs/skip-trading.log',
+            level: 'info',
+            maxsize: 5242880, // 5MB
+            maxFiles: 5,
+            tailable: true
+        })
+    ],
+});
+// Logger for signal validation details
+export const signalLogger = winston.createLogger({
+    level: 'info',
+    format: winston.format.combine(
+        winston.format.timestamp({ format: istTime }),
+        winston.format.json()
+    ),
+    defaultMeta: { service: 'signal-logger' },
+    transports: [
+        new winston.transports.File({
+            filename: 'logs/signals.log',
             level: 'info',
             maxsize: 5242880, // 5MB
             maxFiles: 5,
