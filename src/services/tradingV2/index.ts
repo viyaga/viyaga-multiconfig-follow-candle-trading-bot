@@ -76,11 +76,6 @@ export class TradingV2 {
             const { target: targetCandle, candles } = await TradingV2.getTargetCandle(c);
             console.log(`[TradingCycle:${symbol}] Candle data retrieved: Open=${targetCandle.open}, High=${targetCandle.high}, Low=${targetCandle.low}, Close=${targetCandle.close}, Color=${targetCandle.color}`);
 
-            // if (!await Utils.hasVolatilityAndMomentum(targetCandle, configId, userId, symbol, c.TIMEFRAME)) {
-            //     console.log(`[TradingCycle:${symbol}] SKIP: Candle body is below minimum threshold`);
-            //     return;
-            // }
-
             console.log(`[TradingCycle:${symbol}] Fetching current price...`);
             const currentPrice = await TradingV2.getCurrentPrice(c.SYMBOL);
             console.log(`[TradingCycle:${symbol}] Current price: ${currentPrice}`);
@@ -97,6 +92,12 @@ export class TradingV2 {
 
             if (state.lastEntryOrderId && Utils.isTradePending(state)) {
                 console.log(`[TradingCycle:${symbol}] Found pending trade with order ID: ${state.lastEntryOrderId}. Fetching order details...`);
+
+                if (!await Utils.hasVolatilityAndMomentum(targetCandle, configId, userId, symbol, c.TIMEFRAME)) {
+                    console.log(`[TradingCycle:${symbol}] SKIP: Candle body is below minimum threshold`);
+                    return;
+                }
+
                 const orderDetails = await deltaExchange.getOrderDetails(state.lastEntryOrderId);
 
                 if (!orderDetails) {

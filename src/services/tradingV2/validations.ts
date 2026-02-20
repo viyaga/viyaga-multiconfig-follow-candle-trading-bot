@@ -37,7 +37,9 @@ export class Validations {
 
         const currentAdx = adxSeries[adxSeries.length - 1];
         const prevAdx = adxSeries[adxSeries.length - 2];
-
+        console.log(
+            `[shouldTakeHighProbBuy] currentAdx=${currentAdx} | prevAdx=${prevAdx} | minAdx=${d.minAdx} | atrPercent=${atrPercent} | minAtrPercent=${d.minAtrPercent} | isCompression=${this.isCompression(candles, d)} | isBullishBreakout=${this.isBullishBreakout(candles, d)} | isBullishStructureBreak=${this.isBullishStructureBreak(candles, d)}`
+        );
         return (
             this.isCompression(candles, d) &&
             currentAdx > d.minAdx &&
@@ -65,7 +67,9 @@ export class Validations {
 
         const currentAdx = adxSeries[adxSeries.length - 1];
         const prevAdx = adxSeries[adxSeries.length - 2];
-
+        console.log(
+            `[shouldTakeHighProbSell] currentAdx=${currentAdx} | prevAdx=${prevAdx} | minAdx=${d.minAdx} | atrPercent=${atrPercent} | minAtrPercent=${d.minAtrPercent} | isCompression=${this.isCompression(candles, d)} | isBearishBreakout=${this.isBearishBreakout(candles, d)} | isBearishStructureBreak=${this.isBearishStructureBreak(candles, d)}`
+        );
         return (
             this.isCompression(candles, d) &&
             currentAdx > d.minAdx &&
