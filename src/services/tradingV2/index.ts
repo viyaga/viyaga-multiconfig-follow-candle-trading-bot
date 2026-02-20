@@ -93,10 +93,10 @@ export class TradingV2 {
             if (state.lastEntryOrderId && Utils.isTradePending(state)) {
                 console.log(`[TradingCycle:${symbol}] Found pending trade with order ID: ${state.lastEntryOrderId}. Fetching order details...`);
 
-                if (!await Utils.hasVolatilityAndMomentum(targetCandle, configId, userId, symbol, c.TIMEFRAME)) {
-                    console.log(`[TradingCycle:${symbol}] SKIP: Candle body is below minimum threshold`);
-                    return;
-                }
+                // if (!await Utils.hasVolatilityAndMomentum(targetCandle, configId, userId, symbol, c.TIMEFRAME)) {
+                //     console.log(`[TradingCycle:${symbol}] SKIP: Candle body is below minimum threshold`);
+                //     return;
+                // }
 
                 const orderDetails = await deltaExchange.getOrderDetails(state.lastEntryOrderId);
 

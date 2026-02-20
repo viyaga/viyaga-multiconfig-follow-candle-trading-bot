@@ -1,12 +1,4 @@
-import { ConfigType } from "./type";
-
-export type Candle = {
-    open: number;
-    high: number;
-    low: number;
-    close: number;
-    volume: number;
-};
+import { Candle, ConfigType } from "./type";
 
 export class Validations {
 
