@@ -1,10 +1,7 @@
 import { IMartingaleState } from "../../models/martingaleState.model";
 import { TradingConfig } from "./config";
 import { Candle, OrderDetails, OrderSide, TargetCandle } from "./type";
-import { ChoppyMarketLog } from "../../models/choppyMarketLog.model";
-import { VolatilityLog } from "../../models/volatilityLog.model";
-import { PriceTrendLog } from "../../models/priceTrendLog.model";
-import { PriceRangeLog } from "../../models/priceRangeLog.model";
+import { skipTradingLogger } from "./logger";
 
 export class Utils {
     static parseJsonSafe(t: string): unknown { try { return JSON.parse(t); } catch { return t; } }
@@ -101,28 +98,21 @@ export class Utils {
         });
 
         if (!isTrue) {
-            try {
-                await VolatilityLog.create({
-                    configId,
-                    userId,
-                    symbol,
-                    candleTimeframe,
-                    targetCandleData: candle,
-                    rangePercent,
-                    bodyPercent,
-                    bodyDominance,
-                    minRangePercent: MIN_RANGE_PERCENT,
-                    minBodyPercent: MIN_BODY_PERCENT,
-                    minBodyDominance: MIN_BODY_DOMINANCE,
-                    hasVolatility,
-                    hasMomentum,
-                    hasStrongBody,
-                    isTrue,
-                    timestamp: new Date()
-                });
-            } catch (error) {
-                console.error("Error creating VolatilityLog:", error);
-            }
+            skipTradingLogger.info(`[Volatility] SKIP: Insufficient volatility or momentum for ${symbol}`, {
+                configId,
+                userId,
+                symbol,
+                candleTimeframe,
+                rangePercent,
+                bodyPercent,
+                bodyDominance,
+                minRangePercent: MIN_RANGE_PERCENT,
+                minBodyPercent: MIN_BODY_PERCENT,
+                minBodyDominance: MIN_BODY_DOMINANCE,
+                hasVolatility,
+                hasMomentum,
+                hasStrongBody
+            });
         }
 
         return isTrue;
@@ -148,22 +138,16 @@ export class Utils {
         }
 
         if (!isTrendValid) {
-            try {
-                await PriceTrendLog.create({
-                    configId,
-                    userId,
-                    symbol,
-                    candleTimeframe,
-                    targetCandleDirection: candle.color,
-                    currentPrice,
-                    candleHigh: candle.high,
-                    candleLow: candle.low,
-                    isTrendValid,
-                    timestamp: new Date()
-                });
-            } catch (error) {
-                console.error("Error creating PriceTrendLog:", error);
-            }
+            skipTradingLogger.info(`[PriceTrend] SKIP: Price movement not in candle direction for ${symbol}`, {
+                configId,
+                userId,
+                symbol,
+                candleTimeframe,
+                targetCandleDirection: candle.color,
+                currentPrice,
+                candleHigh: candle.high,
+                candleLow: candle.low
+            });
         }
 
         return isTrendValid;
@@ -194,23 +178,16 @@ export class Utils {
         const isWithinRange = percentMove >= minPercent && percentMove <= maxPercent;
 
         if (!isWithinRange) {
-            try {
-                await PriceRangeLog.create({
-                    configId,
-                    userId,
-                    symbol,
-                    candleTimeframe,
-                    targetCandleData: candle,
-                    currentPrice,
-                    percentMove,
-                    minPercent,
-                    maxPercent,
-                    isWithinRange,
-                    timestamp: new Date()
-                });
-            } catch (error) {
-                console.error("Error creating PriceRangeLog:", error);
-            }
+            skipTradingLogger.info(`[PriceRange] SKIP: Price movement percent not within range for ${symbol}`, {
+                configId,
+                userId,
+                symbol,
+                candleTimeframe,
+                currentPrice,
+                percentMove,
+                minPercent,
+                maxPercent
+            });
             return false;
         }
 
@@ -305,23 +282,16 @@ export class Utils {
         const isChoppy = efficiencyRatio < 0.35;
 
         if (isChoppy) {
-            try {
-                // Log choppy market condition asynchronously
-                await ChoppyMarketLog.create({
-                    configId,
-                    userId,
-                    symbol,
-                    candleTimeframe: timeFrame,
-                    lookback,
-                    efficiencyRatio,
-                    totalMovement,
-                    netMovement,
-                    candles: recent
-                });
-                console.log(`[ChoppyMarket] Logged choppy condition for ${symbol}`);
-            } catch (err) {
-                console.error(`[ChoppyMarket] Failed to log choppy condition for ${symbol}:`, err);
-            }
+            skipTradingLogger.info(`[ChoppyMarket] SKIP: Market is sideways/choppy for ${symbol}`, {
+                configId,
+                userId,
+                symbol,
+                candleTimeframe: timeFrame,
+                lookback,
+                efficiencyRatio,
+                totalMovement,
+                netMovement
+            });
         }
 
         return isChoppy;

@@ -8,10 +8,6 @@ import { MartingaleState } from "../../models/martingaleState.model";
 import { TradingConfig } from "./config";
 
 import { ExecutedTrade } from "../../models/executedTrade.model";
-import { VolatilityLog } from "../../models/volatilityLog.model";
-import { PriceTrendLog } from "../../models/priceTrendLog.model";
-import { PriceRangeLog } from "../../models/priceRangeLog.model";
-import { ChoppyMarketLog } from "../../models/choppyMarketLog.model";
 import { Validations } from "./validations";
 
 export class TradingV2 {
