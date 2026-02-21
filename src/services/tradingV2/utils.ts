@@ -46,7 +46,7 @@ export class Utils {
         return Number(price);
     }
 
-    static async hasVolatilityAndMomentum(
+    static async targetCandleHasVolatilityAndMomentum(
         candle: TargetCandle,
         configId: string,
         userId: string,
@@ -170,8 +170,7 @@ export class Utils {
                 ? candle.high   // red candle → from high
                 : candle.low;   // green candle → from low
 
-        const percentMove =
-            Math.abs((currentPrice - basePrice) / basePrice) * 100;
+        const percentMove = Math.abs((currentPrice - basePrice) / basePrice) * 100;
 
         console.log({ percentMove, minPercent, maxPercent });
 

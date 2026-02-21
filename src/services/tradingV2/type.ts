@@ -19,6 +19,8 @@ export interface ConfigType {
     TAKE_PROFIT_PERCENT: number,
     SL_TRIGGER_BUFFER_PERCENT: number,
     SL_LIMIT_BUFFER_PERCENT: number;
+    CHOPPY_ATR_THRESHOLD: number;
+    CHOPPY_RANGE_THRESHOLD: number;
     DRY_RUN: boolean;
     IS_TESTING: boolean;
 }

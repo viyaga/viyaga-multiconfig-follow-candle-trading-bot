@@ -39,6 +39,8 @@ export class TradingConfig {
         TAKE_PROFIT_PERCENT: 3000,
         SL_TRIGGER_BUFFER_PERCENT: 0.1,
         SL_LIMIT_BUFFER_PERCENT: 0.2,
+        CHOPPY_ATR_THRESHOLD: 1,
+        CHOPPY_RANGE_THRESHOLD: 2,
         DRY_RUN: false,
         IS_TESTING: false
     }];

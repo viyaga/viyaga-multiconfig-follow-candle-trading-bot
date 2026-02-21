@@ -134,7 +134,7 @@ export class TradingV2 {
                 }
             }
 
-            const marketState = Validations.getMarketState(candles, currentPrice);
+            const marketState = Validations.getMarketState(candles, currentPrice, c);
 
             if (marketState === "CHOPPY") {
                 console.log(`[TradingCycle:${symbol}] SKIP: Market is choppy`);
@@ -163,12 +163,6 @@ export class TradingV2 {
 
             const side = targetCandle.color === "green" ? "buy" : "sell";
 
-            if (!side) {
-                console.log(`[TradingCycle:${symbol}] SKIP: No side generated`);
-                return;
-            }
-            console.log(`[TradingCycle:${symbol}] Placing entry order: Side=${side}, Qty=${qty}`);
-
             const entry = await deltaExchange.placeEntryOrder(
                 c.SYMBOL,
                 side,
@@ -178,16 +172,12 @@ export class TradingV2 {
 
             const entryPrice = Utils.resolveEntryPrice(entry);
             const tp = Utils.calculateTpPrice(entryPrice, side);
-            const sl =
-                targetCandle.color === "green"
-                    ? targetCandle.low
-                    : targetCandle.high;
+            const sl = targetCandle.color === "green" ? targetCandle.low : targetCandle.high;
 
             console.log(`[TradingCycle:${symbol}] Price levels - Entry: ${entryPrice}, TP: ${tp}, SL: ${sl}`);
             console.log(`[TradingCycle:${symbol}] Placing TP/SL bracket order...`);
 
-            const tpSlResult =
-                await deltaExchange.placeTPSLBracketOrder(tp, sl, side);
+            const tpSlResult = await deltaExchange.placeTPSLBracketOrder(tp, sl, side);
             console.log(`[TradingCycle:${symbol}] TP/SL orders placed: TP_ID=${tpSlResult.ids.tp}, SL_ID=${tpSlResult.ids.sl}`);
 
             console.log(`[TradingCycle:${symbol}] Updating martingale state in database...`);
