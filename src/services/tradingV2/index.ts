@@ -1,12 +1,11 @@
 import { Data } from "./data";
 import { deltaExchange } from "./delta-exchange";
-import { tradingCycleErrorLogger, martingaleTradeLogger, skipTradingLogger } from "./logger";
+import { tradingCycleErrorLogger, martingaleTradeLogger, skipTradingLogger, tradingCronLogger } from "./logger";
 import { ConfigType, TargetCandle, Candle } from "./type";
 import { Utils } from "./utils";
 import { ProcessPendingState } from "./ProcessPendingState";
 import { MartingaleState } from "../../models/martingaleState.model";
 import { TradingConfig } from "./config";
-
 import { ExecutedTrade } from "../../models/executedTrade.model";
 import { Validations } from "./validations";
 
@@ -46,7 +45,7 @@ export class TradingV2 {
         );
 
         if (!closedCandles.length) {
-            console.error(`[getTargetCandle:${c.SYMBOL}] No closed candles found`);
+            tradingCycleErrorLogger.error(`[getTargetCandle:${c.SYMBOL}] No closed candles found`);
             return null;
         }
 
@@ -96,10 +95,9 @@ export class TradingV2 {
             }
 
             const { target: targetCandle, candles } = targetData;
-            // console.log(`[TradingCycle:${symbol}] Candle data retrieved: Open=${targetCandle.open}, High=${targetCandle.high}, Low=${targetCandle.low}, Close=${targetCandle.close}, Color=${targetCandle.color}`);
 
             const currentPrice = await TradingV2.getCurrentPrice(c.SYMBOL);
-            // console.log(`[TradingCycle:${symbol}] Current price: ${currentPrice}`);
+
 
             let state = await Data.getOrCreateState(
                 c.id,
@@ -109,16 +107,16 @@ export class TradingV2 {
             );
 
             if (state.lastEntryOrderId && Utils.isTradePending(state)) {
-                console.log(`[TradingCycle:${symbol}] Found pending trade with order ID: ${state.lastEntryOrderId}. Fetching order details...`);
+                tradingCronLogger.info(`[TradingCycle:${symbol}] Found pending trade with order ID: ${state.lastEntryOrderId}. Fetching order details...`);
 
                 const orderDetails = await deltaExchange.getOrderDetails(state.lastEntryOrderId);
 
                 if (!orderDetails) {
                     throw new Error("Failed to fetch order details for pending trade.");
                 }
-                console.log(`[TradingCycle:${symbol}] Order details retrieved: Status=${orderDetails.status}`);
+                tradingCronLogger.info(`[TradingCycle:${symbol}] Order details retrieved: Status=${orderDetails.status}`);
 
-                console.log(`[TradingCycle:${symbol}] Processing pending trade state...`);
+                tradingCronLogger.info(`[TradingCycle:${symbol}] Processing pending trade state...`);
                 state = await ProcessPendingState.processStateOfPendingTrade(
                     c.SYMBOL,
                     state,
@@ -126,7 +124,7 @@ export class TradingV2 {
                     targetCandle,
                     currentPrice
                 );
-                console.log(`[TradingCycle:${symbol}] Pending state processed: NewOutcome=${state.lastTradeOutcome}`);
+                tradingCronLogger.info(`[TradingCycle:${symbol}] Pending state processed: NewOutcome=${state.lastTradeOutcome}`);
 
                 if (Utils.isTradePending(state)) {
                     skipTradingLogger.info(`[PendingTrade] SKIP: Trade still pending for ${symbol}`, {
@@ -158,12 +156,12 @@ export class TradingV2 {
             }
 
             if (c.DRY_RUN) {
-                console.log(`[TradingCycle:${symbol}] DRY_RUN mode enabled. Skipping trade placement.`);
+                tradingCronLogger.info(`[TradingCycle:${symbol}] DRY_RUN mode enabled. Skipping trade placement.`);
                 return;
             }
 
             let qty = c.IS_TESTING ? 1 : state.lastTradeQuantity;
-            console.log(`[TradingCycle:${symbol}] Quantity: ${qty} (IS_TESTING=${c.IS_TESTING})`);
+            tradingCronLogger.info(`[TradingCycle:${symbol}] Quantity: ${qty} (IS_TESTING=${c.IS_TESTING})`);
 
             if (!qty || qty <= 0) throw new Error("Invalid trade quantity");
 
@@ -174,19 +172,19 @@ export class TradingV2 {
                 side,
                 qty
             );
-            console.log(`[TradingCycle:${symbol}] Entry order placed successfully: OrderID=${entry.result?.id}`);
+            tradingCronLogger.info(`[TradingCycle:${symbol}] Entry order placed successfully: OrderID=${entry.result?.id}`);
 
             const entryPrice = Utils.resolveEntryPrice(entry);
             const tp = Utils.calculateTpPrice(entryPrice, side);
             const sl = targetCandle.color === "green" ? targetCandle.low : targetCandle.high;
 
-            console.log(`[TradingCycle:${symbol}] Price levels - Entry: ${entryPrice}, TP: ${tp}, SL: ${sl}`);
-            console.log(`[TradingCycle:${symbol}] Placing TP/SL bracket order...`);
+            tradingCronLogger.info(`[TradingCycle:${symbol}] Price levels - Entry: ${entryPrice}, TP: ${tp}, SL: ${sl}`);
+            tradingCronLogger.info(`[TradingCycle:${symbol}] Placing TP/SL bracket order...`);
 
             const tpSlResult = await deltaExchange.placeTPSLBracketOrder(tp, sl, side);
-            console.log(`[TradingCycle:${symbol}] TP/SL orders placed: TP_ID=${tpSlResult.ids.tp}, SL_ID=${tpSlResult.ids.sl}`);
+            tradingCronLogger.info(`[TradingCycle:${symbol}] TP/SL orders placed: TP_ID=${tpSlResult.ids.tp}, SL_ID=${tpSlResult.ids.sl}`);
 
-            console.log(`[TradingCycle:${symbol}] Updating martingale state in database...`);
+            tradingCronLogger.info(`[TradingCycle:${symbol}] Updating martingale state in database...`);
             const updatedState = await MartingaleState.findOneAndUpdate(
                 { configId: c.id, userId: c.USER_ID, symbol: c.SYMBOL },
                 {
@@ -212,9 +210,9 @@ export class TradingV2 {
             if (!updatedState) {
                 throw new Error("Failed to update martingale state");
             }
-            console.log(`[TradingCycle:${symbol}] Martingale state updated successfully`);
+            tradingCronLogger.info(`[TradingCycle:${symbol}] Martingale state updated successfully`);
 
-            console.log(`[TradingCycle:${symbol}] Creating executed trade record...`);
+            tradingCronLogger.info(`[TradingCycle:${symbol}] Creating executed trade record...`);
             await ExecutedTrade.create({
                 symbol: c.SYMBOL,
                 candleTimeframe: c.TIMEFRAME,
@@ -225,11 +223,10 @@ export class TradingV2 {
                 tpPrice: tp,
                 martingaleState: updatedState
             });
-            console.log(`[TradingCycle:${symbol}] ✓ TRADE COMPLETED SUCCESSFULLY\n`);
+            tradingCronLogger.info(`[TradingCycle:${symbol}] ✓ TRADE COMPLETED SUCCESSFULLY\n`);
 
         } catch (err) {
-            console.error(`[TradingCycle:${symbol}] ✗ ERROR in trading cycle:`, err);
-            tradingCycleErrorLogger.error("[workflow] Cycle error", err);
+            tradingCycleErrorLogger.error(`[TradingCycle:${symbol}] ✗ ERROR in trading cycle:`, { error: err });
             throw err;
         }
     }
