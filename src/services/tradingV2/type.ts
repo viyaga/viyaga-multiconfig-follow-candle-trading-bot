@@ -11,6 +11,7 @@ export interface ConfigType {
     TIMEFRAME: string,
     LEVERAGE: number,
     INITIAL_BASE_QUANTITY: number,
+    TRADING_MODE: "conservative" | "balanced" | "aggressive"
     MIN_BODY_PERCENT: number,
     MIN_RANGE_PERCENT: number,
     MIN_BODY_DOMINANCE: number,
@@ -24,6 +25,24 @@ export interface ConfigType {
     DRY_RUN: boolean;
     IS_TESTING: boolean;
 }
+
+export interface InternalChopConfig {
+    ATR_PERIOD: number;
+    ADX_PERIOD: number;
+
+    ADX_WEAK_THRESHOLD: number;
+    REQUIRE_ADX_FALLING: boolean;
+
+    CHOPPY_ATR_THRESHOLD: number;
+    STRUCTURE_LOOKBACK: number;
+    CHOPPY_RANGE_THRESHOLD: number;
+
+    SMALL_BODY_PERCENT_THRESHOLD: number;
+    SMALL_BODY_MIN_COUNT: number;
+
+    MIN_REQUIRED_CANDLES: number;
+    CHOP_SCORE_THRESHOLD: number;
+};
 
 /* ───────────────────────
    Common Enums & Aliases
