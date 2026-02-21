@@ -1,6 +1,6 @@
 import { Data } from "./data";
 import { deltaExchange } from "./delta-exchange";
-import { tradingCycleErrorLogger, martingaleTradeLogger } from "./logger";
+import { tradingCycleErrorLogger, martingaleTradeLogger, skipTradingLogger } from "./logger";
 import { ConfigType, TargetCandle, Candle } from "./type";
 import { Utils } from "./utils";
 import { ProcessPendingState } from "./ProcessPendingState";
@@ -51,7 +51,6 @@ export class TradingV2 {
         }
 
         const target = closedCandles[closedCandles.length - 1];
-        console.log({ target, istTime: new Date(target.timestamp).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) });
 
         return {
             target: {
@@ -80,33 +79,34 @@ export class TradingV2 {
         const symbol = c.SYMBOL;
         const userId = c.USER_ID;
 
-        console.log(`\n[TradingCycle:${symbol}] Starting trading cycle for config ${configId} (User: ${userId})`);
+        // console.log(`\n[TradingCycle:${symbol}] Starting trading cycle for config ${configId} (User: ${userId})`);
 
         try {
-            console.log(`[TradingCycle:${symbol}] Fetching target candle and historical data...`);
+            // console.log(`[TradingCycle:${symbol}] Fetching target candle and historical data...`);
             const targetData = await TradingV2.getTargetCandle(c);
 
             if (!targetData) {
-                console.log(`[TradingCycle:${symbol}] SKIP: Could not find required candle data for ${symbol} ${c.TIMEFRAME}. API might be lagging.`);
+                skipTradingLogger.info(`[MarketData] SKIP: Could not find required candle data for ${symbol} ${c.TIMEFRAME}. API might be lagging.`, {
+                    configId,
+                    userId,
+                    symbol,
+                    candleTimeframe: c.TIMEFRAME
+                });
                 return;
             }
 
             const { target: targetCandle, candles } = targetData;
-            console.log(`[TradingCycle:${symbol}] Candle data retrieved: Open=${targetCandle.open}, High=${targetCandle.high}, Low=${targetCandle.low}, Close=${targetCandle.close}, Color=${targetCandle.color}`);
+            // console.log(`[TradingCycle:${symbol}] Candle data retrieved: Open=${targetCandle.open}, High=${targetCandle.high}, Low=${targetCandle.low}, Close=${targetCandle.close}, Color=${targetCandle.color}`);
 
-            console.log(`[TradingCycle:${symbol}] Fetching current price...`);
             const currentPrice = await TradingV2.getCurrentPrice(c.SYMBOL);
-            console.log(`[TradingCycle:${symbol}] Current price: ${currentPrice}`);
+            // console.log(`[TradingCycle:${symbol}] Current price: ${currentPrice}`);
 
-            console.log(`[TradingCycle:${symbol}] Loading or creating martingale state...`);
             let state = await Data.getOrCreateState(
                 c.id,
                 c.USER_ID,
                 c.SYMBOL,
                 c.PRODUCT_ID,
             );
-
-            console.log(`[TradingCycle:${symbol}] State loaded: Level=${state.currentLevel}, PnL=${state.pnl}, LastOutcome=${state.lastTradeOutcome}`);
 
             if (state.lastEntryOrderId && Utils.isTradePending(state)) {
                 console.log(`[TradingCycle:${symbol}] Found pending trade with order ID: ${state.lastEntryOrderId}. Fetching order details...`);
@@ -129,7 +129,13 @@ export class TradingV2 {
                 console.log(`[TradingCycle:${symbol}] Pending state processed: NewOutcome=${state.lastTradeOutcome}`);
 
                 if (Utils.isTradePending(state)) {
-                    console.log(`[TradingCycle:${symbol}] Trade still pending. Skipping new entry.`);
+                    skipTradingLogger.info(`[PendingTrade] SKIP: Trade still pending for ${symbol}`, {
+                        configId,
+                        userId,
+                        symbol,
+                        candleTimeframe: c.TIMEFRAME,
+                        orderId: state.lastEntryOrderId
+                    });
                     return;
                 }
             }
@@ -137,17 +143,17 @@ export class TradingV2 {
             const marketState = Validations.getMarketState(candles, currentPrice, c);
 
             if (marketState === "CHOPPY") {
-                console.log(`[TradingCycle:${symbol}] SKIP: Market is choppy`);
+                // Logging handled inside getMarketState
                 return;
             }
 
             if (!await Utils.isPriceMovingInCandleDirection(targetCandle, currentPrice, configId, userId, symbol, c.TIMEFRAME)) {
-                console.log(`[TradingCycle:${symbol}] SKIP: Price movement is not in candle direction`);
+                // Logging handled inside isPriceMovingInCandleDirection
                 return;
             }
 
             if (!await Utils.isPriceMovementPercentWithinRange(targetCandle, currentPrice, configId, userId, symbol, c.TIMEFRAME)) {
-                console.log(`[TradingCycle:${symbol}] SKIP: Price movement percent is not within range`);
+                // Logging handled inside isPriceMovementPercentWithinRange
                 return;
             }
 

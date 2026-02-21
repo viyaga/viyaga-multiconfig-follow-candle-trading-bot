@@ -239,7 +239,6 @@ export class ProcessPendingState {
             }
 
             if (!await Utils.targetCandleHasVolatilityAndMomentum(targetCandle, s.configId, s.userId, s.symbol, TradingConfig.getConfig().TIMEFRAME)) {
-                console.log(`[TradingCycle:${s.symbol}] SKIP: Candle body is below minimum threshold`);
                 return s;
             }
 

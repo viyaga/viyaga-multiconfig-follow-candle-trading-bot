@@ -1,4 +1,5 @@
 import { Candle, ConfigType, InternalChopConfig } from "./type";
+import { skipTradingLogger } from "./logger";
 
 export class Validations {
 
@@ -17,7 +18,11 @@ export class Validations {
         return this.isMarketChoppy(
             candles,
             currentPrice,
-            internal
+            internal,
+            config.id,
+            config.USER_ID,
+            config.SYMBOL,
+            config.TIMEFRAME
         )
             ? "CHOPPY"
             : "TRENDING";
@@ -92,13 +97,28 @@ export class Validations {
     private static isMarketChoppy(
         candles: Candle[],
         currentPrice: number,
-        cfg: InternalChopConfig
+        cfg: InternalChopConfig,
+        configId: string,
+        userId: string,
+        symbol: string,
+        candleTimeframe: string
     ): boolean {
 
-        if (candles.length < cfg.MIN_REQUIRED_CANDLES)
+        if (candles.length < cfg.MIN_REQUIRED_CANDLES) {
+            skipTradingLogger.info(`[ChoppyMarket] SKIP: Insufficient candles for ${symbol}`, {
+                configId,
+                userId,
+                symbol,
+                candleTimeframe,
+                reason: "Insufficient candles",
+                candlesCount: candles.length,
+                minRequired: cfg.MIN_REQUIRED_CANDLES
+            });
             return true;
+        }
 
         let score = 0;
+        const reasons: string[] = [];
 
         /* ======================
            ATR (Volatility)
@@ -106,26 +126,36 @@ export class Validations {
         const atr = this.calculateATR(candles, cfg.ATR_PERIOD);
         const atrPercent = (atr / currentPrice) * 100;
 
-        if (atrPercent < cfg.CHOPPY_ATR_THRESHOLD)
+        if (atrPercent < cfg.CHOPPY_ATR_THRESHOLD) {
             score += 1;
+            reasons.push(`ATR Percent (${atrPercent.toFixed(4)}%) < Threshold (${cfg.CHOPPY_ATR_THRESHOLD}%)`);
+        }
 
         /* ======================
            ADX (Trend Strength)
         ====================== */
         const adxSeries = this.calculateADXSeries(candles, cfg.ADX_PERIOD);
 
+        let currentAdx = 0;
+        let prevAdx = 0;
+        let adxFalling = false;
+
         if (adxSeries.length >= 2) {
 
-            const currentAdx = adxSeries[adxSeries.length - 1];
-            const prevAdx = adxSeries[adxSeries.length - 2];
+            currentAdx = adxSeries[adxSeries.length - 1];
+            prevAdx = adxSeries[adxSeries.length - 2];
 
-            const adxFalling = currentAdx < prevAdx;
+            adxFalling = currentAdx < prevAdx;
 
-            if (currentAdx < cfg.ADX_WEAK_THRESHOLD)
+            if (currentAdx < cfg.ADX_WEAK_THRESHOLD) {
                 score += 1;
+                reasons.push(`ADX Weak (${currentAdx.toFixed(4)} < ${cfg.ADX_WEAK_THRESHOLD})`);
+            }
 
-            if (cfg.REQUIRE_ADX_FALLING && adxFalling)
+            if (cfg.REQUIRE_ADX_FALLING && adxFalling) {
                 score += 1;
+                reasons.push(`ADX Falling (${currentAdx.toFixed(4)} < ${prevAdx.toFixed(4)})`);
+            }
         }
 
         /* ======================
@@ -135,8 +165,10 @@ export class Validations {
 
         const rangePercent = this.getRangePercent(recent);
 
-        if (rangePercent < cfg.CHOPPY_RANGE_THRESHOLD)
+        if (rangePercent < cfg.CHOPPY_RANGE_THRESHOLD) {
             score += 1;
+            reasons.push(`Range Percent (${rangePercent.toFixed(4)}%) < Threshold (${cfg.CHOPPY_RANGE_THRESHOLD}%)`);
+        }
 
         const smallBodyCount =
             recent.filter(c =>
@@ -144,8 +176,10 @@ export class Validations {
                 < cfg.SMALL_BODY_PERCENT_THRESHOLD
             ).length;
 
-        if (smallBodyCount >= cfg.SMALL_BODY_MIN_COUNT)
+        if (smallBodyCount >= cfg.SMALL_BODY_MIN_COUNT) {
             score += 1;
+            reasons.push(`Small Body Count (${smallBodyCount} >= ${cfg.SMALL_BODY_MIN_COUNT})`);
+        }
 
         const highs = recent.map(c => c.high);
         const lows = recent.map(c => c.low);
@@ -158,13 +192,37 @@ export class Validations {
             lows[lows.length - 1] <
             Math.min(...lows.slice(0, -1));
 
-        if (!higherHigh && !lowerLow)
+        if (!higherHigh && !lowerLow) {
             score += 1;
+            reasons.push("No Higher High or Lower Low in recent structure");
+        }
 
         /* ======================
            FINAL DECISION
         ====================== */
-        return score >= cfg.CHOP_SCORE_THRESHOLD;
+        const isChoppy = score >= cfg.CHOP_SCORE_THRESHOLD;
+
+        if (isChoppy) {
+            skipTradingLogger.info(`[ChoppyMarket] SKIP: Market is choppy for ${symbol}`, {
+                configId,
+                userId,
+                symbol,
+                candleTimeframe,
+                score,
+                threshold: cfg.CHOP_SCORE_THRESHOLD,
+                reasons,
+                indicators: {
+                    atrPercent,
+                    currentAdx,
+                    prevAdx,
+                    adxFalling,
+                    rangePercent,
+                    smallBodyCount
+                }
+            });
+        }
+
+        return isChoppy;
     }
 
     /* ======================================================

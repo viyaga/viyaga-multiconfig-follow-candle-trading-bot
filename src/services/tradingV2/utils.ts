@@ -88,14 +88,6 @@ export class Utils {
 
         const isTrue = hasVolatility && hasMomentum && hasStrongBody;
 
-        console.log({
-            rangePercent,
-            bodyPercent,
-            bodyDominance,
-            MIN_RANGE_PERCENT,
-            MIN_BODY_PERCENT,
-            MIN_BODY_DOMINANCE
-        });
 
         if (!isTrue) {
             skipTradingLogger.info(`[Volatility] SKIP: Insufficient volatility or momentum for ${symbol}`, {
@@ -172,7 +164,6 @@ export class Utils {
 
         const percentMove = Math.abs((currentPrice - basePrice) / basePrice) * 100;
 
-        console.log({ percentMove, minPercent, maxPercent });
 
         const isWithinRange = percentMove >= minPercent && percentMove <= maxPercent;
 

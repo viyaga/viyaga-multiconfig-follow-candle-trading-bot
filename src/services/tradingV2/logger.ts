@@ -1,25 +1,12 @@
 import winston from "winston";
-
-// Helper for IST Timestamp
-const istTime = () => {
-    return new Date().toLocaleString("en-IN", {
-        timeZone: "Asia/Kolkata",
-        hour12: false,
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-    });
-};
+import { getIstTime } from "../../utils/timeUtils";
 
 // Logger for trade errors
 export const tradingCycleErrorLogger = winston.createLogger({
     level: 'error',
     format: winston.format.combine(
         winston.format.timestamp({
-            format: istTime
+            format: getIstTime
         }),
         winston.format.errors({ stack: true }),
         winston.format.splat(),
@@ -43,7 +30,16 @@ export const tradingCycleErrorLogger = winston.createLogger({
             level: 'error',
             maxsize: 5242880, // 5MB
             maxFiles: 5,
-            tailable: true
+            tailable: true,
+            format: winston.format.combine(
+                winston.format.timestamp({ format: getIstTime }),
+                winston.format.printf(({ timestamp, level, message, stack, ...meta }) => {
+                    let msg = `${timestamp} [${level}]: ${message}`;
+                    if (stack) msg += `\n${stack}`;
+                    if (Object.keys(meta).length > 0) msg += ` ${JSON.stringify(meta)}`;
+                    return msg;
+                })
+            )
         })
     ],
 });
@@ -53,7 +49,7 @@ export const martingaleTradeLogger = winston.createLogger({
     level: 'info',
     format: winston.format.combine(
         winston.format.timestamp({
-            format: istTime
+            format: getIstTime
         }),
         winston.format.json()
     ),
@@ -64,7 +60,13 @@ export const martingaleTradeLogger = winston.createLogger({
             level: 'info',
             maxsize: 5242880, // 5MB
             maxFiles: 5,
-            tailable: true
+            tailable: true,
+            format: winston.format.combine(
+                winston.format.timestamp({ format: getIstTime }),
+                winston.format.printf(({ timestamp, level, message, ...meta }) => {
+                    return `${timestamp} [${level}]: ${message} ${Object.keys(meta).length > 0 ? JSON.stringify(meta) : ''}`;
+                })
+            )
         })
     ],
 });
@@ -73,7 +75,7 @@ export const martingaleTradeLogger = winston.createLogger({
 export const skipTradingLogger = winston.createLogger({
     level: 'info',
     format: winston.format.combine(
-        winston.format.timestamp({ format: istTime }),
+        winston.format.timestamp({ format: getIstTime }),
         winston.format.json()
     ),
     defaultMeta: { service: 'skip-trading-logger' },
@@ -91,25 +93,13 @@ export const skipTradingLogger = winston.createLogger({
             level: 'info',
             maxsize: 5242880, // 5MB
             maxFiles: 5,
-            tailable: true
-        })
-    ],
-});
-// Logger for signal validation details
-export const signalLogger = winston.createLogger({
-    level: 'info',
-    format: winston.format.combine(
-        winston.format.timestamp({ format: istTime }),
-        winston.format.json()
-    ),
-    defaultMeta: { service: 'signal-logger' },
-    transports: [
-        new winston.transports.File({
-            filename: 'logs/signals.log',
-            level: 'info',
-            maxsize: 5242880, // 5MB
-            maxFiles: 5,
-            tailable: true
+            tailable: true,
+            format: winston.format.combine(
+                winston.format.timestamp({ format: getIstTime }),
+                winston.format.printf(({ timestamp, level, message, ...meta }) => {
+                    return `${timestamp} [${level}]: ${message} ${Object.keys(meta).length > 0 ? JSON.stringify(meta) : ''}`;
+                })
+            )
         })
     ],
 });
