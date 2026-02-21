@@ -19,24 +19,38 @@ export class TradingV2 {
     private static async getTargetCandle(c: {
         TIMEFRAME: string;
         SYMBOL: string;
-    }): Promise<{ target: TargetCandle; candles: Candle[] }> {
+    }): Promise<{ target: TargetCandle; candles: Candle[] } | null> {
 
         const dur = Utils.getTimeframeDurationMs(c.TIMEFRAME);
-        const start = Math.floor(Date.now() / dur) * dur - dur;
+        const now = Date.now();
+
+        const currentCandleStart = Math.floor(now / dur) * dur;
 
         const cd = await deltaExchange.getCandlestickData(
             c.SYMBOL,
             c.TIMEFRAME,
-            start - 80 * dur,
-            Date.now()
+            currentCandleStart - 80 * dur,
+            now
         );
 
         const candles = Utils.parseCandleResponse(cd);
-        const target = candles.find(c => c.timestamp === start);
 
-        if (!target) {
-            throw new Error(`[workflow] No candle for ${c.SYMBOL} ${c.TIMEFRAME}`);
+        if (!candles.length) return null;
+
+        // Ensure ascending order
+        candles.sort((a, b) => a.timestamp - b.timestamp);
+
+        // Filter only fully closed candles
+        const closedCandles = candles.filter(
+            candle => candle.timestamp < currentCandleStart
+        );
+
+        if (!closedCandles.length) {
+            console.error(`[getTargetCandle:${c.SYMBOL}] No closed candles found`);
+            return null;
         }
+
+        const target = closedCandles[closedCandles.length - 1];
 
         return {
             target: {
@@ -69,7 +83,14 @@ export class TradingV2 {
 
         try {
             console.log(`[TradingCycle:${symbol}] Fetching target candle and historical data...`);
-            const { target: targetCandle, candles } = await TradingV2.getTargetCandle(c);
+            const targetData = await TradingV2.getTargetCandle(c);
+
+            if (!targetData) {
+                console.log(`[TradingCycle:${symbol}] SKIP: Could not find required candle data for ${symbol} ${c.TIMEFRAME}. API might be lagging.`);
+                return;
+            }
+
+            const { target: targetCandle, candles } = targetData;
             console.log(`[TradingCycle:${symbol}] Candle data retrieved: Open=${targetCandle.open}, High=${targetCandle.high}, Low=${targetCandle.low}, Close=${targetCandle.close}, Color=${targetCandle.color}`);
 
             console.log(`[TradingCycle:${symbol}] Fetching current price...`);
