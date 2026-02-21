@@ -11,8 +11,6 @@ export interface ConfigType {
     TIMEFRAME: string,
     LEVERAGE: number,
     INITIAL_BASE_QUANTITY: number,
-    TARGET_PERCENT: number, // 2 | 3 | 4 | 5
-    RISK_MODE: "balanced" | "aggressive" | "conservative",
     MIN_BODY_PERCENT: number,
     MIN_RANGE_PERCENT: number,
     MIN_BODY_DOMINANCE: number,

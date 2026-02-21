@@ -58,7 +58,7 @@ export class TradingV2 {
                 ...target,
                 color: target.close >= target.open ? "green" : "red"
             },
-            candles
+            candles: closedCandles
         };
     }
 
@@ -134,6 +134,13 @@ export class TradingV2 {
                 }
             }
 
+            const marketState = Validations.getMarketState(candles, currentPrice);
+
+            if (marketState === "CHOPPY") {
+                console.log(`[TradingCycle:${symbol}] SKIP: Market is choppy`);
+                return;
+            }
+
             if (!await Utils.isPriceMovingInCandleDirection(targetCandle, currentPrice, configId, userId, symbol, c.TIMEFRAME)) {
                 console.log(`[TradingCycle:${symbol}] SKIP: Price movement is not in candle direction`);
                 return;
@@ -149,19 +156,12 @@ export class TradingV2 {
                 return;
             }
 
-            const { buySignal, sellSignal } = Validations.getSignal(candles, currentPrice, c);
-
-            if (!buySignal && !sellSignal) {
-                console.log(`[TradingCycle:${symbol}] SKIP: No signal generated`);
-                return;
-            }
-
             let qty = c.IS_TESTING ? 1 : state.lastTradeQuantity;
             console.log(`[TradingCycle:${symbol}] Quantity: ${qty} (IS_TESTING=${c.IS_TESTING})`);
 
             if (!qty || qty <= 0) throw new Error("Invalid trade quantity");
 
-            const side = targetCandle.color === "green" && buySignal ? "buy" : targetCandle.color === "red" && sellSignal ? "sell" : "";
+            const side = targetCandle.color === "green" ? "buy" : "sell";
 
             if (!side) {
                 console.log(`[TradingCycle:${symbol}] SKIP: No side generated`);
