@@ -51,6 +51,7 @@ export class TradingV2 {
         }
 
         const target = closedCandles[closedCandles.length - 1];
+        console.log({ target, istTime: new Date(target.timestamp).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) });
 
         return {
             target: {
@@ -110,11 +111,6 @@ export class TradingV2 {
             if (state.lastEntryOrderId && Utils.isTradePending(state)) {
                 console.log(`[TradingCycle:${symbol}] Found pending trade with order ID: ${state.lastEntryOrderId}. Fetching order details...`);
 
-                // if (!await Utils.hasVolatilityAndMomentum(targetCandle, configId, userId, symbol, c.TIMEFRAME)) {
-                //     console.log(`[TradingCycle:${symbol}] SKIP: Candle body is below minimum threshold`);
-                //     return;
-                // }
-
                 const orderDetails = await deltaExchange.getOrderDetails(state.lastEntryOrderId);
 
                 if (!orderDetails) {
@@ -150,12 +146,6 @@ export class TradingV2 {
 
             if (c.DRY_RUN) {
                 console.log(`[TradingCycle:${symbol}] DRY_RUN mode enabled. Skipping trade placement.`);
-                return;
-            }
-
-            if (await Utils.isChoppyMarket(candles, 3, c.SYMBOL, c.TIMEFRAME, configId, userId)) {
-                console.log(`[TradingCycle:${symbol}] SKIP: Market is sideways/choppy - not tradable`);
-                tradingCycleErrorLogger.info(`[workflow] Market is always sideways/choppy, skipping trade for ${c.SYMBOL}`);
                 return;
             }
 

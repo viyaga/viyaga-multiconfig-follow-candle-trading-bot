@@ -238,6 +238,11 @@ export class ProcessPendingState {
                 throw new Error("SL order or price missing in state");
             }
 
+            if (!await Utils.hasVolatilityAndMomentum(targetCandle, s.configId, s.userId, s.symbol, "1h")) {
+                console.log(`[TradingCycle:${s.symbol}] SKIP: Candle body is below minimum threshold`);
+                return s;
+            }
+
             let sl = e.side === "buy" ? Math.min(targetCandle.low, currentPrice) : Math.max(targetCandle.high, currentPrice);
             if (sl === currentPrice) {
                 // add buffer only for current price as sl

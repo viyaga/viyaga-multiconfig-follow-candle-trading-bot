@@ -257,43 +257,4 @@ export class Utils {
             }),
         };
     }
-
-    static async isChoppyMarket(candles: Candle[], lookback = 3, symbol: string, timeFrame: string, configId: string, userId: string): Promise<boolean> {
-        if (candles.length < lookback) return false;
-
-        const sorted = [...candles].sort((a, b) => a.timestamp - b.timestamp);
-        const recent = sorted.slice(-lookback);
-
-        let totalMovement = 0;
-
-        for (let i = 1; i < recent.length; i++) {
-            totalMovement += Math.abs(recent[i].close - recent[i - 1].close);
-        }
-
-        if (totalMovement === 0) return true;
-
-        const netMovement = Math.abs(
-            recent[recent.length - 1].close - recent[0].close
-        );
-
-        const efficiencyRatio = netMovement / totalMovement;
-        console.log({ efficiencyRatio });
-
-        const isChoppy = efficiencyRatio < 0.35;
-
-        if (isChoppy) {
-            skipTradingLogger.info(`[ChoppyMarket] SKIP: Market is sideways/choppy for ${symbol}`, {
-                configId,
-                userId,
-                symbol,
-                candleTimeframe: timeFrame,
-                lookback,
-                efficiencyRatio,
-                totalMovement,
-                netMovement
-            });
-        }
-
-        return isChoppy;
-    }
 }
