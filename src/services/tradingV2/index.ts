@@ -78,10 +78,20 @@ export class TradingV2 {
         const symbol = c.SYMBOL;
         const userId = c.USER_ID;
 
-        // console.log(`\n[TradingCycle:${symbol}] Starting trading cycle for config ${configId} (User: ${userId})`);
+        if (c.LEVERAGE * c.MAX_ALLOWED_PRICE_MOVEMENT_PERCENT > 80) {
+            skipTradingLogger.info(`[Config] SKIP: Leverage risk too high for ${symbol}`, {
+                configId,
+                userId,
+                symbol,
+                candleTimeframe: c.TIMEFRAME,
+                leverage: c.LEVERAGE,
+                maxAllowedPercent: c.MAX_ALLOWED_PRICE_MOVEMENT_PERCENT,
+                riskScore: c.LEVERAGE * c.MAX_ALLOWED_PRICE_MOVEMENT_PERCENT
+            });
+            return;
+        }
 
         try {
-            // console.log(`[TradingCycle:${symbol}] Fetching target candle and historical data...`);
             const targetData = await TradingV2.getTargetCandle(c);
 
             if (!targetData) {
@@ -97,7 +107,6 @@ export class TradingV2 {
             const { target: targetCandle, candles } = targetData;
 
             const currentPrice = await TradingV2.getCurrentPrice(c.SYMBOL);
-
 
             let state = await Data.getOrCreateState(
                 c.id,
