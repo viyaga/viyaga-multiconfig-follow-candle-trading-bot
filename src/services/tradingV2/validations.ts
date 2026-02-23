@@ -91,7 +91,7 @@ export class Validations {
     }
 
     /* ======================================================
-       CHOP LOGIC (SCORING BASED)
+       CHOP LOGIC (MACRO + MICRO)
     ====================================================== */
 
     private static isMarketChoppy(
@@ -105,15 +105,6 @@ export class Validations {
     ): boolean {
 
         if (candles.length < cfg.MIN_REQUIRED_CANDLES) {
-            skipTradingLogger.info(`[ChoppyMarket] SKIP: Insufficient candles for ${symbol}`, {
-                configId,
-                userId,
-                symbol,
-                candleTimeframe,
-                reason: "Insufficient candles",
-                candlesCount: candles.length,
-                minRequired: cfg.MIN_REQUIRED_CANDLES
-            });
             return true;
         }
 
@@ -127,47 +118,38 @@ export class Validations {
         const atrPercent = (atr / currentPrice) * 100;
 
         if (atrPercent < cfg.CHOPPY_ATR_THRESHOLD) {
-            score += 1;
-            reasons.push(`ATR Percent (${atrPercent.toFixed(4)}%) < Threshold (${cfg.CHOPPY_ATR_THRESHOLD}%)`);
+            score++;
+            reasons.push("Low ATR");
         }
 
         /* ======================
-           ADX (Trend Strength)
+           ADX
         ====================== */
         const adxSeries = this.calculateADXSeries(candles, cfg.ADX_PERIOD);
 
-        let currentAdx = 0;
-        let prevAdx = 0;
-        let adxFalling = false;
-
         if (adxSeries.length >= 2) {
-
-            currentAdx = adxSeries[adxSeries.length - 1];
-            prevAdx = adxSeries[adxSeries.length - 2];
-
-            adxFalling = currentAdx < prevAdx;
+            const currentAdx = adxSeries[adxSeries.length - 1];
+            const prevAdx = adxSeries[adxSeries.length - 2];
 
             if (currentAdx < cfg.ADX_WEAK_THRESHOLD) {
-                score += 1;
-                reasons.push(`ADX Weak (${currentAdx.toFixed(4)} < ${cfg.ADX_WEAK_THRESHOLD})`);
+                score++;
+                reasons.push("Weak ADX");
             }
 
-            if (cfg.REQUIRE_ADX_FALLING && adxFalling) {
-                score += 1;
-                reasons.push(`ADX Falling (${currentAdx.toFixed(4)} < ${prevAdx.toFixed(4)})`);
+            if (cfg.REQUIRE_ADX_FALLING && currentAdx < prevAdx) {
+                score++;
+                reasons.push("ADX Falling");
             }
         }
 
         /* ======================
-           STRUCTURE ANALYSIS
+           STRUCTURE (MACRO)
         ====================== */
         const recent = candles.slice(-cfg.STRUCTURE_LOOKBACK);
 
-        const rangePercent = this.getRangePercent(recent);
-
-        if (rangePercent < cfg.CHOPPY_RANGE_THRESHOLD) {
-            score += 1;
-            reasons.push(`Range Percent (${rangePercent.toFixed(4)}%) < Threshold (${cfg.CHOPPY_RANGE_THRESHOLD}%)`);
+        if (this.getRangePercent(recent) < cfg.CHOPPY_RANGE_THRESHOLD) {
+            score++;
+            reasons.push("Structure Range Tight");
         }
 
         const smallBodyCount =
@@ -177,28 +159,26 @@ export class Validations {
             ).length;
 
         if (smallBodyCount >= cfg.SMALL_BODY_MIN_COUNT) {
-            score += 1;
-            reasons.push(`Small Body Count (${smallBodyCount} >= ${cfg.SMALL_BODY_MIN_COUNT})`);
-        }
-
-        const highs = recent.map(c => c.high);
-        const lows = recent.map(c => c.low);
-
-        const higherHigh =
-            highs[highs.length - 1] >
-            Math.max(...highs.slice(0, -1));
-
-        const lowerLow =
-            lows[lows.length - 1] <
-            Math.min(...lows.slice(0, -1));
-
-        if (!higherHigh && !lowerLow) {
-            score += 1;
-            reasons.push("No Higher High or Lower Low in recent structure");
+            score++;
+            reasons.push("Structure Small Bodies");
         }
 
         /* ======================
-           FINAL DECISION
+           MICRO CHOP (3–5 candles)
+        ====================== */
+        const microChop = this.detectMicroChop(
+            candles,
+            currentPrice,
+            cfg.SMALL_BODY_PERCENT_THRESHOLD
+        );
+
+        if (microChop) {
+            score++;
+            reasons.push("Micro Chop 3-5 Candles");
+        }
+
+        /* ======================
+           FINAL
         ====================== */
         const isChoppy = score >= cfg.CHOP_SCORE_THRESHOLD;
 
@@ -210,19 +190,55 @@ export class Validations {
                 candleTimeframe,
                 score,
                 threshold: cfg.CHOP_SCORE_THRESHOLD,
-                reasons,
-                indicators: {
-                    atrPercent,
-                    currentAdx,
-                    prevAdx,
-                    adxFalling,
-                    rangePercent,
-                    smallBodyCount
-                }
+                reasons
             });
         }
 
         return isChoppy;
+    }
+
+    /* ======================================================
+       MICRO CHOP DETECTOR (CORE ADDITION)
+    ====================================================== */
+
+    private static detectMicroChop(
+        candles: Candle[],
+        currentPrice: number,
+        bodyThreshold: number
+    ): boolean {
+
+        if (candles.length < 5) return false;
+
+        const windows = [3, 4, 5];
+
+        for (const size of windows) {
+
+            const slice = candles.slice(-size);
+
+            const high = Math.max(...slice.map(c => c.high));
+            const low = Math.min(...slice.map(c => c.low));
+
+            const rangePercent = ((high - low) / currentPrice) * 100;
+
+            const smallBodies =
+                slice.filter(c =>
+                    this.getBodyPercent(c) < bodyThreshold
+                ).length;
+
+            const noBreakStructure =
+                slice[slice.length - 1].high <= Math.max(...slice.slice(0, -1).map(c => c.high)) &&
+                slice[slice.length - 1].low >= Math.min(...slice.slice(0, -1).map(c => c.low));
+
+            if (
+                rangePercent < 0.6 &&      // tight compression
+                smallBodies >= size - 1 && // mostly small candles
+                noBreakStructure           // no breakout
+            ) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /* ======================================================
@@ -269,19 +285,11 @@ export class Validations {
 
         for (let i = 1; i < candles.length; i++) {
 
-            const upMove =
-                candles[i].high - candles[i - 1].high;
+            const upMove = candles[i].high - candles[i - 1].high;
+            const downMove = candles[i - 1].low - candles[i].low;
 
-            const downMove =
-                candles[i - 1].low - candles[i].low;
-
-            plusDM.push(
-                upMove > downMove && upMove > 0 ? upMove : 0
-            );
-
-            minusDM.push(
-                downMove > upMove && downMove > 0 ? downMove : 0
-            );
+            plusDM.push(upMove > downMove && upMove > 0 ? upMove : 0);
+            minusDM.push(downMove > upMove && downMove > 0 ? downMove : 0);
 
             trs.push(Math.max(
                 candles[i].high - candles[i].low,
@@ -291,16 +299,13 @@ export class Validations {
         }
 
         let smoothedTR =
-            trs.slice(0, period)
-                .reduce((a, b) => a + b, 0);
+            trs.slice(0, period).reduce((a, b) => a + b, 0);
 
         let smoothedPlus =
-            plusDM.slice(0, period)
-                .reduce((a, b) => a + b, 0);
+            plusDM.slice(0, period).reduce((a, b) => a + b, 0);
 
         let smoothedMinus =
-            minusDM.slice(0, period)
-                .reduce((a, b) => a + b, 0);
+            minusDM.slice(0, period).reduce((a, b) => a + b, 0);
 
         const dxValues: number[] = [];
 
@@ -320,12 +325,8 @@ export class Validations {
                 continue;
             }
 
-            const plusDI =
-                (smoothedPlus / smoothedTR) * 100;
-
-            const minusDI =
-                (smoothedMinus / smoothedTR) * 100;
-
+            const plusDI = (smoothedPlus / smoothedTR) * 100;
+            const minusDI = (smoothedMinus / smoothedTR) * 100;
             const sum = plusDI + minusDI;
 
             dxValues.push(

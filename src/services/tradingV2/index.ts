@@ -136,13 +136,6 @@ export class TradingV2 {
                 tradingCronLogger.info(`[TradingCycle:${symbol}] Pending state processed: NewOutcome=${state.lastTradeOutcome}`);
 
                 if (Utils.isTradePending(state)) {
-                    skipTradingLogger.info(`[PendingTrade] SKIP: Trade still pending for ${symbol}`, {
-                        configId,
-                        userId,
-                        symbol,
-                        candleTimeframe: c.TIMEFRAME,
-                        orderId: state.lastEntryOrderId
-                    });
                     return;
                 }
             }

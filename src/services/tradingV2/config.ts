@@ -34,7 +34,7 @@ export class TradingConfig {
         TRADING_MODE: "aggressive",
         MIN_BODY_PERCENT: 0.3,
         MIN_RANGE_PERCENT: 0.4,
-        MIN_BODY_DOMINANCE: 0.6,
+        MIN_BODY_DOMINANCE: 0.3,
         MAX_ALLOWED_PRICE_MOVEMENT_PERCENT: 4,
         MIN_ALLOWED_PRICE_MOVEMENT_PERCENT: 0.1,
         TAKE_PROFIT_PERCENT: 3000,
@@ -97,7 +97,7 @@ export class TradingConfig {
         SL_LIMIT_BUFFER_PERCENT: 0.2,
         CHOPPY_ATR_THRESHOLD: 1,
         CHOPPY_RANGE_THRESHOLD: 2,
-        DRY_RUN: false,
+        DRY_RUN: true,
         IS_TESTING: false
     }];
 

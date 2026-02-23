@@ -238,9 +238,9 @@ export class ProcessPendingState {
                 throw new Error("SL order or price missing in state");
             }
 
-            if (!await Utils.targetCandleHasVolatilityAndMomentum(targetCandle, s.configId, s.userId, s.symbol, TradingConfig.getConfig().TIMEFRAME)) {
-                return s;
-            }
+            // if (!await Utils.targetCandleHasVolatilityAndMomentum(targetCandle, s.configId, s.userId, s.symbol, TradingConfig.getConfig().TIMEFRAME)) {
+            //     return s;
+            // }
 
             let sl = e.side === "buy" ? Math.min(targetCandle.low, currentPrice) : Math.max(targetCandle.high, currentPrice);
             if (sl === currentPrice) {
