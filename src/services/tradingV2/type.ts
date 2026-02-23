@@ -21,7 +21,6 @@ export interface ConfigType {
     SL_TRIGGER_BUFFER_PERCENT: number,
     SL_LIMIT_BUFFER_PERCENT: number;
     CHOPPY_ATR_THRESHOLD: number;
-    CHOPPY_RANGE_THRESHOLD: number;
     DRY_RUN: boolean;
     IS_TESTING: boolean;
 }
@@ -35,7 +34,6 @@ export interface InternalChopConfig {
 
     CHOPPY_ATR_THRESHOLD: number;
     STRUCTURE_LOOKBACK: number;
-    CHOPPY_RANGE_THRESHOLD: number;
 
     SMALL_BODY_PERCENT_THRESHOLD: number;
     SMALL_BODY_MIN_COUNT: number;

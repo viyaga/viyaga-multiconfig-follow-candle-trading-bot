@@ -41,7 +41,6 @@ export class TradingConfig {
         SL_TRIGGER_BUFFER_PERCENT: 0.1,
         SL_LIMIT_BUFFER_PERCENT: 0.2,
         CHOPPY_ATR_THRESHOLD: 1.2,
-        CHOPPY_RANGE_THRESHOLD: 2.5,
         DRY_RUN: false,
         IS_TESTING: false
     },
@@ -68,7 +67,6 @@ export class TradingConfig {
         SL_TRIGGER_BUFFER_PERCENT: 0.1,
         SL_LIMIT_BUFFER_PERCENT: 0.2,
         CHOPPY_ATR_THRESHOLD: 2,
-        CHOPPY_RANGE_THRESHOLD: 3,
         DRY_RUN: true,
         IS_TESTING: false
     },
@@ -96,7 +94,6 @@ export class TradingConfig {
         SL_TRIGGER_BUFFER_PERCENT: 0.1,
         SL_LIMIT_BUFFER_PERCENT: 0.2,
         CHOPPY_ATR_THRESHOLD: 2,
-        CHOPPY_RANGE_THRESHOLD: 3,
         DRY_RUN: true,
         IS_TESTING: false
     }];
