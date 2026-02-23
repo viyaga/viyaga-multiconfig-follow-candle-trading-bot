@@ -89,7 +89,7 @@ export class TradingConfig {
         TRADING_MODE: "conservative",
         MIN_BODY_PERCENT: 0.3,
         MIN_RANGE_PERCENT: 0.4,
-        MIN_BODY_DOMINANCE: 0.6,
+        MIN_BODY_DOMINANCE: 0.3,
         MAX_ALLOWED_PRICE_MOVEMENT_PERCENT: 4,
         MIN_ALLOWED_PRICE_MOVEMENT_PERCENT: 0.1,
         TAKE_PROFIT_PERCENT: 3000,
