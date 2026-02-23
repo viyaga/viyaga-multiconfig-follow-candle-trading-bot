@@ -136,36 +136,3 @@ export const tradingCronLogger = winston.createLogger({
         })
     ],
 });
-
-// Logger for general trading cycle information
-export const tradingCycleLogger = winston.createLogger({
-    level: 'info',
-    format: winston.format.combine(
-        winston.format.timestamp({ format: getIstTime }),
-        winston.format.json()
-    ),
-    defaultMeta: { service: 'trading-cycle-logger' },
-    transports: [
-        new winston.transports.Console({
-            format: winston.format.combine(
-                winston.format.colorize(),
-                winston.format.printf(({ timestamp, level, message, ...meta }) => {
-                    return `${timestamp} [${level}]: ${message} ${Object.keys(meta).length > 0 ? JSON.stringify(meta, null, 2) : ''}`;
-                })
-            ),
-        }),
-        new winston.transports.File({
-            filename: 'logs/trading-cycle.log',
-            level: 'info',
-            maxsize: 5242880, // 5MB
-            maxFiles: 5,
-            tailable: true,
-            format: winston.format.combine(
-                winston.format.timestamp({ format: getIstTime }),
-                winston.format.printf(({ timestamp, level, message, ...meta }) => {
-                    return `${timestamp} [${level}]: ${message} ${Object.keys(meta).length > 0 ? JSON.stringify(meta) : ''}`;
-                })
-            )
-        })
-    ],
-});

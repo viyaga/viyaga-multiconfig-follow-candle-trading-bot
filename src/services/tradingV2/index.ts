@@ -232,6 +232,20 @@ export class TradingV2 {
                 tpPrice: tp,
                 martingaleState: updatedState
             });
+
+            martingaleTradeLogger.info(`[ExecutedTrade] NEW TRADE RECORDED ${symbol} ${side.toUpperCase()} at ${entryPrice}`, {
+                configId: c.id,
+                userId: c.USER_ID,
+                symbol: c.SYMBOL,
+                candleTimeframe: c.TIMEFRAME,
+                side,
+                quantity: qty,
+                entryPrice,
+                slPrice: sl,
+                tpPrice: tp,
+                martingaleState: updatedState
+            });
+
             tradingCronLogger.info(`[TradingCycle:${symbol}] ✓ TRADE COMPLETED SUCCESSFULLY\n`);
 
         } catch (err) {
