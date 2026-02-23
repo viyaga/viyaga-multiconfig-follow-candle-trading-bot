@@ -56,7 +56,7 @@ export class TradingConfig {
         LOT_SIZE: 100,
         PRICE_DECIMAL_PLACES: 5,
         TIMEFRAME: "1h",
-        LEVERAGE: 20,                  // default_leverage = 20
+        LEVERAGE: 10,                  // default_leverage = 20
         INITIAL_BASE_QUANTITY: 1,
         TRADING_MODE: "conservative",
         MIN_BODY_PERCENT: 0.3,
@@ -90,7 +90,7 @@ export class TradingConfig {
         MIN_BODY_PERCENT: 0.3,
         MIN_RANGE_PERCENT: 0.4,
         MIN_BODY_DOMINANCE: 0.3,
-        MAX_ALLOWED_PRICE_MOVEMENT_PERCENT: 5,
+        MAX_ALLOWED_PRICE_MOVEMENT_PERCENT: 4,
         MIN_ALLOWED_PRICE_MOVEMENT_PERCENT: 0.1,
         TAKE_PROFIT_PERCENT: 3000,
         SL_TRIGGER_BUFFER_PERCENT: 0.1,
