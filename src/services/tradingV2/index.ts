@@ -7,7 +7,7 @@ import { ProcessPendingState } from "./ProcessPendingState";
 import { MartingaleState } from "../../models/martingaleState.model";
 import { TradingConfig } from "./config";
 import { ExecutedTrade } from "../../models/executedTrade.model";
-import { Validations } from "./validations";
+import { ChoppyMarketDetector } from "./ChoppyMarketDetector";
 
 export class TradingV2 {
 
@@ -140,10 +140,10 @@ export class TradingV2 {
                 }
             }
 
-            const marketState = Validations.getMarketState(candles, currentPrice, c);
+            const isChoppyScore = ChoppyMarketDetector.getMarketRegimeScore(candles, c);
 
-            if (marketState === "CHOPPY") {
-                // Logging handled inside getMarketState
+            if (isChoppyScore > 4) {
+                // Logging handled inside getMarketRegimeScore
                 return;
             }
 

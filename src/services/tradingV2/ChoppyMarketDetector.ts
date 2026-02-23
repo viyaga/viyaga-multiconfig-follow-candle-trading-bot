@@ -1,39 +1,40 @@
 import { Candle, ConfigType, InternalChopConfig } from "./type";
 import { skipTradingLogger } from "./logger";
 
-export class Validations {
+// 0 – 2   Strong Trend
+// 3 – 4   Weak Trend
+// 5 – 6   Light Chop
+// 7 – 8   Clear Chop
+// 9 – 10  Tight Compression / High Breakout Probability
 
-    /* ======================================================
-       PUBLIC ENTRY
-    ====================================================== */
+export class ChoppyMarketDetector {
 
-    static getMarketState(
+    /* ====================================================== */
+    /* PUBLIC ENTRY                                           */
+    /* ====================================================== */
+
+    static getMarketRegimeScore(
         candles: Candle[],
-        currentPrice: number,
         config: ConfigType
-    ): "CHOPPY" | "TRENDING" {
+    ): number {
 
         const internal = this.getInternalConfig(config);
 
-        return this.isMarketChoppy(
+        return this.calculateRegimeScore(
             candles,
             internal,
             config.id,
             config.USER_ID,
             config.SYMBOL,
             config.TIMEFRAME
-        )
-            ? "CHOPPY"
-            : "TRENDING";
+        );
     }
 
-    /* ======================================================
-       INTERNAL MODE MAPPING
-    ====================================================== */
+    /* ====================================================== */
+    /* INTERNAL CONFIG                                        */
+    /* ====================================================== */
 
-    private static getInternalConfig(
-        config: ConfigType
-    ): InternalChopConfig {
+    private static getInternalConfig(config: ConfigType): InternalChopConfig {
 
         const tfMultiplier =
             config.TIMEFRAME.includes("4h") ? 1.4 :
@@ -53,7 +54,7 @@ export class Validations {
                 SMALL_BODY_PERCENT_THRESHOLD: 55,
                 SMALL_BODY_MIN_COUNT: 7,
                 MIN_REQUIRED_CANDLES: 60,
-                CHOP_SCORE_THRESHOLD: 4
+                CHOP_SCORE_THRESHOLD: 6
             },
 
             balanced: {
@@ -66,7 +67,7 @@ export class Validations {
                 SMALL_BODY_PERCENT_THRESHOLD: 50,
                 SMALL_BODY_MIN_COUNT: 6,
                 MIN_REQUIRED_CANDLES: 50,
-                CHOP_SCORE_THRESHOLD: 3
+                CHOP_SCORE_THRESHOLD: 5
             },
 
             aggressive: {
@@ -79,134 +80,134 @@ export class Validations {
                 SMALL_BODY_PERCENT_THRESHOLD: 45,
                 SMALL_BODY_MIN_COUNT: 5,
                 MIN_REQUIRED_CANDLES: 40,
-                CHOP_SCORE_THRESHOLD: 2
+                CHOP_SCORE_THRESHOLD: 4
             }
         };
 
         return base[config.TRADING_MODE];
     }
 
-    /* ======================================================
-       MAIN CHOP LOGIC
-    ====================================================== */
+    /* ====================================================== */
+    /* REGIME SCORE (0–10)                                    */
+    /* ====================================================== */
 
-    private static isMarketChoppy(
+    private static calculateRegimeScore(
         candles: Candle[],
         cfg: InternalChopConfig,
         configId: string,
         userId: string,
         symbol: string,
-        candleTimeframe: string
-    ): boolean {
+        timeframe: string
+    ): number {
 
-        if (candles.length < cfg.MIN_REQUIRED_CANDLES) {
-            return true;
-        }
+        if (candles.length < cfg.MIN_REQUIRED_CANDLES) return 7;
 
-        let score = 0;
-        const reasons: string[] = [];
+        let chopScore = 0;
+        let maxScore = 0;
 
         const latestClose = candles[candles.length - 1].close;
 
-        /* ======================
-           ATR
-        ====================== */
+        /* ================= ATR ================= */
+
         const atr = this.calculateATR(candles, cfg.ATR_PERIOD);
         const atrPercent = latestClose === 0 ? 0 : (atr / latestClose) * 100;
 
-        if (atrPercent < cfg.CHOPPY_ATR_THRESHOLD) {
-            score++;
-            reasons.push(`Low ATR (${atrPercent.toFixed(2)}%)`);
+        const atrAvg = this.getRollingATRPercentAvg(candles, cfg.ATR_PERIOD);
+
+        maxScore++;
+        if (atrPercent < cfg.CHOPPY_ATR_THRESHOLD || atrPercent < atrAvg * 0.75) {
+            chopScore++;
         }
 
-        /* ======================
-           ADX
-        ====================== */
+        /* ================= ADX ================= */
+
         const adxSeries = this.calculateADXSeries(candles, cfg.ADX_PERIOD);
 
         if (adxSeries.length >= 2) {
-            const currentAdx = adxSeries[adxSeries.length - 1];
-            const prevAdx = adxSeries[adxSeries.length - 2];
+            const current = adxSeries[adxSeries.length - 1];
+            const prev = adxSeries[adxSeries.length - 2];
 
-            if (currentAdx < cfg.ADX_WEAK_THRESHOLD) {
-                score++;
-                reasons.push(`Weak ADX (${currentAdx.toFixed(1)})`);
-            }
+            maxScore++;
+            if (current < cfg.ADX_WEAK_THRESHOLD) chopScore++;
 
-            if (cfg.REQUIRE_ADX_FALLING && currentAdx < prevAdx) {
-                score++;
-                reasons.push("ADX Falling");
+            if (cfg.REQUIRE_ADX_FALLING) {
+                maxScore++;
+                if (current < prev) chopScore++;
             }
         }
 
-        /* ======================
-           STRUCTURE (ATR-BASED)
-        ====================== */
+        /* ================= STRUCTURE ================= */
+
         const recent = candles.slice(-cfg.STRUCTURE_LOOKBACK);
         const rangePercent = this.getRangePercent(recent);
 
-        const dynamicRangeThreshold = atrPercent * 2; // 🔥 CORE UPDATE
-
-        if (rangePercent < dynamicRangeThreshold) {
-            score++;
-            reasons.push(
-                `Tight Structure (${rangePercent.toFixed(2)}% < ${dynamicRangeThreshold.toFixed(2)}%)`
-            );
-        }
+        maxScore++;
+        if (rangePercent < atrPercent * 2) chopScore++;
 
         const smallBodyCount =
             recent.filter(c =>
                 this.getBodyPercent(c) < cfg.SMALL_BODY_PERCENT_THRESHOLD
             ).length;
 
-        if (smallBodyCount >= cfg.SMALL_BODY_MIN_COUNT) {
-            score++;
-            reasons.push("Small Body Cluster");
+        maxScore++;
+        if (smallBodyCount >= cfg.SMALL_BODY_MIN_COUNT) chopScore++;
+
+        /* ================= MICRO CHOP ================= */
+
+        maxScore += 2;
+        if (this.detectMicroChop(candles, atrPercent, cfg.SMALL_BODY_PERCENT_THRESHOLD)) {
+            chopScore += 2;
         }
 
-        /* ======================
-           MICRO CHOP (ATR ADAPTIVE)
-        ====================== */
-        const microChop = this.detectMicroChop(
-            candles,
-            atrPercent,
-            cfg.SMALL_BODY_PERCENT_THRESHOLD
-        );
+        /* ================= VOLUME ================= */
 
-        if (microChop) {
-            score++;
-            reasons.push("Micro Compression");
+        maxScore++;
+        if (this.isVolumeContracting(candles)) chopScore++;
+
+        /* ================= BREAKOUT REDUCTION ================= */
+
+        let breakoutReduction = 0;
+        const last = candles[candles.length - 1];
+        const prevHigh = Math.max(...recent.slice(0, -1).map(c => c.high));
+        const prevLow = Math.min(...recent.slice(0, -1).map(c => c.low));
+
+        if (last.close > prevHigh) breakoutReduction += 2;
+        if (last.close < prevLow) breakoutReduction += 2;
+
+        if (this.getBodyPercent(last) > 65) breakoutReduction++;
+
+        if (candles.length >= 20) {
+            const avgVol =
+                candles.slice(-20, -1).reduce((a, b) => a + b.volume, 0) / 19;
+
+            if (last.volume > avgVol * 1.4) breakoutReduction++;
         }
 
-        /* ======================
-           VOLUME CONTRACTION
-        ====================== */
-        if (this.isVolumeContracting(candles)) {
-            score++;
-            reasons.push("Volume Contracting");
-        }
+        breakoutReduction = Math.min(breakoutReduction, 4);
 
-        const isChoppy = score >= cfg.CHOP_SCORE_THRESHOLD;
+        /* ================= FINAL SCORE ================= */
 
-        if (isChoppy) {
-            skipTradingLogger.info(`[ChoppyMarket] SKIP: ${symbol}`, {
-                configId,
-                userId,
-                symbol,
-                candleTimeframe,
-                score,
-                atrPercent,
-                dynamicRangeThreshold,
-                reasons
-            });
-        }
+        let rawScore = Math.max(0, chopScore - breakoutReduction);
 
-        return isChoppy;
+        const normalized =
+            maxScore === 0
+                ? 0
+                : Math.min(10, Math.round((rawScore / maxScore) * 10));
+
+        skipTradingLogger.info(`[MarketRegime] ${symbol}`, {
+            configId,
+            userId,
+            symbol,
+            timeframe,
+            regimeScore: normalized
+        });
+
+        return normalized;
     }
 
-    /* ======================================================
-       MICRO CHOP
-    ====================================================== */
+    /* ====================================================== */
+    /* MICRO CHOP (3–5 candles)                               */
+    /* ====================================================== */
 
     private static detectMicroChop(
         candles: Candle[],
@@ -221,7 +222,6 @@ export class Validations {
         for (const size of windows) {
 
             const slice = candles.slice(-size);
-
             const high = Math.max(...slice.map(c => c.high));
             const low = Math.min(...slice.map(c => c.low));
             const close = slice[slice.length - 1].close;
@@ -235,14 +235,14 @@ export class Validations {
 
             const dynamicThreshold = atrPercent * 0.6;
 
-            const noBreakStructure =
+            const noBreak =
                 slice[slice.length - 1].high <= Math.max(...slice.slice(0, -1).map(c => c.high)) &&
                 slice[slice.length - 1].low >= Math.min(...slice.slice(0, -1).map(c => c.low));
 
             if (
                 rangePercent < dynamicThreshold &&
                 smallBodies >= size - 1 &&
-                noBreakStructure
+                noBreak
             ) {
                 return true;
             }
@@ -251,9 +251,9 @@ export class Validations {
         return false;
     }
 
-    /* ======================================================
-       VOLUME CHECK
-    ====================================================== */
+    /* ====================================================== */
+    /* VOLUME CHECK                                           */
+    /* ====================================================== */
 
     private static isVolumeContracting(candles: Candle[]): boolean {
 
@@ -268,16 +268,18 @@ export class Validations {
         return avg5 < avg20 * 0.7;
     }
 
-    /* ======================================================
-       INDICATORS
-    ====================================================== */
+    /* ====================================================== */
+    /* INDICATORS                                             */
+    /* ====================================================== */
 
     private static calculateATR(candles: Candle[], period: number): number {
+
         if (candles.length < period + 1) return 0;
 
         const trs: number[] = [];
 
         for (let i = 1; i < candles.length; i++) {
+
             const high = candles[i].high;
             const low = candles[i].low;
             const prevClose = candles[i - 1].close;
@@ -296,6 +298,26 @@ export class Validations {
             atr = ((atr * (period - 1)) + trs[i]) / period;
 
         return atr;
+    }
+
+    private static getRollingATRPercentAvg(
+        candles: Candle[],
+        period: number
+    ): number {
+
+        if (candles.length < period * 2) return 0;
+
+        const atrValues: number[] = [];
+
+        for (let i = period; i < candles.length; i++) {
+            const slice = candles.slice(0, i + 1);
+            const atr = this.calculateATR(slice, period);
+            const close = slice[slice.length - 1].close;
+            atrValues.push(close === 0 ? 0 : (atr / close) * 100);
+        }
+
+        const last = atrValues.slice(-period);
+        return last.reduce((a, b) => a + b, 0) / last.length;
     }
 
     private static calculateADXSeries(
