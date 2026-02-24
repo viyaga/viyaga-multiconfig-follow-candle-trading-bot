@@ -44,6 +44,31 @@ export const tradingCycleErrorLogger = winston.createLogger({
     ],
 });
 
+// Logger for market detector metrics
+export const marketDetectorLogger = winston.createLogger({
+    level: 'info',
+    format: winston.format.combine(
+        winston.format.timestamp({ format: getIstTime }),
+        winston.format.json()
+    ),
+    defaultMeta: { service: 'market-detector-logger' },
+    transports: [
+        new winston.transports.File({
+            filename: 'logs/market-detector.log',
+            level: 'info',
+            maxsize: 5242880, // 5MB
+            maxFiles: 5,
+            tailable: true,
+            format: winston.format.combine(
+                winston.format.timestamp({ format: getIstTime }),
+                winston.format.printf(({ timestamp, level, message, ...meta }) => {
+                    return `${timestamp} [${level}]: ${message} ${Object.keys(meta).length > 0 ? JSON.stringify(meta) : ''}`;
+                })
+            )
+        })
+    ],
+});
+
 // Logger for executed trades and martingale state
 export const martingaleTradeLogger = winston.createLogger({
     level: 'info',

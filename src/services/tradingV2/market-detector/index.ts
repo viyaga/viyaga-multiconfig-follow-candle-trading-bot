@@ -1,5 +1,5 @@
 import { Candle, ConfigType, InternalChopConfig } from "../type";
-import { skipTradingLogger } from "../logger";
+import { skipTradingLogger, marketDetectorLogger } from "../logger";
 import { getInternalConfig } from "./config";
 import { calculateATR, getRollingATRPercentAvg, calculateADXSeries } from "./indicators";
 import { detectMicroChop, isVolumeContracting, getBodyPercent, getRangePercent } from "./price-action";
@@ -106,6 +106,56 @@ export class MarketDetector {
         let rawScore = Math.max(0, chopScore - breakoutReduction);
 
         const normalized = maxScore === 0 ? 0 : Math.min(10, Math.round((rawScore / maxScore) * 10));
+
+        const details = {
+            configId,
+            userId,
+            symbol,
+            timeframe,
+            regimeScore: normalized,
+            metrics: {
+                atr: {
+                    value: atr,
+                    percent: atrPercent,
+                    avg: atrAvg,
+                    isChoppy: atrPercent < cfg.CHOPPY_ATR_THRESHOLD || atrPercent < atrAvg * 0.75
+                },
+                adx: adxSeries.length >= 2 ? {
+                    current: adxSeries[adxSeries.length - 1],
+                    prev: adxSeries[adxSeries.length - 2],
+                    isWeak: adxSeries[adxSeries.length - 1] < cfg.ADX_WEAK_THRESHOLD,
+                    isFalling: cfg.REQUIRE_ADX_FALLING ? (adxSeries[adxSeries.length - 1] < adxSeries[adxSeries.length - 2]) : undefined
+                } : null,
+                structure: {
+                    rangePercent,
+                    atrPercent,
+                    multiplier: structureMultiplier,
+                    isRangeChoppy: rangePercent < atrPercent * structureMultiplier,
+                    smallBodyCount,
+                    smallBodyThreshold: cfg.SMALL_BODY_PERCENT_THRESHOLD,
+                    isBodyChoppy: smallBodyCount >= cfg.SMALL_BODY_MIN_COUNT
+                },
+                microChop: {
+                    detected: detectMicroChop(candles, atrPercent, cfg.SMALL_BODY_PERCENT_THRESHOLD)
+                },
+                volume: {
+                    isContracting: isVolumeContracting(candles)
+                },
+                breakoutReduction: {
+                    value: breakoutReduction,
+                    isStrongBody: getBodyPercent(last) > 65,
+                    isHighVolume: candles.length >= 20 && last.volume > (candles.slice(-20, -1).reduce((a, b) => a + b.volume, 0) / 19) * 1.4
+                }
+            },
+            scores: {
+                chopScore,
+                breakoutReduction,
+                rawScore,
+                maxScore
+            }
+        };
+
+        marketDetectorLogger.info(`[MarketRegimeDetail] ${symbol}`, details);
 
         skipTradingLogger.info(`[MarketRegime] ${symbol}`, {
             configId,
