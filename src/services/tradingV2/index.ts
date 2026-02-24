@@ -5,9 +5,8 @@ import { ConfigType, TargetCandle, Candle } from "./type";
 import { Utils } from "./utils";
 import { ProcessPendingState } from "./ProcessPendingState";
 import { MartingaleState } from "../../models/martingaleState.model";
-import { TradingConfig } from "./config";
 import { ExecutedTrade } from "../../models/executedTrade.model";
-import { ChoppyMarketDetector } from "./ChoppyMarketDetector";
+import { MarketDetector } from "./market-detector";
 
 export class TradingV2 {
 
@@ -140,7 +139,7 @@ export class TradingV2 {
                 }
             }
 
-            const isChoppyScore = ChoppyMarketDetector.getMarketRegimeScore(candles, c);
+            const isChoppyScore = MarketDetector.getMarketRegimeScore(candles, c);
 
             if (isChoppyScore > 4) {
                 // Logging handled inside getMarketRegimeScore
