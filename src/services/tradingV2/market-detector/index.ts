@@ -5,7 +5,7 @@ import { calculateATR, getRollingATRPercentAvg, calculateADXSeries } from "./ind
 import { detectMicroChop, isVolumeContracting, getBodyPercent, getRangePercent, isTargetCandleNotGood } from "./price-action";
 
 export class MarketDetector {
-    static getMarketRegimeScore(targetCandle: TargetCandle, candles: Candle[], config: ConfigType): number {
+    static getMarketRegimeScore(targetCandle: TargetCandle, candles: Candle[], config: ConfigType): { score: number, isAllowed: boolean } {
         const internal = getInternalConfig(config);
 
         return this.calculateRegimeScore(
@@ -29,8 +29,8 @@ export class MarketDetector {
         symbol: string,
         timeframe: string,
         minBodyPercent: number
-    ): number {
-        if (candles.length < cfg.MIN_REQUIRED_CANDLES) return 7;
+    ): { score: number, isAllowed: boolean } {
+        if (candles.length < cfg.MIN_REQUIRED_CANDLES) return { score: 7, isAllowed: false };
 
         let chopScore = 0;
         let maxScore = 0;
@@ -49,16 +49,23 @@ export class MarketDetector {
 
         /* ================= ADX ================= */
         const adxSeries = calculateADXSeries(candles, cfg.ADX_PERIOD);
-        if (adxSeries.length >= 2) {
-            const current = adxSeries[adxSeries.length - 1];
-            const prev = adxSeries[adxSeries.length - 2];
+        let currentADX = 0;
+        let prevADX = 0;
+        let adxWeak = false;
+        let adxRising = false;
 
-            maxScore++;
-            if (current < cfg.ADX_WEAK_THRESHOLD) chopScore++;
+        if (adxSeries.length >= 2) {
+            currentADX = adxSeries[adxSeries.length - 1];
+            prevADX = adxSeries[adxSeries.length - 2];
+            adxWeak = currentADX < cfg.ADX_WEAK_THRESHOLD;
+            adxRising = currentADX > prevADX;
+
+            maxScore += 2;
+            if (adxWeak) chopScore += 2;
 
             if (cfg.REQUIRE_ADX_FALLING) {
                 maxScore++;
-                if (current < prev) chopScore++;
+                if (currentADX < prevADX) chopScore++;
             }
         }
 
@@ -101,8 +108,11 @@ export class MarketDetector {
         const prevHigh = Math.max(...recent.slice(0, -1).map(c => c.high));
         const prevLow = Math.min(...recent.slice(0, -1).map(c => c.low));
 
-        if (last.close > prevHigh) breakoutReduction += 2;
-        if (last.close < prevLow) breakoutReduction += 2;
+        const isUpwardBreakout = last.close > prevHigh;
+        const isDownwardBreakout = last.close < prevLow;
+
+        if (isUpwardBreakout) breakoutReduction += 2;
+        if (isDownwardBreakout) breakoutReduction += 2;
         if (getBodyPercent(last) > 65) breakoutReduction++;
 
         if (candles.length >= 20) {
@@ -115,7 +125,48 @@ export class MarketDetector {
         /* ================= FINAL SCORE ================= */
         let rawScore = Math.max(0, chopScore - breakoutReduction);
 
-        const normalized = maxScore === 0 ? 0 : Math.min(10, Math.round((rawScore / maxScore) * 10));
+        let normalized = maxScore === 0 ? 0 : Math.min(10, Math.round((rawScore / maxScore) * 10));
+
+        /* ================= VOLATILITY REGIME FILTER ================= */
+        if (atrPercent < atrAvg * 0.6) {
+            normalized = Math.max(normalized, 6);
+        }
+
+        /* ================= TRADE ENTRY LOGIC & DIRECTIONAL BIAS ================= */
+        let isAllowed = false;
+        const volumeContracting = isVolumeContracting(candles);
+
+        // 1️⃣ Base Rule
+        if (normalized <= 3) {
+            isAllowed = true;
+        } else if (
+            normalized === 4 &&
+            breakoutReduction >= 2 &&
+            getBodyPercent(last) > 65 &&
+            !volumeContracting
+        ) {
+            isAllowed = true;
+        }
+
+        // 2️⃣ Directional Bias Filter
+        if (adxSeries.length >= 2) {
+            if (adxRising && !adxWeak) {
+                // Allow only breakout direction
+                if (targetCandle.color === "green" && !isUpwardBreakout) {
+                    isAllowed = false;
+                }
+                if (targetCandle.color === "red" && !isDownwardBreakout) {
+                    isAllowed = false;
+                }
+            }
+
+            if (adxWeak) {
+                // Block breakout trades even if score <= 3
+                if (isUpwardBreakout || isDownwardBreakout) {
+                    isAllowed = false;
+                }
+            }
+        }
 
         const details = {
             configId,
@@ -164,7 +215,9 @@ export class MarketDetector {
                 chopScore,
                 breakoutReduction,
                 rawScore,
-                maxScore
+                maxScore,
+                finalScore: normalized,
+                isAllowed
             }
         };
 
@@ -175,9 +228,10 @@ export class MarketDetector {
             userId,
             symbol,
             timeframe,
-            regimeScore: normalized
+            regimeScore: normalized,
+            isAllowed
         });
 
-        return normalized;
+        return { score: normalized, isAllowed };
     }
 }
