@@ -148,26 +148,6 @@ export class MarketDetector {
             isAllowed = true;
         }
 
-        // 2️⃣ Directional Bias Filter
-        if (adxSeries.length >= 2) {
-            if (adxRising && !adxWeak) {
-                // Allow only breakout direction
-                if (targetCandle.color === "green" && !isUpwardBreakout) {
-                    isAllowed = false;
-                }
-                if (targetCandle.color === "red" && !isDownwardBreakout) {
-                    isAllowed = false;
-                }
-            }
-
-            if (adxWeak) {
-                // Block breakout trades even if score <= 3
-                if (isUpwardBreakout || isDownwardBreakout) {
-                    isAllowed = false;
-                }
-            }
-        }
-
         const details = {
             configId,
             userId,
@@ -222,15 +202,6 @@ export class MarketDetector {
         };
 
         marketDetectorLogger.info(`[MarketRegimeDetail] ${symbol}`, details);
-
-        skipTradingLogger.info(`[MarketRegime] ${symbol}`, {
-            configId,
-            userId,
-            symbol,
-            timeframe,
-            regimeScore: normalized,
-            isAllowed
-        });
 
         return { score: normalized, isAllowed };
     }

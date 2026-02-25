@@ -1,3 +1,4 @@
+import { marketDetectorLogger } from "../logger";
 import { Candle, ConfigType, TargetCandle } from "../type";
 import { MarketDetector } from "./index";
 
@@ -6,7 +7,6 @@ export interface TripleTFResult {
     confirmationScore: number;
     structureScore: number;
     isAllowed: boolean;
-    direction: "long" | "short" | null;
 }
 
 export class MultiTimeframeAlignment {
@@ -47,15 +47,14 @@ export class MultiTimeframeAlignment {
         const structureScore = structureResult.score;
 
         let isAllowed = false;
-        let direction: "long" | "short" | null = null;
 
         // 🚫 HARD BLOCKS
         if (structureScore >= 6) {
-            return { entryScore, confirmationScore, structureScore, isAllowed: false, direction: null };
+            return { entryScore, confirmationScore, structureScore, isAllowed: false };
         }
 
         if (confirmationScore >= 6) {
-            return { entryScore, confirmationScore, structureScore, isAllowed: false, direction: null };
+            return { entryScore, confirmationScore, structureScore, isAllowed: false };
         }
 
         // ✅ Base Alignment
@@ -67,34 +66,15 @@ export class MultiTimeframeAlignment {
             isAllowed = true;
         }
 
-        // ===== STRUCTURE DIRECTION BIAS =====
-        const recent = structureCandles.slice(-10);
-        const last = structureCandles[structureCandles.length - 1];
-
-        const prevHigh = Math.max(...recent.slice(0, -1).map(c => c.high));
-        const prevLow = Math.min(...recent.slice(0, -1).map(c => c.low));
-
-        const bullish = last.close > prevHigh;
-        const bearish = last.close < prevLow;
-
-        if (bullish) direction = "long";
-        if (bearish) direction = "short";
-
-        // 🚫 Block counter-direction trades
-        if (direction === "long" && entryTarget.color === "red") {
-            isAllowed = false;
-        }
-
-        if (direction === "short" && entryTarget.color === "green") {
-            isAllowed = false;
-        }
+        marketDetectorLogger.info(
+            `[MTF] EntryScore=${entryScore} | ConfirmationScore=${confirmationScore} | StructureScore=${structureScore} | Allowed=${isAllowed}`
+        );
 
         return {
             entryScore,
             confirmationScore,
             structureScore,
             isAllowed,
-            direction
         };
     }
 }
