@@ -9,6 +9,8 @@ export interface ConfigType {
     LOT_SIZE: number,
     PRICE_DECIMAL_PLACES: number,
     TIMEFRAME: string,
+    CONFIRMATION_TIMEFRAME: string,
+    STRUCTURE_TIMEFRAME: string,
     LEVERAGE: number,
     INITIAL_BASE_QUANTITY: number,
     TRADING_MODE: "conservative" | "balanced" | "aggressive"

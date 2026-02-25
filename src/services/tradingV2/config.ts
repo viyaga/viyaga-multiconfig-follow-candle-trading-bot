@@ -28,7 +28,9 @@ export class TradingConfig {
         SYMBOL: "ETHUSD",
         LOT_SIZE: 0.01,
         PRICE_DECIMAL_PLACES: 2,
-        TIMEFRAME: "1h",
+        TIMEFRAME: "1h", // lower timeframe for trading
+        CONFIRMATION_TIMEFRAME: "4h", // higher timeframe for confirmation
+        STRUCTURE_TIMEFRAME: "1d", // higher timeframe for structure
         LEVERAGE: 20,
         INITIAL_BASE_QUANTITY: 10,
         TRADING_MODE: "aggressive",

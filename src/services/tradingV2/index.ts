@@ -6,7 +6,7 @@ import { Utils } from "./utils";
 import { ProcessPendingState } from "./ProcessPendingState";
 import { MartingaleState } from "../../models/martingaleState.model";
 import { ExecutedTrade } from "../../models/executedTrade.model";
-import { MarketDetector } from "./market-detector";
+import { MultiTimeframeAlignment } from "./market-detector/multi-timeframe";
 
 export class TradingV2 {
 
@@ -139,10 +139,45 @@ export class TradingV2 {
                 }
             }
 
-            const regime = MarketDetector.getMarketRegimeScore(targetCandle, candles, c);
+            let isAllowed = false;
 
-            if (!regime.isAllowed) {
-                // Logging handled inside getMarketRegimeScore
+            const configConfirmation: ConfigType = { ...c, TIMEFRAME: c.CONFIRMATION_TIMEFRAME };
+            const configStructure: ConfigType = { ...c, TIMEFRAME: c.STRUCTURE_TIMEFRAME };
+
+            const targetDataConfirmation = await TradingV2.getTargetCandle({ TIMEFRAME: c.CONFIRMATION_TIMEFRAME, SYMBOL: c.SYMBOL });
+            const targetDataStructure = await TradingV2.getTargetCandle({ TIMEFRAME: c.STRUCTURE_TIMEFRAME, SYMBOL: c.SYMBOL });
+
+            if (!targetDataConfirmation || !targetDataStructure) {
+                skipTradingLogger.info(`[MarketData] SKIP: Could not find required higher timeframe candle data for ${symbol}. API might be lagging.`, {
+                    configId,
+                    userId,
+                    symbol,
+                    confirmationTimeframe: c.CONFIRMATION_TIMEFRAME,
+                    structureTimeframe: c.STRUCTURE_TIMEFRAME
+                });
+                return;
+            }
+
+            const mtf = MultiTimeframeAlignment.evaluate(
+                targetCandle,
+                candles,
+                targetDataConfirmation.candles,
+                targetDataStructure.candles,
+                c,
+                configConfirmation,
+                configStructure
+            );
+
+            isAllowed = mtf.isAllowed;
+
+            if (!isAllowed) {
+                skipTradingLogger.info(`[MarketRegime] SKIP: MTF Alignment Failed for ${symbol}`, {
+                    configId,
+                    userId,
+                    symbol,
+                    timeframe: c.TIMEFRAME,
+                    mtf
+                });
                 return;
             }
 
