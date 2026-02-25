@@ -1,3 +1,5 @@
+// 13.201.79.47,
+
 export interface ConfigType {
     id: string,
     USER_ID: string,
@@ -34,7 +36,6 @@ export interface InternalChopConfig {
     ADX_WEAK_THRESHOLD: number;
     REQUIRE_ADX_FALLING: boolean;
 
-    CHOPPY_ATR_THRESHOLD: number;
     STRUCTURE_LOOKBACK: number;
 
     SMALL_BODY_PERCENT_THRESHOLD: number;

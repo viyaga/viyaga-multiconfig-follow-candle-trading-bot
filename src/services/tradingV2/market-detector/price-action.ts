@@ -11,7 +11,8 @@ export function getRangePercent(candles: Candle[]): number {
     return low === 0 ? 0 : ((high - low) / low) * 100;
 }
 
-export function detectMicroChop(candles: Candle[], atrPercent: number, bodyThreshold: number): boolean {
+// ✅ Fix #6: Accept atrAvg instead of atrPercent to avoid using current (shrinking) volatility
+export function detectMicroChop(candles: Candle[], atrAvg: number, bodyThreshold: number): boolean {
     if (candles.length < 5) return false;
 
     const windows = [3, 4, 5];
@@ -26,7 +27,8 @@ export function detectMicroChop(candles: Candle[], atrPercent: number, bodyThres
 
         const smallBodies = slice.filter(c => getBodyPercent(c) < bodyThreshold).length;
 
-        const dynamicThreshold = atrPercent * 0.6;
+        // ✅ Fix #6: Use average volatility, not current shrinking volatility
+        const dynamicThreshold = atrAvg * 0.6;
 
         const sliceWithoutLast = slice.slice(0, -1);
         const prevHighs = sliceWithoutLast.map(c => c.high);
@@ -65,8 +67,9 @@ export function isTargetCandleNotGood(
     const range = targetCandle.high - targetCandle.low;
     if (range <= 0) return true;
 
-    // 🔹 Reject micro candles (no expansion)
-    if (range < atrPercent * 0.8) return true;
+    // ✅ Fix #2: Convert range to percent before comparing to atrPercent (fix dimension mismatch)
+    const rangePercent = targetCandle.close === 0 ? 0 : (range / targetCandle.close) * 100;
+    if (rangePercent < atrPercent * 0.8) return true;
 
     const bodyPercent = getBodyPercent(targetCandle);
 

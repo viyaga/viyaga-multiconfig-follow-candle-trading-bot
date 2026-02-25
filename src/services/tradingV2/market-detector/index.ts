@@ -1,8 +1,11 @@
 import { Candle, ConfigType, InternalChopConfig, TargetCandle } from "../type";
-import { skipTradingLogger, marketDetectorLogger } from "../logger";
+import { marketDetectorLogger } from "../logger";
 import { getInternalConfig } from "./config";
 import { calculateATR, getRollingATRPercentAvg, calculateADXSeries } from "./indicators";
 import { detectMicroChop, isVolumeContracting, getBodyPercent, getRangePercent, isTargetCandleNotGood } from "./price-action";
+
+// ✅ Fixed total weight — NEVER changes dynamically
+const TOTAL_WEIGHT = 12;
 
 export class MarketDetector {
     static getMarketRegimeScore(targetCandle: TargetCandle, candles: Candle[], config: ConfigType): { score: number, isAllowed: boolean } {
@@ -32,22 +35,21 @@ export class MarketDetector {
     ): { score: number, isAllowed: boolean } {
         if (candles.length < cfg.MIN_REQUIRED_CANDLES) return { score: 7, isAllowed: false };
 
-        let chopScore = 0;
-        let maxScore = 0;
+        let chopPoints = 0;
 
         const latestClose = candles[candles.length - 1].close;
 
-        /* ================= ATR ================= */
+        /* ================= ATR (weight: 2) ================= */
         const atr = calculateATR(candles, cfg.ATR_PERIOD);
         const atrPercent = latestClose === 0 ? 0 : (atr / latestClose) * 100;
         const atrAvg = getRollingATRPercentAvg(candles, cfg.ATR_PERIOD);
 
-        maxScore++;
-        if (atrPercent < cfg.CHOPPY_ATR_THRESHOLD || atrPercent < atrAvg * 0.75) {
-            chopScore++;
+        // ✅ Fix #3: Use ONLY adaptive comparison, no fixed threshold, weight=2
+        if (atrPercent < atrAvg * 0.7) {
+            chopPoints += 2;
         }
 
-        /* ================= ADX ================= */
+        /* ================= ADX (weight: up to 3) ================= */
         const adxSeries = calculateADXSeries(candles, cfg.ADX_PERIOD);
         let currentADX = 0;
         let prevADX = 0;
@@ -60,124 +62,125 @@ export class MarketDetector {
             adxWeak = currentADX < cfg.ADX_WEAK_THRESHOLD;
             adxRising = currentADX > prevADX;
 
-            maxScore += 2;
-            if (adxWeak) chopScore += 2;
-
-            if (cfg.REQUIRE_ADX_FALLING) {
-                maxScore++;
-                if (currentADX < prevADX) chopScore++;
+            // ✅ Fix #4: Graduated ADX scoring — weak trend ≠ chop
+            if (currentADX < 18) {
+                chopPoints += 2;
+            } else if (currentADX < 22) {
+                chopPoints += 1;
             }
+
+            // ✅ Rising ADX reduces chop penalty (trend strengthening)
+            if (currentADX > prevADX && currentADX > 20) {
+                chopPoints -= 1;
+            }
+
+            // Clamp: ADX contribution cannot go below 0
+            chopPoints = Math.max(0, chopPoints);
         }
 
-        /* ================= STRUCTURE ================= */
+        /* ================= STRUCTURE (weight: 2) ================= */
         const recent = candles.slice(-cfg.STRUCTURE_LOOKBACK);
         const rangePercent = getRangePercent(recent);
 
-        maxScore++;
+        // ✅ Fix #5: Use atrAvg (rolling baseline), not atrPercent (current)
+        // Multiplier by timeframe: 15m=1.0, 1h=1.2, 4h=1.4
         const structureMultiplier =
-            timeframe.includes("4h") ? 2.5 :
-                timeframe.includes("1h") ? 2 :
-                    1.8;
+            timeframe.includes("4h") ? 1.4 :
+                timeframe.includes("1h") ? 1.2 :
+                    1.0;
 
-        if (rangePercent < atrPercent * structureMultiplier) chopScore++;
+        if (rangePercent < atrAvg * structureMultiplier) chopPoints += 2;
 
-        const smallBodyCount = recent.filter(c => getBodyPercent(c) < cfg.SMALL_BODY_PERCENT_THRESHOLD).length;
-
-        maxScore++;
-        if (smallBodyCount >= cfg.SMALL_BODY_MIN_COUNT) chopScore++;
-
-        /* ================= MICRO CHOP ================= */
-        maxScore += 2;
-        if (detectMicroChop(candles, atrPercent, cfg.SMALL_BODY_PERCENT_THRESHOLD)) {
-            chopScore += 2;
+        /* ================= MICRO CHOP (weight: 2) ================= */
+        // ✅ Fix #6: Pass atrAvg, not atrPercent (function signature updated in price-action.ts)
+        if (detectMicroChop(candles, atrAvg, cfg.SMALL_BODY_PERCENT_THRESHOLD)) {
+            chopPoints += 2;
         }
 
-        /* ================= TARGET CANDLE ================= */
-        maxScore += 2;
+        /* ================= TARGET CANDLE (weight: 2) ================= */
         if (isTargetCandleNotGood(targetCandle, atrPercent, minBodyPercent)) {
-            chopScore += 2;
+            chopPoints += 2;
         }
 
-        /* ================= VOLUME ================= */
-        maxScore++;
-        if (isVolumeContracting(candles)) chopScore++;
+        /* ================= VOLUME (weight: 1) ================= */
+        if (isVolumeContracting(candles)) chopPoints += 1;
 
         /* ================= BREAKOUT REDUCTION ================= */
         let breakoutReduction = 0;
+        let breakoutOverrideActive = false;
+
         const last = candles[candles.length - 1];
         const prevHigh = Math.max(...recent.slice(0, -1).map(c => c.high));
         const prevLow = Math.min(...recent.slice(0, -1).map(c => c.low));
 
         const isUpwardBreakout = last.close > prevHigh;
         const isDownwardBreakout = last.close < prevLow;
+        const isBreakout = isUpwardBreakout || isDownwardBreakout;
 
-        if (isUpwardBreakout) breakoutReduction += 2;
-        if (isDownwardBreakout) breakoutReduction += 2;
-        if (getBodyPercent(last) > 65) breakoutReduction++;
+        const lastBodyPercent = getBodyPercent(last);
+        const lastRangePercent = last.close === 0 ? 0 : ((last.high - last.low) / last.close) * 100;
 
+        let lastVolOk = false;
         if (candles.length >= 20) {
             const avgVol = candles.slice(-20, -1).reduce((a, b) => a + b.volume, 0) / 19;
-            if (last.volume > avgVol * 1.4) breakoutReduction++;
+            lastVolOk = last.volume > avgVol * 1.3;
         }
 
-        breakoutReduction = Math.min(breakoutReduction, 4);
-
-        /* ================= FINAL SCORE ================= */
-        let rawScore = Math.max(0, chopScore - breakoutReduction);
-
-        let normalized = maxScore === 0 ? 0 : Math.min(10, Math.round((rawScore / maxScore) * 10));
-
-        /* ================= VOLATILITY REGIME FILTER ================= */
-        if (atrPercent < atrAvg * 0.6) {
-            normalized = Math.max(normalized, 6);
-        }
-
-        /* ================= TRADE ENTRY LOGIC & DIRECTIONAL BIAS ================= */
-        let isAllowed = false;
-        const volumeContracting = isVolumeContracting(candles);
-
-        // 1️⃣ Base Rule
-        if (normalized <= 3) {
-            isAllowed = true;
-        } else if (
-            normalized === 4 &&
-            breakoutReduction >= 2 &&
-            getBodyPercent(last) > 65 &&
-            !volumeContracting
+        // ✅ Fix #7: Stronger breakout override requires ALL 4 criteria → -4 chop points
+        if (
+            isBreakout &&
+            lastBodyPercent > 65 &&
+            lastVolOk &&
+            lastRangePercent > atrAvg * 1.2
         ) {
+            breakoutReduction = 4;
+            breakoutOverrideActive = true;
+        }
+
+        chopPoints = Math.max(0, chopPoints - breakoutReduction);
+
+        /* ================= FINAL SCORE (fixed scale: /12 * 10) ================= */
+        // ✅ Fix #1: Fixed weight scoring — no dynamic maxScore
+        const finalScore = Math.min(10, Math.round((chopPoints / TOTAL_WEIGHT) * 10));
+
+        /* ================= TRADE ENTRY — CHOP PRIORITY MODE ================= */
+        // ✅ Fix #8: Trade only if score<=3, or score<=4 AND breakoutOverrideActive
+        let isAllowed = false;
+
+        if (finalScore <= 3) {
+            isAllowed = true;
+        } else if (finalScore <= 4 && breakoutOverrideActive) {
             isAllowed = true;
         }
+        // Block if finalScore >= 6 (implicit: no other path sets isAllowed=true)
 
         const details = {
             configId,
             userId,
             symbol,
             timeframe,
-            regimeScore: normalized,
+            regimeScore: finalScore,
             metrics: {
                 atr: {
                     value: atr,
                     percent: atrPercent,
                     avg: atrAvg,
-                    isChoppy: atrPercent < cfg.CHOPPY_ATR_THRESHOLD || atrPercent < atrAvg * 0.75
+                    isChoppy: atrPercent < atrAvg * 0.7
                 },
                 adx: adxSeries.length >= 2 ? {
-                    current: adxSeries[adxSeries.length - 1],
-                    prev: adxSeries[adxSeries.length - 2],
-                    isWeak: adxSeries[adxSeries.length - 1] < cfg.ADX_WEAK_THRESHOLD,
-                    isFalling: cfg.REQUIRE_ADX_FALLING ? (adxSeries[adxSeries.length - 1] < adxSeries[adxSeries.length - 2]) : undefined
+                    current: currentADX,
+                    prev: prevADX,
+                    isWeak: adxWeak,
+                    isRising: adxRising
                 } : null,
                 structure: {
                     rangePercent,
-                    atrPercent,
+                    atrAvg,
                     multiplier: structureMultiplier,
-                    isRangeChoppy: rangePercent < atrPercent * structureMultiplier,
-                    smallBodyCount,
-                    smallBodyThreshold: cfg.SMALL_BODY_PERCENT_THRESHOLD,
-                    isBodyChoppy: smallBodyCount >= cfg.SMALL_BODY_MIN_COUNT
+                    isRangeChoppy: rangePercent < atrAvg * structureMultiplier
                 },
                 microChop: {
-                    detected: detectMicroChop(candles, atrPercent, cfg.SMALL_BODY_PERCENT_THRESHOLD)
+                    detected: detectMicroChop(candles, atrAvg, cfg.SMALL_BODY_PERCENT_THRESHOLD)
                 },
                 targetCandle: {
                     isNotGood: isTargetCandleNotGood(targetCandle, atrPercent, minBodyPercent)
@@ -185,24 +188,27 @@ export class MarketDetector {
                 volume: {
                     isContracting: isVolumeContracting(candles)
                 },
-                breakoutReduction: {
-                    value: breakoutReduction,
-                    isStrongBody: getBodyPercent(last) > 65,
-                    isHighVolume: candles.length >= 20 && last.volume > (candles.slice(-20, -1).reduce((a, b) => a + b.volume, 0) / 19) * 1.4
+                breakout: {
+                    isBreakout,
+                    bodyPercent: lastBodyPercent,
+                    rangePercent: lastRangePercent,
+                    highVolumeOk: lastVolOk,
+                    overrideActive: breakoutOverrideActive,
+                    reduction: breakoutReduction
                 }
             },
             scores: {
-                chopScore,
+                chopPoints,
                 breakoutReduction,
-                rawScore,
-                maxScore,
-                finalScore: normalized,
+                totalWeight: TOTAL_WEIGHT,
+                finalScore,
+                breakoutOverrideActive,
                 isAllowed
             }
         };
 
         marketDetectorLogger.info(`[MarketRegimeDetail] ${symbol}`, details);
 
-        return { score: normalized, isAllowed };
+        return { score: finalScore, isAllowed };
     }
 }

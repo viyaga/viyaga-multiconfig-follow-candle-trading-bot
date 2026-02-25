@@ -49,11 +49,15 @@ export class MultiTimeframeAlignment {
         let isAllowed = false;
 
         // 🚫 HARD BLOCKS
-        if (structureScore >= 6) {
+        if (structureScore >= 6 || confirmationScore >= 6) {
             return { entryScore, confirmationScore, structureScore, isAllowed: false };
         }
 
-        if (confirmationScore >= 6) {
+        // ✅ Fix #9: Cumulative chop filter — prevent medium-chop stacking
+        if (structureScore + confirmationScore > 8) {
+            marketDetectorLogger.info(
+                `[MTF] BLOCKED by cumulative chop filter | StructureScore=${structureScore} | ConfirmationScore=${confirmationScore} | Sum=${structureScore + confirmationScore}`
+            );
             return { entryScore, confirmationScore, structureScore, isAllowed: false };
         }
 
