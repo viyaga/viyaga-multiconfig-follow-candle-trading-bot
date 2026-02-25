@@ -139,9 +139,9 @@ export class TradingV2 {
                 }
             }
 
-            const isChoppyScore = MarketDetector.getMarketRegimeScore(candles, c);
+            const isChoppyScore = MarketDetector.getMarketRegimeScore(targetCandle, candles, c);
 
-            if (isChoppyScore > 3) {
+            if (isChoppyScore > 4) {
                 // Logging handled inside getMarketRegimeScore
                 return;
             }

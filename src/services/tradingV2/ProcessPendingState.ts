@@ -158,9 +158,10 @@ export class ProcessPendingState {
             throw new Error("SL update failed");
         }
 
-        await deltaExchange.cancelStopOrders({
+        const cancelRes = await deltaExchange.cancelStopOrders({
             product_id: TradingConfig.getConfig().PRODUCT_ID,
         });
+        console.log({ cancelRes });
 
         const entryPrice =
             e.average_fill_price ?? e.meta_data?.entry_price;
@@ -260,6 +261,8 @@ export class ProcessPendingState {
                 sl
             );
 
+            console.log({ updateRes });
+
             // SL unchanged → nothing to do
             if (!updateRes.success && updateRes.isSlSame) {
                 return s;
@@ -323,6 +326,8 @@ export class ProcessPendingState {
             Array.isArray(positions)
                 ? positions.some(p => Number(p.size) !== 0)
                 : positions && Number(positions.size) !== 0;
+
+        console.log({ hasOpenPosition });
 
         return hasOpenPosition
             ? this.manageOpenPosition(sym, s, e, targetCandle, currentPrice)

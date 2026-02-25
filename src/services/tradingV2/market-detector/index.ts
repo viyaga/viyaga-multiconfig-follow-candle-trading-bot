@@ -1,30 +1,34 @@
-import { Candle, ConfigType, InternalChopConfig } from "../type";
+import { Candle, ConfigType, InternalChopConfig, TargetCandle } from "../type";
 import { skipTradingLogger, marketDetectorLogger } from "../logger";
 import { getInternalConfig } from "./config";
 import { calculateATR, getRollingATRPercentAvg, calculateADXSeries } from "./indicators";
-import { detectMicroChop, isVolumeContracting, getBodyPercent, getRangePercent } from "./price-action";
+import { detectMicroChop, isVolumeContracting, getBodyPercent, getRangePercent, isTargetCandleNotGood } from "./price-action";
 
 export class MarketDetector {
-    static getMarketRegimeScore(candles: Candle[], config: ConfigType): number {
+    static getMarketRegimeScore(targetCandle: TargetCandle, candles: Candle[], config: ConfigType): number {
         const internal = getInternalConfig(config);
 
         return this.calculateRegimeScore(
+            targetCandle,
             candles,
             internal,
             config.id,
             config.USER_ID,
             config.SYMBOL,
-            config.TIMEFRAME
+            config.TIMEFRAME,
+            config.MIN_BODY_PERCENT
         );
     }
 
     private static calculateRegimeScore(
+        targetCandle: TargetCandle,
         candles: Candle[],
         cfg: InternalChopConfig,
         configId: string,
         userId: string,
         symbol: string,
-        timeframe: string
+        timeframe: string,
+        minBodyPercent: number
     ): number {
         if (candles.length < cfg.MIN_REQUIRED_CANDLES) return 7;
 
@@ -78,6 +82,12 @@ export class MarketDetector {
         /* ================= MICRO CHOP ================= */
         maxScore += 2;
         if (detectMicroChop(candles, atrPercent, cfg.SMALL_BODY_PERCENT_THRESHOLD)) {
+            chopScore += 2;
+        }
+
+        /* ================= TARGET CANDLE ================= */
+        maxScore += 2;
+        if (isTargetCandleNotGood(targetCandle, atrPercent, minBodyPercent)) {
             chopScore += 2;
         }
 
@@ -137,6 +147,9 @@ export class MarketDetector {
                 },
                 microChop: {
                     detected: detectMicroChop(candles, atrPercent, cfg.SMALL_BODY_PERCENT_THRESHOLD)
+                },
+                targetCandle: {
+                    isNotGood: isTargetCandleNotGood(targetCandle, atrPercent, minBodyPercent)
                 },
                 volume: {
                     isContracting: isVolumeContracting(candles)

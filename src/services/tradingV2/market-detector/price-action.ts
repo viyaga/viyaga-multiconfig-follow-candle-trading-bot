@@ -1,4 +1,4 @@
-import { Candle } from "../type";
+import { Candle, TargetCandle } from "../type";
 
 export function getBodyPercent(c: Candle): number {
     const range = c.high - c.low;
@@ -54,4 +54,53 @@ export function isVolumeContracting(candles: Candle[]): boolean {
     const avg5 = last5.reduce((a, b) => a + b.volume, 0) / 5;
 
     return avg5 < avg20 * 0.7;
+}
+
+export function isTargetCandleNotGood(
+    targetCandle: TargetCandle,
+    atrPercent: number,
+    bodyThreshold: number
+): boolean {
+
+    const range = targetCandle.high - targetCandle.low;
+    if (range <= 0) return true;
+
+    // 🔹 Reject micro candles (no expansion)
+    if (range < atrPercent * 0.8) return true;
+
+    const bodyPercent = getBodyPercent(targetCandle);
+
+    const upperWick =
+        targetCandle.high - Math.max(targetCandle.open, targetCandle.close);
+
+    const lowerWick =
+        Math.min(targetCandle.open, targetCandle.close) - targetCandle.low;
+
+    const closeNearHigh =
+        targetCandle.close >= targetCandle.high - range * 0.25;
+
+    const closeNearLow =
+        targetCandle.close <= targetCandle.low + range * 0.25;
+
+    // GREEN candle → Buy analysis
+    if (targetCandle.color === "green") {
+
+        const weakBody = bodyPercent < bodyThreshold;
+        const badClose = !closeNearHigh;
+        const heavyUpperWick = upperWick > range * 0.35;
+
+        if (weakBody || badClose || heavyUpperWick) return true;
+    }
+
+    // RED candle → Sell analysis
+    if (targetCandle.color === "red") {
+
+        const weakBody = bodyPercent < bodyThreshold;
+        const badClose = !closeNearLow;
+        const heavyLowerWick = lowerWick > range * 0.35;
+
+        if (weakBody || badClose || heavyLowerWick) return true;
+    }
+
+    return false;
 }
