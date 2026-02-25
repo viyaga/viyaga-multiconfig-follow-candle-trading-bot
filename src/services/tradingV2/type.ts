@@ -17,8 +17,6 @@ export interface ConfigType {
     INITIAL_BASE_QUANTITY: number,
     TRADING_MODE: "conservative" | "balanced" | "aggressive"
     MIN_BODY_PERCENT: number,
-    MIN_RANGE_PERCENT: number,
-    MIN_BODY_DOMINANCE: number,
     MAX_ALLOWED_PRICE_MOVEMENT_PERCENT: number,
     MIN_ALLOWED_PRICE_MOVEMENT_PERCENT: number,
     TAKE_PROFIT_PERCENT: number,
