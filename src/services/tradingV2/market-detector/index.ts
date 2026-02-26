@@ -102,8 +102,8 @@ export class MarketDetector {
             chopPoints += 2;
         }
 
-        /* ================= VOLUME (weight: 1) ================= */
-        if (isVolumeContracting(candles)) chopPoints += 1;
+        /* ================= VOLUME (weight: 2) ================= */
+        if (isVolumeContracting(candles)) chopPoints += 2;
 
         /* ================= BREAKOUT REDUCTION ================= */
         let breakoutReduction = 0;

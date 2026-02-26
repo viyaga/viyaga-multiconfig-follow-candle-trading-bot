@@ -7,6 +7,7 @@ import { ProcessPendingState } from "./ProcessPendingState";
 import { MartingaleState } from "../../models/martingaleState.model";
 import { ExecutedTrade } from "../../models/executedTrade.model";
 import { MultiTimeframeAlignment } from "./market-detector/multi-timeframe";
+import { getBodyPercent } from "./market-detector/price-action";
 
 export class TradingV2 {
 
@@ -177,6 +178,17 @@ export class TradingV2 {
                     symbol,
                     timeframe: c.TIMEFRAME,
                     mtf
+                });
+                return;
+            }
+
+            if (getBodyPercent(targetCandle) < c.MIN_BODY_PERCENT) {
+                skipTradingLogger.info(`[MarketRegime] SKIP: Body percent too small for ${symbol}`, {
+                    configId,
+                    userId,
+                    symbol,
+                    timeframe: c.TIMEFRAME,
+                    bodyPercent: getBodyPercent(targetCandle)
                 });
                 return;
             }
