@@ -5,6 +5,10 @@ export function getBodyPercent(c: Candle): number {
     return range === 0 ? 0 : (Math.abs(c.close - c.open) / range) * 100;
 }
 
+export function getBodyMovePercent(c: Candle): number {
+    return (Math.abs(c.close - c.open) / c.open) * 100;
+}
+
 export function getRangePercent(candles: Candle[]): number {
     const high = Math.max(...candles.map(c => c.high));
     const low = Math.min(...candles.map(c => c.low));
