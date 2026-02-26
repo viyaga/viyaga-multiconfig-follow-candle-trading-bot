@@ -182,21 +182,6 @@ export class TradingV2 {
                 return;
             }
 
-            const bodyMovementPercentage = getBodyMovePercent(targetCandle);
-            console.log("bodyMovementPercentage", bodyMovementPercentage);
-            console.log("c.MIN_MOVEMENT_PERCENT", c.MIN_MOVEMENT_PERCENT);
-
-            if (bodyMovementPercentage < c.MIN_MOVEMENT_PERCENT) {
-                skipTradingLogger.info(`[MarketRegime] SKIP: Body percent too small for ${symbol}`, {
-                    configId,
-                    userId,
-                    symbol,
-                    timeframe: c.TIMEFRAME,
-                    bodyPercent: bodyMovementPercentage
-                });
-                return;
-            }
-
             if (!await Utils.isPriceMovingInCandleDirection(targetCandle, currentPrice, configId, userId, symbol, c.TIMEFRAME)) {
                 // Logging handled inside isPriceMovingInCandleDirection
                 return;

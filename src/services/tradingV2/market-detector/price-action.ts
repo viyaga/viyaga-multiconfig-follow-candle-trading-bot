@@ -68,50 +68,46 @@ export function isTargetCandleNotGood(
     bodyMovementThreshold: number
 ): boolean {
 
-    const range = targetCandle.high - targetCandle.low;
+    const { open, high, low, close, color } = targetCandle;
+
+    const range = high - low;
     if (range <= 0) return true;
 
-    // ✅ Fix #2: Convert range to percent before comparing to atrPercent (fix dimension mismatch)
-    const rangePercent = targetCandle.close === 0 ? 0 : (range / targetCandle.close) * 100;
-    if (rangePercent < atrPercent * 0.8) return true;
+    // Normalize range vs ATR (dimension-safe)
+    const rangePercent = close === 0 ? 0 : (range / close) * 100;
 
     const bodyPercent = getBodyPercent(targetCandle);
+    const bodyMovePercent = getBodyMovePercent(targetCandle);
 
-    const bodymmovePercent = getBodyMovePercent(targetCandle);
+    const upperWick = high - Math.max(open, close);
+    const lowerWick = Math.min(open, close) - low;
 
-    const upperWick =
-        targetCandle.high - Math.max(targetCandle.open, targetCandle.close);
+    const closeNearHigh = close >= high - range * 0.25;
+    const closeNearLow = close <= low + range * 0.25;
 
-    const lowerWick =
-        Math.min(targetCandle.open, targetCandle.close) - targetCandle.low;
+    let penalty = 0;
 
-    const closeNearHigh =
-        targetCandle.close >= targetCandle.high - range * 0.25;
+    // 🔹 1. Range vs ATR (Very Important)
+    if (rangePercent < atrPercent * 0.8) penalty += 2;
 
-    const closeNearLow =
-        targetCandle.close <= targetCandle.low + range * 0.25;
+    // 🔹 2. Weak body (Medium importance)
+    if (bodyPercent < 30) penalty += 1;
 
-    // GREEN candle → Buy analysis
-    if (targetCandle.color === "green") {
+    // 🔹 3. Weak actual movement (avoid double heavy weight)
+    if (bodyMovePercent < bodyMovementThreshold) penalty += 3;
 
-        const weakBody = bodyPercent < bodyMovementThreshold;
-        const weakMove = bodymmovePercent < bodyMovementThreshold;
-        const badClose = !closeNearHigh;
-        const heavyUpperWick = upperWick > range * 0.35;
+    // 🔹 4. Close location (Important)
+    if (color === "green" && !closeNearHigh) penalty += 1;
+    if (color === "red" && !closeNearLow) penalty += 1;
 
-        if (weakBody || weakMove || badClose || heavyUpperWick) return true;
-    }
+    // 🔹 5. Heavy rejection wick (Absorption detection)
+    const heavyUpperWick = upperWick > range * 0.4;
+    const heavyLowerWick = lowerWick > range * 0.4;
 
-    // RED candle → Sell analysis
-    if (targetCandle.color === "red") {
+    if (color === "green" && heavyUpperWick) penalty += 1;
+    if (color === "red" && heavyLowerWick) penalty += 1;
 
-        const weakBody = bodyPercent < 30;
-        const weakMove = bodymmovePercent < bodyMovementThreshold;
-        const badClose = !closeNearLow;
-        const heavyLowerWick = lowerWick > range * 0.35;
-
-        if (weakBody || weakMove || badClose || heavyLowerWick) return true;
-    }
-
-    return false;
+    // 🔥 Final Decision
+    // Reject only if multiple weaknesses cluster together
+    return penalty >= 3;
 }
