@@ -19,7 +19,7 @@ export class MarketDetector {
             config.USER_ID,
             config.SYMBOL,
             config.TIMEFRAME,
-            config.MIN_BODY_PERCENT
+            config.MIN_MOVEMENT_PERCENT
         );
     }
 
@@ -31,7 +31,8 @@ export class MarketDetector {
         userId: string,
         symbol: string,
         timeframe: string,
-        minBodyPercent: number
+        minBodyPercent: number,
+
     ): { score: number, isAllowed: boolean } {
         if (candles.length < cfg.MIN_REQUIRED_CANDLES) return { score: 7, isAllowed: false };
 

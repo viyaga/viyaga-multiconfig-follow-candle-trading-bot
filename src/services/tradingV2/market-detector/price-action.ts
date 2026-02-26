@@ -16,7 +16,7 @@ export function getRangePercent(candles: Candle[]): number {
 }
 
 // ✅ Fix #6: Accept atrAvg instead of atrPercent to avoid using current (shrinking) volatility
-export function detectMicroChop(candles: Candle[], atrAvg: number, bodyThreshold: number): boolean {
+export function detectMicroChop(candles: Candle[], atrAvg: number, bodyMovementThreshold: number): boolean {
     if (candles.length < 5) return false;
 
     const windows = [3, 4, 5];
@@ -29,7 +29,7 @@ export function detectMicroChop(candles: Candle[], atrAvg: number, bodyThreshold
 
         const rangePercent = close === 0 ? 0 : ((high - low) / close) * 100;
 
-        const smallBodies = slice.filter(c => getBodyPercent(c) < bodyThreshold).length;
+        const smallBodies = slice.filter(c => getBodyPercent(c) < bodyMovementThreshold).length;
 
         // ✅ Fix #6: Use average volatility, not current shrinking volatility
         const dynamicThreshold = atrAvg * 0.6;
@@ -65,7 +65,7 @@ export function isVolumeContracting(candles: Candle[]): boolean {
 export function isTargetCandleNotGood(
     targetCandle: TargetCandle,
     atrPercent: number,
-    bodyThreshold: number
+    bodyMovementThreshold: number
 ): boolean {
 
     const range = targetCandle.high - targetCandle.low;
@@ -76,6 +76,8 @@ export function isTargetCandleNotGood(
     if (rangePercent < atrPercent * 0.8) return true;
 
     const bodyPercent = getBodyPercent(targetCandle);
+
+    const bodymmovePercent = getBodyMovePercent(targetCandle);
 
     const upperWick =
         targetCandle.high - Math.max(targetCandle.open, targetCandle.close);
@@ -92,21 +94,23 @@ export function isTargetCandleNotGood(
     // GREEN candle → Buy analysis
     if (targetCandle.color === "green") {
 
-        const weakBody = bodyPercent < bodyThreshold;
+        const weakBody = bodyPercent < bodyMovementThreshold;
+        const weakMove = bodymmovePercent < bodyMovementThreshold;
         const badClose = !closeNearHigh;
         const heavyUpperWick = upperWick > range * 0.35;
 
-        if (weakBody || badClose || heavyUpperWick) return true;
+        if (weakBody || weakMove || badClose || heavyUpperWick) return true;
     }
 
     // RED candle → Sell analysis
     if (targetCandle.color === "red") {
 
-        const weakBody = bodyPercent < bodyThreshold;
+        const weakBody = bodyPercent < 30;
+        const weakMove = bodymmovePercent < bodyMovementThreshold;
         const badClose = !closeNearLow;
         const heavyLowerWick = lowerWick > range * 0.35;
 
-        if (weakBody || badClose || heavyLowerWick) return true;
+        if (weakBody || weakMove || badClose || heavyLowerWick) return true;
     }
 
     return false;

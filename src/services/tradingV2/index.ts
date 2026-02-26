@@ -184,9 +184,9 @@ export class TradingV2 {
 
             const bodyMovementPercentage = getBodyMovePercent(targetCandle);
             console.log("bodyMovementPercentage", bodyMovementPercentage);
-            console.log("c.MIN_BODY_PERCENT", c.MIN_BODY_PERCENT);
+            console.log("c.MIN_MOVEMENT_PERCENT", c.MIN_MOVEMENT_PERCENT);
 
-            if (bodyMovementPercentage < c.MIN_BODY_PERCENT) {
+            if (bodyMovementPercentage < c.MIN_MOVEMENT_PERCENT) {
                 skipTradingLogger.info(`[MarketRegime] SKIP: Body percent too small for ${symbol}`, {
                     configId,
                     userId,
