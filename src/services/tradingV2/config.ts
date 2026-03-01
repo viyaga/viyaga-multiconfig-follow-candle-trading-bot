@@ -32,10 +32,10 @@ export class TradingConfig {
         CONFIRMATION_TIMEFRAME: "4h", // higher timeframe for confirmation
         STRUCTURE_TIMEFRAME: "1d", // higher timeframe for structure
         LEVERAGE: 20,
-        INITIAL_BASE_QUANTITY: 1,
+        INITIAL_BASE_QUANTITY: 7,
         TRADING_MODE: "aggressive",
         MIN_MOVEMENT_PERCENT: 0.6,
-        MAX_ALLOWED_PRICE_MOVEMENT_PERCENT: 3,
+        MAX_ALLOWED_PRICE_MOVEMENT_PERCENT: 4,
         MIN_ALLOWED_PRICE_MOVEMENT_PERCENT: 0.01,
         TAKE_PROFIT_PERCENT: 3000,
         SL_TRIGGER_BUFFER_PERCENT: 0.15,
