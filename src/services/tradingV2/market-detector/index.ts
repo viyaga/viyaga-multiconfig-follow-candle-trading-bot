@@ -5,7 +5,7 @@ import { calculateATR, getRollingATRPercentAvg, calculateADXSeries } from "./ind
 import { detectMicroChop, isVolumeContracting, getBodyPercent, getRangePercent, isTargetCandleNotGood, isRangeCompressed } from "./price-action";
 
 // ✅ Fixed total weight — NEVER changes dynamically
-const TOTAL_WEIGHT = 12;
+const TOTAL_WEIGHT = 14;
 
 export class MarketDetector {
     static getMarketRegimeScore(targetCandle: TargetCandle, candles: Candle[], config: ConfigType): { score: number, isAllowed: boolean } {
@@ -138,24 +138,20 @@ export class MarketDetector {
             breakoutOverrideActive = true;
         }
 
-        chopPoints = Math.max(0, chopPoints - breakoutReduction);
-
         /* ================= COMPRESSION BLOCK ================= */
         const maxRangePercent =
-            timeframe.includes("4h") ? 4 :
-                timeframe.includes("1h") ? 3 :
-                    2;
+            timeframe.includes("4h") ? 3 :
+                timeframe.includes("1h") ? 2 :
+                    1;
 
-        const compressed = isRangeCompressed(candles, 3, 15, maxRangePercent);
+        const compressed = isRangeCompressed(candles, 4, 15, maxRangePercent);
+        if (compressed) chopPoints += 2;
 
-        // HARD BLOCK unless breakout override is active
-        if (compressed && !breakoutOverrideActive) {
-            return { score: 8, isAllowed: false };
-        }
+        chopPoints = Math.max(0, chopPoints - breakoutReduction);
 
-        /* ================= FINAL SCORE (fixed scale: /12 * 10) ================= */
+        /* ================= FINAL SCORE (fixed scale: /14 * 10) ================= */
         // ✅ Fix #1: Fixed weight scoring — no dynamic maxScore
-        const finalScore = Math.min(10, Math.round((chopPoints / TOTAL_WEIGHT) * 10));
+        let finalScore = Math.min(10, Math.round((chopPoints / TOTAL_WEIGHT) * 10));
 
         /* ================= TRADE ENTRY — CHOP PRIORITY MODE ================= */
         // ✅ Fix #8: Trade definitively if strong breakout, otherwise check score <= 3
@@ -163,10 +159,10 @@ export class MarketDetector {
 
         if (breakoutOverrideActive) {
             isAllowed = true; // ✅ DEFINITELY allow strong breakouts
-        } else if (finalScore <= 3) {
+        } else if (finalScore <= 4) {
             isAllowed = true;
         }
-        // Block if finalScore >= 4 (implicit: no other path sets isAllowed=true)
+        // Block if finalScore >= 5 (implicit: no other path sets isAllowed=true)
 
         const details = {
             configId,
@@ -209,6 +205,10 @@ export class MarketDetector {
                     highVolumeOk: lastVolOk,
                     overrideActive: breakoutOverrideActive,
                     reduction: breakoutReduction
+                },
+                compression: {
+                    isCompressed: compressed,
+                    maxRangePercent: maxRangePercent
                 }
             },
             scores: {

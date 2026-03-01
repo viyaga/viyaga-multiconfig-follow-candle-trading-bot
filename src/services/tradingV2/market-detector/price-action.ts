@@ -116,7 +116,7 @@ export function isRangeCompressed(
     candles: Candle[],
     minWindow: number = 3,
     maxWindow: number = 15,
-    maxRangePercent: number = 3
+    maxRangePercent: number = 2
 ): boolean {
 
     if (candles.length < maxWindow) return false;
