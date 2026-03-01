@@ -111,3 +111,54 @@ export function isTargetCandleNotGood(
     // Reject only if multiple weaknesses cluster together
     return penalty >= 3;
 }
+
+export function isRangeCompressed(
+    candles: Candle[],
+    minWindow: number = 3,
+    maxWindow: number = 15,
+    maxRangePercent: number = 3
+): boolean {
+
+    if (candles.length < maxWindow) return false;
+
+    const recent = candles.slice(-maxWindow);
+
+    // 🔹 Detect breakout inside recent window
+    const last = recent[recent.length - 1];
+
+    const isBreakoutUp = last.close > Math.max(...recent.slice(0, -1).map(c => c.high));
+    const isBreakoutDown = last.close < Math.min(...recent.slice(0, -1).map(c => c.low));
+
+    const bodyPercent = getBodyPercent(last);
+    const strongBody = bodyPercent > 60;
+
+    const breakoutDetected = (isBreakoutUp || isBreakoutDown) && strongBody;
+
+    // 🔥 If breakout happened → DO NOT treat as compression
+    if (breakoutDetected) return false;
+
+    // 🔹 Now check compression windows
+    for (let size = minWindow; size <= maxWindow; size++) {
+
+        const slice = candles.slice(-size);
+        const high = Math.max(...slice.map(c => c.high));
+        const low = Math.min(...slice.map(c => c.low));
+        const close = slice[slice.length - 1].close;
+
+        if (close === 0) continue;
+
+        const rangePercent = ((high - low) / close) * 100;
+
+        // Scale max range by the square root of time (window size) to accurately detect 
+        // true compression across different candle lengths without blocking normal trends.
+        // e.g. maxWindow=15, maxRange=3% -> size 3 = 1.34% range limit
+        const timeScale = Math.sqrt(size / maxWindow);
+        const dynamicMaxRange = maxRangePercent * timeScale;
+
+        if (rangePercent <= dynamicMaxRange) {
+            return true; // compressed AND no breakout
+        }
+    }
+
+    return false;
+}

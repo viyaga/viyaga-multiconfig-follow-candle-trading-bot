@@ -2,7 +2,7 @@ import { Candle, ConfigType, InternalChopConfig, TargetCandle } from "../type";
 import { marketDetectorLogger } from "../logger";
 import { getInternalConfig } from "./config";
 import { calculateATR, getRollingATRPercentAvg, calculateADXSeries } from "./indicators";
-import { detectMicroChop, isVolumeContracting, getBodyPercent, getRangePercent, isTargetCandleNotGood } from "./price-action";
+import { detectMicroChop, isVolumeContracting, getBodyPercent, getRangePercent, isTargetCandleNotGood, isRangeCompressed } from "./price-action";
 
 // ✅ Fixed total weight — NEVER changes dynamically
 const TOTAL_WEIGHT = 12;
@@ -140,20 +140,33 @@ export class MarketDetector {
 
         chopPoints = Math.max(0, chopPoints - breakoutReduction);
 
+        /* ================= COMPRESSION BLOCK ================= */
+        const maxRangePercent =
+            timeframe.includes("4h") ? 4 :
+                timeframe.includes("1h") ? 3 :
+                    2;
+
+        const compressed = isRangeCompressed(candles, 3, 15, maxRangePercent);
+
+        // HARD BLOCK unless breakout override is active
+        if (compressed && !breakoutOverrideActive) {
+            return { score: 8, isAllowed: false };
+        }
+
         /* ================= FINAL SCORE (fixed scale: /12 * 10) ================= */
         // ✅ Fix #1: Fixed weight scoring — no dynamic maxScore
         const finalScore = Math.min(10, Math.round((chopPoints / TOTAL_WEIGHT) * 10));
 
         /* ================= TRADE ENTRY — CHOP PRIORITY MODE ================= */
-        // ✅ Fix #8: Trade only if score<=3, or score<=4 AND breakoutOverrideActive
+        // ✅ Fix #8: Trade definitively if strong breakout, otherwise check score <= 3
         let isAllowed = false;
 
-        if (finalScore <= 3) {
-            isAllowed = true;
-        } else if (finalScore <= 4 && breakoutOverrideActive) {
+        if (breakoutOverrideActive) {
+            isAllowed = true; // ✅ DEFINITELY allow strong breakouts
+        } else if (finalScore <= 3) {
             isAllowed = true;
         }
-        // Block if finalScore >= 6 (implicit: no other path sets isAllowed=true)
+        // Block if finalScore >= 4 (implicit: no other path sets isAllowed=true)
 
         const details = {
             configId,
