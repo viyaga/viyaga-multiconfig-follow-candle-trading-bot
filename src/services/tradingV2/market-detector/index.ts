@@ -140,11 +140,11 @@ export class MarketDetector {
 
         /* ================= COMPRESSION BLOCK ================= */
         const maxRangePercent =
-            timeframe.includes("4h") ? 3 :
-                timeframe.includes("1h") ? 2 :
-                    1;
+            timeframe.includes("4h") ? 4 :
+                timeframe.includes("1h") ? 3 :
+                    2;
 
-        const compressed = isRangeCompressed(candles, 4, 15, maxRangePercent);
+        const compressed = isRangeCompressed(candles, 3, 15, maxRangePercent);
         if (compressed) chopPoints += 2;
 
         chopPoints = Math.max(0, chopPoints - breakoutReduction);
@@ -159,10 +159,10 @@ export class MarketDetector {
 
         if (breakoutOverrideActive) {
             isAllowed = true; // ✅ DEFINITELY allow strong breakouts
-        } else if (finalScore <= 4) {
+        } else if (finalScore <= 3) {
             isAllowed = true;
         }
-        // Block if finalScore >= 5 (implicit: no other path sets isAllowed=true)
+        // Block if finalScore >= 4 (implicit: no other path sets isAllowed=true)
 
         const details = {
             configId,

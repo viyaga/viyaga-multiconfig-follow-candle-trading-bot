@@ -6,7 +6,6 @@ import { tradingCycleErrorLogger } from "./logger";
 import { OrderDetails, TargetCandle } from "./type";
 import { Utils } from "./utils";
 
-
 export class ProcessPendingState {
 
     static resetState(s: IMartingaleState): IMartingaleState {
@@ -238,10 +237,6 @@ export class ProcessPendingState {
             if (!s.lastStopLossOrderId || !s.lastSlPrice) {
                 throw new Error("SL order or price missing in state");
             }
-
-            // if (!await Utils.targetCandleHasVolatilityAndMomentum(targetCandle, s.configId, s.userId, s.symbol, TradingConfig.getConfig().TIMEFRAME)) {
-            //     return s;
-            // }
 
             let sl = e.side === "buy" ? Math.min(targetCandle.low, currentPrice) : Math.max(targetCandle.high, currentPrice);
             if (sl === currentPrice) {
