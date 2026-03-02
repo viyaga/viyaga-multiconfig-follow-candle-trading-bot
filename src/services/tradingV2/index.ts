@@ -159,6 +159,8 @@ export class TradingV2 {
                 return;
             }
 
+            const tradeDirection = targetCandle.color === "green" ? "LONG" : "SHORT";
+
             const mtf = MultiTimeframeAlignment.evaluate(
                 targetCandle,
                 candles,
@@ -166,7 +168,8 @@ export class TradingV2 {
                 targetDataStructure.candles,
                 c,
                 configConfirmation,
-                configStructure
+                configStructure,
+                tradeDirection
             );
 
             isAllowed = mtf.isAllowed;
