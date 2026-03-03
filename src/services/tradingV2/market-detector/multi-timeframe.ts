@@ -9,8 +9,6 @@ export interface TripleTFResult {
     isAllowed: boolean;
 }
 
-const MIN_STRUCTURE_STRENGTH = 6;
-
 export class MultiTimeframeAlignment {
 
     static evaluate(
@@ -47,11 +45,13 @@ export class MultiTimeframeAlignment {
 
         const symbol = entryConfig.SYMBOL;
 
-        const logMTF = (isAllowed: boolean, blockedReason: string | null) => {
+        let isAllowed = false;
+        let blockedReason: string | null = null;
+
+        const logMTF = () => {
             marketDetectorLogger.info(`[MTFDetail] ${symbol}`, {
                 isAllowed,
                 blockedReason,
-                // ── Per-TF regime scores ──────────────────────────────
                 entry: {
                     score: entryScore,
                     allowed: entryResult.isAllowed,
@@ -70,19 +70,50 @@ export class MultiTimeframeAlignment {
             });
         };
 
+        // 🚫 HARD BLOCKS (very choppy TF)
+        if (structureScore >= 6 || confirmationScore >= 6) {
+            blockedReason = "HARD_BLOCK_HIGH_CHOP_SCORE";
+            logMTF();
+            return { entryScore, confirmationScore, structureScore, isAllowed: false };
+        }
+
+        // 🚫 If any TF already blocked internally
         if (!structureResult.isAllowed || !confirmationResult.isAllowed) {
-            logMTF(false,
+            blockedReason =
                 !structureResult.isAllowed && !confirmationResult.isAllowed
                     ? "STRUCTURE_AND_CONFIRMATION_BLOCKED"
                     : !structureResult.isAllowed
                         ? "STRUCTURE_BLOCKED"
-                        : "CONFIRMATION_BLOCKED"
-            );
+                        : "CONFIRMATION_BLOCKED";
+
+            logMTF();
             return { entryScore, confirmationScore, structureScore, isAllowed: false };
         }
 
-        const isAllowed = entryResult.isAllowed;
-        logMTF(isAllowed, isAllowed ? null : "ENTRY_TF_BLOCKED");
+        // 🚫 Cumulative Chop Filter (medium stacking protection)
+        if (structureScore + confirmationScore > 10) {
+            blockedReason = "CUMULATIVE_CHOP_BLOCK";
+
+            marketDetectorLogger.info(
+                `[MTF] BLOCKED by cumulative chop filter | StructureScore=${structureScore} | ConfirmationScore=${confirmationScore} | Sum=${structureScore + confirmationScore}`
+            );
+
+            logMTF();
+            return { entryScore, confirmationScore, structureScore, isAllowed: false };
+        }
+
+        // ✅ Final Allow Condition
+        if (
+            structureScore <= 6 &&
+            confirmationScore <= 6 &&
+            entryResult.isAllowed
+        ) {
+            isAllowed = true;
+        } else {
+            blockedReason = "ENTRY_TF_BLOCKED";
+        }
+
+        logMTF();
 
         return {
             entryScore,

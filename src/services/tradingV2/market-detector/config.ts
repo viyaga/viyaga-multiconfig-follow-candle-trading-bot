@@ -23,7 +23,7 @@ export function getInternalConfig(config: ConfigType): InternalChopConfig {
             SMALL_BODY_PERCENT_THRESHOLD: 48,
             SMALL_BODY_MIN_COUNT: 6,
             MIN_REQUIRED_CANDLES: 60,
-            CHOP_SCORE_THRESHOLD: 4      // ideal for 2%
+            CHOP_SCORE_THRESHOLD: 3     // ideal for 2%
         },
 
         aggressive: {
@@ -34,7 +34,7 @@ export function getInternalConfig(config: ConfigType): InternalChopConfig {
             SMALL_BODY_PERCENT_THRESHOLD: 45,
             SMALL_BODY_MIN_COUNT: 5,
             MIN_REQUIRED_CANDLES: 40,
-            CHOP_SCORE_THRESHOLD: 5      // allows more noise
+            CHOP_SCORE_THRESHOLD: 3      // allows more noise
         }
     };
 
