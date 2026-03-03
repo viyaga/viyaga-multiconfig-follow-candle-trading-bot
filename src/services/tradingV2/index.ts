@@ -115,7 +115,7 @@ export class TradingV2 {
                 c.PRODUCT_ID,
             );
 
-            if (state.lastEntryOrderId && Utils.isTradePending(state)) {
+            if (state.lastEntryOrderId && Utils.isTradePending(state) && !c.DRY_RUN) {
                 tradingCronLogger.info(`[TradingCycle:${symbol}] Found pending trade with order ID: ${state.lastEntryOrderId}. Fetching order details...`);
 
                 const orderDetails = await deltaExchange.getOrderDetails(state.lastEntryOrderId);

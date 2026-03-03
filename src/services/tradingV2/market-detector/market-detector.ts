@@ -57,25 +57,43 @@ export class MarketDetector {
         const atrAvg = getRollingATRPercentAvg(candles, cfg.ATR_PERIOD);
 
         if (atrPercent < MIN_ATR_PERCENT) {
+            marketDetectorLogger.info(`[MarketRegimeDetail] ${symbol}`, {
+                regimeScore: 9, isAllowed: false,
+                earlyExit: "ATR_TOO_LOW",
+                atrPercent: +atrPercent.toFixed(4),
+                atrAvg: +atrAvg.toFixed(4),
+                minAtrRequired: MIN_ATR_PERCENT
+            });
             return { score: 9, isAllowed: false };
         }
 
-        if (atrPercent < atrAvg * 0.75) chopPoints += 2;
+        const atrWeak = atrPercent < atrAvg * 0.75;
+        if (atrWeak) chopPoints += 2;
 
         /* ================= ADX ================= */
         const adxSeries = calculateADXSeries(candles, cfg.ADX_PERIOD);
         let currentADX = 0;
+        let adxRising = false;
 
         if (adxSeries.length >= 2) {
             currentADX = adxSeries[adxSeries.length - 1];
             const prevADX = adxSeries[adxSeries.length - 2];
+            adxRising = currentADX > prevADX;
 
             if (currentADX < cfg.ADX_WEAK_THRESHOLD) chopPoints += 2;
-            if (currentADX > prevADX && currentADX > cfg.ADX_WEAK_THRESHOLD)
+            if (adxRising && currentADX > cfg.ADX_WEAK_THRESHOLD)
                 chopPoints -= 1;
         }
 
         if (currentADX < cfg.ADX_WEAK_THRESHOLD) {
+            marketDetectorLogger.info(`[MarketRegimeDetail] ${symbol}`, {
+                regimeScore: 8, isAllowed: false,
+                earlyExit: "ADX_TOO_WEAK",
+                adx: +currentADX.toFixed(4),
+                adxThreshold: cfg.ADX_WEAK_THRESHOLD,
+                atrPercent: +atrPercent.toFixed(4),
+                atrAvg: +atrAvg.toFixed(4)
+            });
             return { score: 8, isAllowed: false };
         }
 
@@ -84,29 +102,36 @@ export class MarketDetector {
         /* ================= STRUCTURE ================= */
         const recent = candles.slice(-cfg.STRUCTURE_LOOKBACK);
         const rangePercent = getRangePercent(recent);
+        const structureWeak = rangePercent < atrAvg * 1.2;
 
-        if (rangePercent < atrAvg * 1.2) chopPoints += 2;
+        if (structureWeak) chopPoints += 2;
 
         /* ================= MICRO CHOP ================= */
-        if (detectMicroChop(candles, atrAvg, cfg.SMALL_BODY_PERCENT_THRESHOLD)) {
+        const microChopDetected = detectMicroChop(candles, atrAvg, cfg.SMALL_BODY_PERCENT_THRESHOLD);
+        if (microChopDetected) {
             chopPoints += 2;
         }
 
         /* ================= TARGET CANDLE ================= */
-        if (isTargetCandleNotGood(targetCandle, atrPercent, 0.3)) {
+        const targetCandleNotGood = isTargetCandleNotGood(targetCandle, atrPercent, 0.3);
+        if (targetCandleNotGood) {
             chopPoints += 2;
         }
 
         /* ================= VOLUME ================= */
-        if (isVolumeContracting(candles)) chopPoints += 2;
+        const volumeContracting = isVolumeContracting(candles);
+        if (volumeContracting) chopPoints += 2;
 
-        chopPoints -= getVolumeExpansionPoints(candles);
-        chopPoints -= getTargetCandleVolumeSpike(targetCandle, candles);
+        const volumeExpansionPts = getVolumeExpansionPoints(candles);
+        const targetVolumeSpikeBoost = getTargetCandleVolumeSpike(targetCandle, candles);
+        chopPoints -= volumeExpansionPts;
+        chopPoints -= targetVolumeSpikeBoost;
 
         chopPoints = Math.max(0, chopPoints);
 
         /* ================= COMPRESSION ================= */
-        if (isRangeCompressed(candles, 3, 15, 3)) {
+        const rangeCompressed = isRangeCompressed(candles, 3, 15, 3);
+        if (rangeCompressed) {
             chopPoints += 2;
         }
 
@@ -119,8 +144,9 @@ export class MarketDetector {
             last.close > prevHigh || last.close < prevLow;
 
         const strongBody = getBodyPercent(last) > 65;
+        const breakoutBoostApplied = isBreakout && strongBody && atrPercent > atrAvg;
 
-        if (isBreakout && strongBody && atrPercent > atrAvg) {
+        if (breakoutBoostApplied) {
             chopPoints = Math.max(0, chopPoints - 4);
         }
 
@@ -128,10 +154,35 @@ export class MarketDetector {
         const isAllowed = finalScore <= cfg.CHOP_SCORE_THRESHOLD;
 
         marketDetectorLogger.info(`[MarketRegimeDetail] ${symbol}`, {
+            // ── Final verdict ──────────────────────────────────────────
             regimeScore: finalScore,
-            atrPercent,
-            adx: currentADX,
-            isAllowed
+            isAllowed,
+            chopScoreThreshold: cfg.CHOP_SCORE_THRESHOLD,
+            // ── ATR ────────────────────────────────────────────────────
+            atrPercent: +atrPercent.toFixed(4),
+            atrAvg: +atrAvg.toFixed(4),
+            atrWeak,
+            // ── ADX ────────────────────────────────────────────────────
+            adx: +currentADX.toFixed(4),
+            adxThreshold: cfg.ADX_WEAK_THRESHOLD,
+            adxRising,
+            // ── Structure ──────────────────────────────────────────────
+            rangePercent: +rangePercent.toFixed(4),
+            structureWeak,
+            // ── Micro-chop ─────────────────────────────────────────────
+            microChopDetected,
+            // ── Target candle ──────────────────────────────────────────
+            targetCandleNotGood,
+            // ── Volume ─────────────────────────────────────────────────
+            volumeContracting,
+            volumeExpansionPts,
+            targetVolumeSpikeBoost,
+            // ── Compression ────────────────────────────────────────────
+            rangeCompressed,
+            // ── Breakout boost ─────────────────────────────────────────
+            isBreakout,
+            strongBody,
+            breakoutBoostApplied
         });
 
         return { score: finalScore, isAllowed };
