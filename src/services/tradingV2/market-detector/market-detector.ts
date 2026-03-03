@@ -45,6 +45,12 @@ export class MarketDetector {
     ): { score: number, isAllowed: boolean } {
 
         if (candles.length < cfg.MIN_REQUIRED_CANDLES) {
+            marketDetectorLogger.info(`[MarketRegimeDetail] ${symbol}`, {
+                regimeScore: 10, isAllowed: false,
+                earlyExit: "NOT_ENOUGH_CANDLES",
+                candlesAvailable: candles.length,
+                candlesRequired: cfg.MIN_REQUIRED_CANDLES
+            });
             return { score: 10, isAllowed: false };
         }
 
