@@ -162,3 +162,76 @@ export function isRangeCompressed(
 
     return false;
 }
+
+/**
+ * Score recent volume expansion strength (chop-reduction points).
+ *
+ * Points breakdown (max 3):
+ *  +1  shortAvg / longAvg > 1.2  (mild expansion)
+ *  +1  shortAvg / longAvg > 1.5  (strong expansion)
+ *  +1  last candle volume > shortAvg  (latest candle confirms surge)
+ *
+ * Caller should subtract these points from chopPoints to reward volume expansion.
+ */
+export function getVolumeExpansionPoints(
+    candles: Candle[],
+    shortWindow: number = 5,
+    longWindow: number = 20
+): number {
+
+    if (candles.length < longWindow + 1) return 0;
+
+    const last = candles[candles.length - 1];
+
+    const shortAvg =
+        candles.slice(-shortWindow).reduce((a, b) => a + b.volume, 0) /
+        shortWindow;
+
+    const longAvg =
+        candles.slice(-longWindow).reduce((a, b) => a + b.volume, 0) /
+        longWindow;
+
+    if (longAvg === 0) return 0;
+
+    const expansionRatio = shortAvg / longAvg;
+
+    let points = 0;
+
+    if (expansionRatio > 1.2) points += 1; // mild expansion
+    if (expansionRatio > 1.5) points += 1; // strong expansion
+    if (last.volume > shortAvg) points += 1; // latest candle confirms surge
+
+    return points; // 0–3
+}
+
+/**
+ * Score only the target candle's volume spike (chop-reduction points).
+ *
+ * Points breakdown (max 2):
+ *  +1  target candle volume > avg20 * 1.3  (above-average spike)
+ *  +1  target candle volume > avg20 * 2.0  (extreme spike)
+ *
+ * A candle with high volume shows conviction; reduce chopPoints accordingly.
+ */
+export function getTargetCandleVolumeSpike(
+    targetCandle: TargetCandle,
+    candles: Candle[],
+    lookback: number = 20
+): number {
+
+    if (candles.length < lookback) return 0;
+
+    const avgVol =
+        candles.slice(-lookback).reduce((a, b) => a + b.volume, 0) / lookback;
+
+    if (avgVol === 0) return 0;
+
+    const spikeRatio = targetCandle.volume / avgVol;
+
+    let points = 0;
+
+    if (spikeRatio > 1.3) points += 1; // above-average — decent conviction
+    if (spikeRatio > 2.0) points += 1; // extreme spike  — strong conviction
+
+    return points; // 0–2
+}

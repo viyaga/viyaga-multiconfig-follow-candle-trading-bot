@@ -32,8 +32,6 @@ export interface InternalChopConfig {
     ADX_PERIOD: number;
 
     ADX_WEAK_THRESHOLD: number;
-    REQUIRE_ADX_FALLING: boolean;
-
     STRUCTURE_LOOKBACK: number;
 
     SMALL_BODY_PERCENT_THRESHOLD: number;
