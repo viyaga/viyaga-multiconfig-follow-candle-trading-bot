@@ -62,17 +62,6 @@ export class MarketDetector {
         const atrPercent = latestClose === 0 ? 0 : (atr / latestClose) * 100;
         const atrAvg = getRollingATRPercentAvg(candles, cfg.ATR_PERIOD);
 
-        if (atrPercent < MIN_ATR_PERCENT) {
-            marketDetectorLogger.info(`[MarketRegimeDetail] ${symbol}`, {
-                regimeScore: 9, isAllowed: false,
-                earlyExit: "ATR_TOO_LOW",
-                atrPercent: +atrPercent.toFixed(4),
-                atrAvg: +atrAvg.toFixed(4),
-                minAtrRequired: MIN_ATR_PERCENT
-            });
-            return { score: 9, isAllowed: false };
-        }
-
         const atrWeak = atrPercent < atrAvg * 0.75;
         if (atrWeak) chopPoints += 2;
 
@@ -89,18 +78,6 @@ export class MarketDetector {
             if (currentADX < cfg.ADX_WEAK_THRESHOLD) chopPoints += 2;
             if (adxRising && currentADX > cfg.ADX_WEAK_THRESHOLD)
                 chopPoints -= 1;
-        }
-
-        if (currentADX < cfg.ADX_WEAK_THRESHOLD) {
-            marketDetectorLogger.info(`[MarketRegimeDetail] ${symbol}`, {
-                regimeScore: 8, isAllowed: false,
-                earlyExit: "ADX_TOO_WEAK",
-                adx: +currentADX.toFixed(4),
-                adxThreshold: cfg.ADX_WEAK_THRESHOLD,
-                atrPercent: +atrPercent.toFixed(4),
-                atrAvg: +atrAvg.toFixed(4)
-            });
-            return { score: 8, isAllowed: false };
         }
 
         chopPoints = Math.max(0, chopPoints);
