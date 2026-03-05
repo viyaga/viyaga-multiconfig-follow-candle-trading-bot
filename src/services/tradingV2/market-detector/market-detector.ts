@@ -17,8 +17,6 @@ import {
     getTargetCandleVolumeSpike
 } from "./price-action";
 
-const MIN_ATR_PERCENT = 1;
-
 export class MarketDetector {
 
     static getMarketRegimeScore(

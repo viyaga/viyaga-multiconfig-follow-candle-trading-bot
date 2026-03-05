@@ -7,7 +7,7 @@ export function getInternalConfig(config: ConfigType): InternalChopConfig {
         conservative: {
             ATR_PERIOD: 14,
             ADX_PERIOD: 14,
-            ADX_WEAK_THRESHOLD: 23,      // strong trend required
+            ADX_WEAK_THRESHOLD: 22,      // strong trend required
             STRUCTURE_LOOKBACK: 14,
             SMALL_BODY_PERCENT_THRESHOLD: 50,
             SMALL_BODY_MIN_COUNT: 7,
