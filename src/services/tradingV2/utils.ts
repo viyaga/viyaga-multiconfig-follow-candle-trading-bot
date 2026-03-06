@@ -182,4 +182,106 @@ export class Utils {
             }),
         };
     }
+
+    static getBodyPercent(c: Candle): number {
+        const range = c.high - c.low;
+        return range === 0 ? 0 : (Math.abs(c.close - c.open) / range) * 100;
+    }
+
+    static getBodyMovePercent(c: Candle): number {
+        return (Math.abs(c.close - c.open) / c.open) * 100;
+    }
+
+    static getRangePercent(candles: Candle[]): number {
+        const high = Math.max(...candles.map(c => c.high));
+        const low = Math.min(...candles.map(c => c.low));
+        return low === 0 ? 0 : ((high - low) / low) * 100;
+    }
+
+    static getCandleColor(c: Candle): "red" | "green" {
+        return c.close >= c.open ? "green" : "red";
+    }
+
+    static isVolumeSpike(candles: Candle[], index: number): boolean {
+        if (index < 5) return false;
+        const avg =
+            candles
+                .slice(index - 5, index)
+                .reduce((a, b) => a + b.volume, 0) / 5;
+        return candles[index].volume > avg * 1.8;
+    }
+
+    static detectLowerTimeframeReversal(
+        side: "buy" | "sell",
+        targetCandle: TargetCandle,
+        candles: Candle[]
+    ): { shouldTighten: boolean; slPrice?: number; points: number } {
+
+        if (candles.length < 6) {
+            return { shouldTighten: false, points: 0 };
+        }
+
+        const cfg = TradingConfig.getConfig();
+        const threshold = cfg.REVERSAL_POINT_THRESHOLD;
+        let points = 0;
+
+        const lastIndex = candles.length - 1;
+
+        // ✅ Use target candle instead of last candle
+        const last = targetCandle;
+
+        // previous candle from array
+        const prev = candles[lastIndex - 1];
+
+        const lastColor = last.color;
+        const prevColor = this.getCandleColor(prev);
+        const lastBody = this.getBodyPercent(last);
+
+        // still check spike using the array index
+        const volumeSpike = this.isVolumeSpike(candles, lastIndex);
+
+        if (side === "buy") {
+
+            const oppositeColor = "red";
+
+            if (lastColor === oppositeColor && prevColor === oppositeColor) points += 2;
+
+            if (lastColor === oppositeColor && lastBody >= 60) points += 2;
+
+            if (lastColor === oppositeColor && volumeSpike) points += 2;
+
+            if (last.low < prev.low) points += 2;
+
+            const shouldTighten = points >= threshold;
+
+            return {
+                shouldTighten,
+                slPrice: shouldTighten ? last.low : undefined,
+                points
+            };
+        }
+
+        if (side === "sell") {
+
+            const oppositeColor = "green";
+
+            if (lastColor === oppositeColor && prevColor === oppositeColor) points += 2;
+
+            if (lastColor === oppositeColor && lastBody >= 60) points += 2;
+
+            if (lastColor === oppositeColor && volumeSpike) points += 2;
+
+            if (last.high > prev.high) points += 2;
+
+            const shouldTighten = points >= threshold;
+
+            return {
+                shouldTighten,
+                slPrice: shouldTighten ? last.high : undefined,
+                points
+            };
+        }
+
+        return { shouldTighten: false, points: 0 };
+    }
 }

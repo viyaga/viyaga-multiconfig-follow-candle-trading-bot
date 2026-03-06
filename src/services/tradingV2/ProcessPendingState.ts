@@ -1,12 +1,17 @@
-import { resolve } from "node:path";
+import { TradingV2 } from ".";
 import { IMartingaleState, MartingaleState } from "../../models/martingaleState.model";
 import { TradingConfig } from "./config";
 import { deltaExchange } from "./delta-exchange";
-import { tradingCycleErrorLogger } from "./logger";
-import { OrderDetails, TargetCandle } from "./type";
+import { tradingCycleErrorLogger, tradingCronLogger } from "./logger";
+import { Candle, OrderDetails, TargetCandle } from "./type";
 import { Utils } from "./utils";
 
 export class ProcessPendingState {
+
+    /* =========================================================================
+       CANDLE ANALYSIS UTILITIES
+    ========================================================================= */
+
 
     static resetState(s: IMartingaleState): IMartingaleState {
         const c = TradingConfig.getConfig();
@@ -231,17 +236,42 @@ export class ProcessPendingState {
         s: IMartingaleState,
         e: OrderDetails,
         targetCandle: TargetCandle,
-        currentPrice: number
+        currentPrice: number,
+        lowerTFTargetCandle: TargetCandle,
+        lowerTFCandles: Candle[]
     ): Promise<IMartingaleState> {
+
         try {
-            if (!s.lastStopLossOrderId || !s.lastSlPrice) {
+
+            if (!s.lastStopLossOrderId || !s.lastSlPrice)
                 throw new Error("SL order or price missing in state");
+
+            let slPrice = e.side === "buy" ? targetCandle.low : targetCandle.high;
+
+            if (lowerTFCandles.length) {
+                const r = Utils.detectLowerTimeframeReversal(
+                    e.side,
+                    lowerTFTargetCandle,
+                    lowerTFCandles
+                );
+
+                if (r.shouldTighten && r.slPrice !== undefined) {
+                    slPrice = r.slPrice;
+
+                    tradingCronLogger.info(
+                        `[15m-ReversalDetected] ${sym} tighten SL → ${slPrice} | Points: ${r.points}`,
+                        { side: e.side, slPrice, points: r.points }
+                    );
+                }
             }
 
-            let sl = e.side === "buy" ? Math.min(targetCandle.low, currentPrice) : Math.max(targetCandle.high, currentPrice);
+            let sl =
+                e.side === "buy"
+                    ? Math.min(slPrice, currentPrice)
+                    : Math.max(slPrice, currentPrice);
+
             if (sl === currentPrice) {
-                // add buffer only for current price as sl
-                const buffer = 0.1
+                const buffer = 0.1;
                 sl = e.side === "buy"
                     ? sl * (1 - buffer / 100)
                     : sl * (1 + buffer / 100);
@@ -256,29 +286,21 @@ export class ProcessPendingState {
                 sl
             );
 
-            console.log({ updateRes });
+            if (!updateRes.success && updateRes.isSlSame) return s;
 
-            // SL unchanged → nothing to do
-            if (!updateRes.success && updateRes.isSlSame) {
-                return s;
-            }
-
-            // SL update failed → recover
-            if (!updateRes.success) {
+            if (!updateRes.success)
                 return this.placeCancelledBracketOrders(s, e, sl);
-            }
 
-            // SL updated successfully
             const updated = await this.updateStateSl(s, Number(updateRes.slLimitPrice));
 
-            if (!updated) {
-                throw new Error("Martingale state not found");
-            }
+            if (!updated) throw new Error("Martingale state not found");
 
             return updated as IMartingaleState;
 
         } catch (err) {
+
             tradingCycleErrorLogger.error("[manageOpenPosition]", err);
+
             return s;
         }
     }
@@ -288,7 +310,9 @@ export class ProcessPendingState {
         state: IMartingaleState,
         order: OrderDetails,
         targetCandle: TargetCandle,
-        currentPrice: number
+        currentPrice: number,
+        lowerTFTargetCandle: TargetCandle,
+        lowerTFCandles: Candle[]
     ): Promise<IMartingaleState> {
 
         try {
@@ -297,7 +321,7 @@ export class ProcessPendingState {
                 case "CANCELLED":
                     return this.handleCanceledEntryOrder(state);
                 case "CLOSED":
-                    return this.handleClosedEntryOrder(sym, state, order, targetCandle, currentPrice);
+                    return this.handleClosedEntryOrder(sym, state, order, targetCandle, currentPrice, lowerTFTargetCandle, lowerTFCandles);
                 default:
                     return state;
             }
@@ -313,7 +337,9 @@ export class ProcessPendingState {
         s: IMartingaleState,
         e: OrderDetails,
         targetCandle: TargetCandle,
-        currentPrice: number
+        currentPrice: number,
+        lowerTFTargetCandle: TargetCandle,
+        lowerTFCandles: Candle[]
     ): Promise<IMartingaleState> {
         const cfg = TradingConfig.getConfig();
         const positions = await deltaExchange.getPositions(cfg.PRODUCT_ID);
@@ -325,7 +351,7 @@ export class ProcessPendingState {
         console.log({ hasOpenPosition });
 
         return hasOpenPosition
-            ? this.manageOpenPosition(sym, s, e, targetCandle, currentPrice)
+            ? this.manageOpenPosition(sym, s, e, targetCandle, currentPrice, lowerTFTargetCandle, lowerTFCandles)
             : this.processClosedPosition(s, Number(e.paid_commission || 0), currentPrice);
     }
 }

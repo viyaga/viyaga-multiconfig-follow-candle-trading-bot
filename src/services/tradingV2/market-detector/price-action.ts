@@ -1,19 +1,5 @@
 import { Candle, TargetCandle } from "../type";
-
-export function getBodyPercent(c: Candle): number {
-    const range = c.high - c.low;
-    return range === 0 ? 0 : (Math.abs(c.close - c.open) / range) * 100;
-}
-
-export function getBodyMovePercent(c: Candle): number {
-    return (Math.abs(c.close - c.open) / c.open) * 100;
-}
-
-export function getRangePercent(candles: Candle[]): number {
-    const high = Math.max(...candles.map(c => c.high));
-    const low = Math.min(...candles.map(c => c.low));
-    return low === 0 ? 0 : ((high - low) / low) * 100;
-}
+import { Utils } from "../utils";
 
 // ✅ Fix #6: Accept atrAvg instead of atrPercent to avoid using current (shrinking) volatility
 export function detectMicroChop(candles: Candle[], atrAvg: number, bodyMovementThreshold: number): boolean {
@@ -29,7 +15,7 @@ export function detectMicroChop(candles: Candle[], atrAvg: number, bodyMovementT
 
         const rangePercent = close === 0 ? 0 : ((high - low) / close) * 100;
 
-        const smallBodies = slice.filter(c => getBodyPercent(c) < bodyMovementThreshold).length;
+        const smallBodies = slice.filter(c => Utils.getBodyPercent(c) < bodyMovementThreshold).length;
 
         // ✅ Fix #6: Use average volatility, not current shrinking volatility
         const dynamicThreshold = atrAvg * 0.6;
@@ -76,8 +62,8 @@ export function isTargetCandleNotGood(
     // Normalize range vs ATR (dimension-safe)
     const rangePercent = close === 0 ? 0 : (range / close) * 100;
 
-    const bodyPercent = getBodyPercent(targetCandle);
-    const bodyMovePercent = getBodyMovePercent(targetCandle);
+    const bodyPercent = Utils.getBodyPercent(targetCandle);
+    const bodyMovePercent = Utils.getBodyMovePercent(targetCandle);
 
     const upperWick = high - Math.max(open, close);
     const lowerWick = Math.min(open, close) - low;
@@ -129,7 +115,7 @@ export function isRangeCompressed(
     const isBreakoutUp = last.close > Math.max(...recent.slice(0, -1).map(c => c.high));
     const isBreakoutDown = last.close < Math.min(...recent.slice(0, -1).map(c => c.low));
 
-    const bodyPercent = getBodyPercent(last);
+    const bodyPercent = Utils.getBodyPercent(last);
     const strongBody = bodyPercent > 60;
 
     const breakoutDetected = (isBreakoutUp || isBreakoutDown) && strongBody;

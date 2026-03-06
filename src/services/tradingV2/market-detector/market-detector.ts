@@ -9,13 +9,12 @@ import {
 import {
     detectMicroChop,
     isVolumeContracting,
-    getBodyPercent,
-    getRangePercent,
     isTargetCandleNotGood,
     isRangeCompressed,
     getVolumeExpansionPoints,
     getTargetCandleVolumeSpike
 } from "./price-action";
+import { Utils } from "../utils";
 
 export class MarketDetector {
 
@@ -82,7 +81,7 @@ export class MarketDetector {
 
         /* ================= STRUCTURE ================= */
         const recent = candles.slice(-cfg.STRUCTURE_LOOKBACK);
-        const rangePercent = getRangePercent(recent);
+        const rangePercent = Utils.getRangePercent(recent);
         const structureWeak = rangePercent < atrAvg * 1.2;
 
         if (structureWeak) chopPoints += 2;
@@ -124,7 +123,7 @@ export class MarketDetector {
         const isBreakout =
             last.close > prevHigh || last.close < prevLow;
 
-        const strongBody = getBodyPercent(last) > 65;
+        const strongBody = Utils.getBodyPercent(last) > 65;
         const breakoutBoostApplied = isBreakout && strongBody && atrPercent > atrAvg;
 
         if (breakoutBoostApplied) {

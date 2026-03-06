@@ -13,6 +13,7 @@ export interface ConfigType {
     TIMEFRAME: string,
     CONFIRMATION_TIMEFRAME: string,
     STRUCTURE_TIMEFRAME: string,
+    LOWER_TIMEFRAME: string,
     LEVERAGE: number,
     INITIAL_BASE_QUANTITY: number,
     TRADING_MODE: "conservative" | "balanced" | "aggressive"
@@ -25,6 +26,7 @@ export interface ConfigType {
     CHOPPY_ATR_THRESHOLD: number;
     DRY_RUN: boolean;
     IS_TESTING: boolean;
+    REVERSAL_POINT_THRESHOLD: number;
 }
 
 export interface InternalChopConfig {
