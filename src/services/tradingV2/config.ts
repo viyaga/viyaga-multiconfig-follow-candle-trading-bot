@@ -64,8 +64,8 @@ export class TradingConfig {
         STRUCTURE_TIMEFRAME: "1d",
         LOWER_TIMEFRAME: "15m",
 
-        LEVERAGE: 10,
-        INITIAL_BASE_QUANTITY: 100,
+        LEVERAGE: 20,
+        INITIAL_BASE_QUANTITY: 10,
 
         TRADING_MODE: "conservative",
 
