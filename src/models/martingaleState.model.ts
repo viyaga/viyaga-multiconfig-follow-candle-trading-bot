@@ -22,6 +22,7 @@ export interface IMartingaleState {
     cumulativeFees: number;
     allTimePnl: number;
     allTimeFees: number;
+    lastTradeSettledAt?: Date | null;
     updatedAt: string;
     createdAt: string;
 }
@@ -51,6 +52,7 @@ const MartingaleStateSchema: Schema = new Schema(
         cumulativeFees: { type: Number, required: true, default: 0 },
         allTimePnl: { type: Number, required: true, default: 0 },
         allTimeFees: { type: Number, required: true, default: 0 },
+        lastTradeSettledAt: { type: Date, default: null },
     },
     {
         timestamps: true

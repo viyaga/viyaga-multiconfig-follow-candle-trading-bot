@@ -44,8 +44,88 @@ export class TradingConfig {
         CHOPPY_ATR_THRESHOLD: 1.2,
         DRY_RUN: false,
         IS_TESTING: false,
-        REVERSAL_POINT_THRESHOLD: 3
+        REVERSAL_POINT_THRESHOLD: 3,
+        COOLDOWN_PERIOD_MINUTES: 55
     },
+    {
+        id: "2",
+        USER_ID: "12345",
+        DELTA_EXCHANGE_API_KEY: "jb5K5wanfp4HNz9naTruYTOEjfq8eZ",
+        DELTA_EXCHANGE_SECRET_KEY: "he9E1B0eeJfhJnxlM49EXhKrYOfNln5b4EOLMZotCLWl6gRFip510Z6yxci1",
+        DELTA_EXCHANGE_BASE_URL_INDIA: "https://api.india.delta.exchange/v2",
+
+        PRODUCT_ID: 58223,
+        SYMBOL: "ARCUSD",
+        LOT_SIZE: 10,
+        PRICE_DECIMAL_PLACES: 5,
+
+        TIMEFRAME: "1h",
+        CONFIRMATION_TIMEFRAME: "4h",
+        STRUCTURE_TIMEFRAME: "1d",
+        LOWER_TIMEFRAME: "15m",
+
+        LEVERAGE: 10,
+        INITIAL_BASE_QUANTITY: 100,
+
+        TRADING_MODE: "conservative",
+
+        MIN_MOVEMENT_PERCENT: 0.3,
+        MAX_ALLOWED_PRICE_MOVEMENT_PERCENT: 3,
+        MIN_ALLOWED_PRICE_MOVEMENT_PERCENT: 0.1,
+
+        TAKE_PROFIT_PERCENT: 3000,
+
+        SL_TRIGGER_BUFFER_PERCENT: 0.25,
+        SL_LIMIT_BUFFER_PERCENT: 1,
+
+        CHOPPY_ATR_THRESHOLD: 2,
+
+        REVERSAL_POINT_THRESHOLD: 3,
+        COOLDOWN_PERIOD_MINUTES: 55,
+
+        DRY_RUN: false,
+        IS_TESTING: false
+    },
+        // {
+        //     id: "2",
+        //     USER_ID: "12345",
+        //     DELTA_EXCHANGE_API_KEY: "jb5K5wanfp4HNz9naTruYTOEjfq8eZ",
+        //     DELTA_EXCHANGE_SECRET_KEY: "he9E1B0eeJfhJnxlM49EXhKrYOfNln5b4EOLMZotCLWl6gRFip510Z6yxci1",
+        //     DELTA_EXCHANGE_BASE_URL_INDIA: "https://api.india.delta.exchange/v2",
+
+        //     PRODUCT_ID: 74313,
+        //     SYMBOL: "SIGNUSD",
+
+        //     LOT_SIZE: 100,
+        //     PRICE_DECIMAL_PLACES: 5,
+
+        //     TIMEFRAME: "4h",
+        //     CONFIRMATION_TIMEFRAME: "12h",
+        //     STRUCTURE_TIMEFRAME: "1d",
+        //     LOWER_TIMEFRAME: "1h",
+
+        //     LEVERAGE: 10,
+        //     INITIAL_BASE_QUANTITY: 3,
+
+        //     TRADING_MODE: "conservative",
+
+        //     MIN_MOVEMENT_PERCENT: 0.2,
+        //     MAX_ALLOWED_PRICE_MOVEMENT_PERCENT: 2,
+        //     MIN_ALLOWED_PRICE_MOVEMENT_PERCENT: 0.01,
+
+        //     TAKE_PROFIT_PERCENT: 3000,
+
+        //     SL_TRIGGER_BUFFER_PERCENT: 1,
+        //     SL_LIMIT_BUFFER_PERCENT: 2,
+
+        //     CHOPPY_ATR_THRESHOLD: 1.2,
+
+        //     DRY_RUN: true,
+        //     IS_TESTING: false,
+
+        //     REVERSAL_POINT_THRESHOLD: 3,
+        //     COOLDOWN_PERIOD_MINUTES: 55
+        // }
         // {
         //     id: "2",
         //     USER_ID: "12345",
@@ -71,32 +151,6 @@ export class TradingConfig {
         //     DRY_RUN: true,
         //     IS_TESTING: false
         // },
-        // {
-        //     id: "3",
-        //     USER_ID: "12345",
-        //     DELTA_EXCHANGE_API_KEY: "jb5K5wanfp4HNz9naTruYTOEjfq8eZ",
-        //     DELTA_EXCHANGE_SECRET_KEY: "he9E1B0eeJfhJnxlM49EXhKrYOfNln5b4EOLMZotCLWl6gRFip510Z6yxci1",
-        //     DELTA_EXCHANGE_BASE_URL_INDIA: "https://api.india.delta.exchange/v2",
-
-        //     PRODUCT_ID: 58223,
-        //     SYMBOL: "ARCUSD",
-        //     LOT_SIZE: 10,
-        //     PRICE_DECIMAL_PLACES: 5,
-        //     TIMEFRAME: "1h",
-        //     LEVERAGE: 10,
-        //     INITIAL_BASE_QUANTITY: 100,
-        //     TRADING_MODE: "conservative",
-        //     MIN_MOVEMENT_PERCENT: 0.3,
-        //     MIN_RANGE_PERCENT: 0.4,
-        //     MAX_ALLOWED_PRICE_MOVEMENT_PERCENT: 4,
-        //     MIN_ALLOWED_PRICE_MOVEMENT_PERCENT: 0.1,
-        //     TAKE_PROFIT_PERCENT: 3000,
-        //     SL_TRIGGER_BUFFER_PERCENT: 0.2,
-        //     SL_LIMIT_BUFFER_PERCENT: 0.3,
-        //     CHOPPY_ATR_THRESHOLD: 2,
-        //     DRY_RUN: true,
-        //     IS_TESTING: false
-        // }
     ];
 
     /* -------------------------------------------------------------------------

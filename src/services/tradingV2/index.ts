@@ -153,7 +153,36 @@ export class TradingV2 {
                     `[TradingCycle:${symbol}] Pending state processed: NewOutcome=${state.lastTradeOutcome}`
                 );
 
+                // 💾 Persist settlement state (if trade just finished)
+                if (!Utils.isTradePending(state)) {
+                    await MartingaleState.findOneAndUpdate(
+                        { configId: c.id, userId: c.USER_ID, symbol: c.SYMBOL },
+                        { $set: state },
+                        { new: true }
+                    );
+                    tradingCronLogger.info(`[TradingCycle:${symbol}] Settled state persisted to database.`);
+                }
+
                 if (Utils.isTradePending(state)) return;
+            }
+
+            // ───────────────── COOLDOWN CHECK ─────────────────
+            const cooldownMins = c.COOLDOWN_PERIOD_MINUTES || 0;
+            if (cooldownMins > 0 && state.lastTradeSettledAt) {
+                const lastSettled = new Date(state.lastTradeSettledAt).getTime();
+                const now = Date.now();
+                const diffMins = (now - lastSettled) / (1000 * 60);
+
+                if (diffMins < cooldownMins) {
+                    skipTradingLogger.info(`[Cooldown] SKIP: Cooldown active for ${symbol}`, {
+                        configId,
+                        userId,
+                        symbol,
+                        cooldownMins,
+                        remainingMins: (cooldownMins - diffMins).toFixed(2)
+                    });
+                    return;
+                }
             }
 
             // ───────────────── MULTI TIMEFRAME ALIGNMENT ─────────────────
