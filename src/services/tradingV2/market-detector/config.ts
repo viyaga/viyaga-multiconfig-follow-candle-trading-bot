@@ -7,12 +7,12 @@ export function getInternalConfig(config: ConfigType): InternalChopConfig {
         conservative: {
             ATR_PERIOD: 14,
             ADX_PERIOD: 14,
-            ADX_WEAK_THRESHOLD: 22,      // strong trend required
+            ADX_WEAK_THRESHOLD: 22,
             STRUCTURE_LOOKBACK: 14,
             SMALL_BODY_PERCENT_THRESHOLD: 50,
             SMALL_BODY_MIN_COUNT: 7,
             MIN_REQUIRED_CANDLES: 70,
-            CHOP_SCORE_THRESHOLD: 3      // ultra clean only
+            CHOP_SCORE_THRESHOLD: 3
         },
 
         balanced: {
@@ -23,7 +23,7 @@ export function getInternalConfig(config: ConfigType): InternalChopConfig {
             SMALL_BODY_PERCENT_THRESHOLD: 48,
             SMALL_BODY_MIN_COUNT: 6,
             MIN_REQUIRED_CANDLES: 60,
-            CHOP_SCORE_THRESHOLD: 3     // ideal for 2%
+            CHOP_SCORE_THRESHOLD: 3
         },
 
         aggressive: {
@@ -34,7 +34,18 @@ export function getInternalConfig(config: ConfigType): InternalChopConfig {
             SMALL_BODY_PERCENT_THRESHOLD: 45,
             SMALL_BODY_MIN_COUNT: 5,
             MIN_REQUIRED_CANDLES: 40,
-            CHOP_SCORE_THRESHOLD: 3      // allows more noise
+            CHOP_SCORE_THRESHOLD: 3
+        },
+
+        meme: {
+            ATR_PERIOD: 7,                     // reacts faster to volatility
+            ADX_PERIOD: 7,                     // meme trends form quickly
+            ADX_WEAK_THRESHOLD: 14,            // allow low ADX pumps
+            STRUCTURE_LOOKBACK: 6,             // structure changes fast
+            SMALL_BODY_PERCENT_THRESHOLD: 40,  // meme candles often messy
+            SMALL_BODY_MIN_COUNT: 4,           // allow noisy candles
+            MIN_REQUIRED_CANDLES: 30,          // new meme coins often short history
+            CHOP_SCORE_THRESHOLD: 4            // allow more chaos
         }
     };
 

@@ -87,7 +87,7 @@ export class MarketDetector {
         if (structureWeak) chopPoints += 2;
 
         /* ================= MICRO CHOP ================= */
-        const microChopDetected = detectMicroChop(candles, atrAvg, cfg.SMALL_BODY_PERCENT_THRESHOLD);
+        const microChopDetected = detectMicroChop(candles, atrAvg, cfg.SMALL_BODY_PERCENT_THRESHOLD, cfg.SMALL_BODY_MIN_COUNT);
         if (microChopDetected) {
             chopPoints += 2;
         }

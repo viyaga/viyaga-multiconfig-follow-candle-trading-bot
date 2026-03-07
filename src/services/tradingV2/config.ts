@@ -35,14 +35,12 @@ export class TradingConfig {
         LEVERAGE: 20,
         INITIAL_BASE_QUANTITY: 10,
         TRADING_MODE: "aggressive",
-        MIN_MOVEMENT_PERCENT: 0.6,
         MAX_ALLOWED_PRICE_MOVEMENT_PERCENT: 4,
         MIN_ALLOWED_PRICE_MOVEMENT_PERCENT: 0.01,
         TAKE_PROFIT_PERCENT: 3000,
         SL_TRIGGER_BUFFER_PERCENT: 0.25,
         SL_LIMIT_BUFFER_PERCENT: 1,
-        CHOPPY_ATR_THRESHOLD: 1.2,
-        DRY_RUN: false,
+        DRY_RUN: true,
         IS_TESTING: false,
         REVERSAL_POINT_THRESHOLD: 3,
         COOLDOWN_PERIOD_MINUTES: 55
@@ -59,31 +57,28 @@ export class TradingConfig {
         LOT_SIZE: 10,
         PRICE_DECIMAL_PLACES: 5,
 
-        TIMEFRAME: "1h",
-        CONFIRMATION_TIMEFRAME: "4h",
-        STRUCTURE_TIMEFRAME: "1d",
-        LOWER_TIMEFRAME: "15m",
+        TIMEFRAME: "15m",
+        CONFIRMATION_TIMEFRAME: "1h",
+        STRUCTURE_TIMEFRAME: "4h",
+        LOWER_TIMEFRAME: "5m",
 
         LEVERAGE: 20,
         INITIAL_BASE_QUANTITY: 10,
 
-        TRADING_MODE: "conservative",
+        TRADING_MODE: "meme",
 
-        MIN_MOVEMENT_PERCENT: 0.3,
         MAX_ALLOWED_PRICE_MOVEMENT_PERCENT: 3,
         MIN_ALLOWED_PRICE_MOVEMENT_PERCENT: 0.1,
 
         TAKE_PROFIT_PERCENT: 3000,
 
-        SL_TRIGGER_BUFFER_PERCENT: 0.25,
-        SL_LIMIT_BUFFER_PERCENT: 1,
-
-        CHOPPY_ATR_THRESHOLD: 2,
+        SL_TRIGGER_BUFFER_PERCENT: 0.5,
+        SL_LIMIT_BUFFER_PERCENT: 1.5,
 
         REVERSAL_POINT_THRESHOLD: 3,
         COOLDOWN_PERIOD_MINUTES: 55,
 
-        DRY_RUN: false,
+        DRY_RUN: true,
         IS_TESTING: false
     },
         // {
@@ -109,7 +104,6 @@ export class TradingConfig {
 
         //     TRADING_MODE: "conservative",
 
-        //     MIN_MOVEMENT_PERCENT: 0.2,
         //     MAX_ALLOWED_PRICE_MOVEMENT_PERCENT: 2,
         //     MIN_ALLOWED_PRICE_MOVEMENT_PERCENT: 0.01,
 
@@ -117,8 +111,6 @@ export class TradingConfig {
 
         //     SL_TRIGGER_BUFFER_PERCENT: 1,
         //     SL_LIMIT_BUFFER_PERCENT: 2,
-
-        //     CHOPPY_ATR_THRESHOLD: 1.2,
 
         //     DRY_RUN: true,
         //     IS_TESTING: false,
@@ -140,14 +132,12 @@ export class TradingConfig {
         //     LEVERAGE: 10,                  // default_leverage = 20
         //     INITIAL_BASE_QUANTITY: 1,
         //     TRADING_MODE: "conservative",
-        //     MIN_MOVEMENT_PERCENT: 0.3,
         //     MIN_RANGE_PERCENT: 0.4,
         //     MAX_ALLOWED_PRICE_MOVEMENT_PERCENT: 4,
         //     MIN_ALLOWED_PRICE_MOVEMENT_PERCENT: 0.1,
         //     TAKE_PROFIT_PERCENT: 3000,
         //     SL_TRIGGER_BUFFER_PERCENT: 0.2,
         //     SL_LIMIT_BUFFER_PERCENT: 0.3,
-        //     CHOPPY_ATR_THRESHOLD: 2,
         //     DRY_RUN: true,
         //     IS_TESTING: false
         // },

@@ -2,7 +2,7 @@ import { Candle, TargetCandle } from "../type";
 import { Utils } from "../utils";
 
 // ✅ Fix #6: Accept atrAvg instead of atrPercent to avoid using current (shrinking) volatility
-export function detectMicroChop(candles: Candle[], atrAvg: number, bodyMovementThreshold: number): boolean {
+export function detectMicroChop(candles: Candle[], atrAvg: number, bodyMovementThreshold: number, minSmallBodies: number): boolean {
     if (candles.length < 5) return false;
 
     const windows = [3, 4, 5];
@@ -28,7 +28,7 @@ export function detectMicroChop(candles: Candle[], atrAvg: number, bodyMovementT
             slice[slice.length - 1].high <= Math.max(...prevHighs) &&
             slice[slice.length - 1].low >= Math.min(...prevLows);
 
-        if (rangePercent < dynamicThreshold && smallBodies >= size - 1 && noBreak) {
+        if (rangePercent < dynamicThreshold && smallBodies >= minSmallBodies && noBreak) {
             return true;
         }
     }

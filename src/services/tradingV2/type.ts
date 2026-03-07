@@ -16,14 +16,12 @@ export interface ConfigType {
     LOWER_TIMEFRAME: string,
     LEVERAGE: number,
     INITIAL_BASE_QUANTITY: number,
-    TRADING_MODE: "conservative" | "balanced" | "aggressive"
-    MIN_MOVEMENT_PERCENT: number,
+    TRADING_MODE: "conservative" | "balanced" | "aggressive" | "meme"
     MAX_ALLOWED_PRICE_MOVEMENT_PERCENT: number,
     MIN_ALLOWED_PRICE_MOVEMENT_PERCENT: number,
     TAKE_PROFIT_PERCENT: number,
     SL_TRIGGER_BUFFER_PERCENT: number,
     SL_LIMIT_BUFFER_PERCENT: number;
-    CHOPPY_ATR_THRESHOLD: number;
     DRY_RUN: boolean;
     IS_TESTING: boolean;
     REVERSAL_POINT_THRESHOLD: number;
