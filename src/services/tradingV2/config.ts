@@ -40,7 +40,7 @@ export class TradingConfig {
         TAKE_PROFIT_PERCENT: 3000,
         SL_TRIGGER_BUFFER_PERCENT: 0.25,
         SL_LIMIT_BUFFER_PERCENT: 1,
-        DRY_RUN: true,
+        DRY_RUN: false,
         IS_TESTING: false,
         REVERSAL_POINT_THRESHOLD: 3,
         COOLDOWN_PERIOD_MINUTES: 55
@@ -78,7 +78,7 @@ export class TradingConfig {
         REVERSAL_POINT_THRESHOLD: 3,
         COOLDOWN_PERIOD_MINUTES: 55,
 
-        DRY_RUN: true,
+        DRY_RUN: false,
         IS_TESTING: false
     },
         // {
