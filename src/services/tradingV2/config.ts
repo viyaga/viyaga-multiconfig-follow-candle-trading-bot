@@ -76,7 +76,7 @@ export class TradingConfig {
         SL_LIMIT_BUFFER_PERCENT: 1.5,
 
         REVERSAL_POINT_THRESHOLD: 3,
-        COOLDOWN_PERIOD_MINUTES: 55,
+        COOLDOWN_PERIOD_MINUTES: 14,
 
         DRY_RUN: false,
         IS_TESTING: false
