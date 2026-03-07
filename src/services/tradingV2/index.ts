@@ -153,16 +153,6 @@ export class TradingV2 {
                     `[TradingCycle:${symbol}] Pending state processed: NewOutcome=${state.lastTradeOutcome}`
                 );
 
-                // 💾 Persist settlement state (if trade just finished)
-                if (!Utils.isTradePending(state)) {
-                    await MartingaleState.findOneAndUpdate(
-                        { configId: c.id, userId: c.USER_ID, symbol: c.SYMBOL },
-                        { $set: state },
-                        { new: true }
-                    );
-                    tradingCronLogger.info(`[TradingCycle:${symbol}] Settled state persisted to database.`);
-                }
-
                 if (Utils.isTradePending(state)) return;
             }
 
