@@ -48,7 +48,6 @@ export class ProcessPendingState {
             lastTradeOutcome: "win",
             allTimePnl: (s.allTimePnl || 0) + incrementalPnl,
             allTimeFees: (s.allTimeFees || 0) + incrementalFees,
-            lastTradeSettledAt: new Date()
         };
     }
 
@@ -83,7 +82,6 @@ export class ProcessPendingState {
             cumulativeFees: fees,
             allTimePnl: (s.allTimePnl || 0) + incrementalPnl,
             allTimeFees: (s.allTimeFees || 0) + incrementalFees,
-            lastTradeSettledAt: new Date()
         };
     }
 
@@ -91,7 +89,6 @@ export class ProcessPendingState {
         return {
             ...s,
             lastTradeOutcome: "cancelled",
-            lastTradeSettledAt: new Date()
         };
     }
 

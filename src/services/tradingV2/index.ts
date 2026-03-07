@@ -338,7 +338,8 @@ export class TradingV2 {
                         pnl: state.pnl,
                         cumulativeFees: state.cumulativeFees,
                         allTimePnl: state.allTimePnl,
-                        allTimeFees: state.allTimeFees
+                        allTimeFees: state.allTimeFees,
+                        lastTradeSettledAt: new Date()
                     }
                 },
                 { new: true }
