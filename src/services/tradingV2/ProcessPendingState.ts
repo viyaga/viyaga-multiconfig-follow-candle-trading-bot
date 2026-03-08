@@ -287,6 +287,7 @@ export class ProcessPendingState {
             );
 
             if (!updateRes.success && updateRes.isSlSame) return s;
+            if (!updateRes.success && updateRes.isReversed) return s;
 
             if (!updateRes.success)
                 return this.placeCancelledBracketOrders(s, e, sl);

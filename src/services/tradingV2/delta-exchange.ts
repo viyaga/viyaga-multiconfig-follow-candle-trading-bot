@@ -50,7 +50,14 @@ export class DeltaExchange {
     }
 
 
-    async updateStopLossOrder(id: number | string, lastSlPrice: number, productId: number, productSymbol: string, orderSide: OrderSide, sl: number): Promise<{ success: boolean, slLimitPrice: string, isSlSame?: boolean }> {
+    async updateStopLossOrder(
+        id: number | string,
+        lastSlPrice: number,
+        productId: number,
+        productSymbol: string,
+        orderSide: OrderSide,
+        sl: number
+    ): Promise<{ success: boolean, slLimitPrice: string, isSlSame?: boolean, isReversed?: boolean }> {
 
         const c = TradingConfig.getConfig();
 
@@ -65,10 +72,24 @@ export class DeltaExchange {
         const stopPrice = String(Utils.clampPrice(slTriggerPrice));
         const limitPrice = String(Utils.clampPrice(slLimitPrice));
 
-        console.log("[updateStopLossOrder] SL price", { limitPrice, lastSlPrice });
-        if (limitPrice === lastSlPrice.toString()) {
+        const newSl = Number(limitPrice);
+
+        console.log("[updateStopLossOrder] SL price", { newSl, lastSlPrice });
+
+        // SL unchanged
+        if (newSl === lastSlPrice) {
             console.log("[updateStopLossOrder] SL prices unchanged. Skipping update.");
             return { success: false, slLimitPrice: String(sl), isSlSame: true };
+        }
+
+        // Check wrong direction movement
+        const isReversed =
+            (orderSide === "buy" && newSl < lastSlPrice) ||
+            (orderSide === "sell" && newSl > lastSlPrice);
+
+        if (isReversed) {
+            console.log("[updateStopLossOrder] SL moved in wrong direction. Skipping update.");
+            return { success: false, slLimitPrice: limitPrice, isReversed: true };
         }
 
         const payload = {
@@ -78,8 +99,11 @@ export class DeltaExchange {
             limit_price: limitPrice,
             stop_price: stopPrice,
         };
+
         console.log("[delta] Updating Stop Loss Order:", payload);
+
         const updateRes: any = await this.signedRequest("PUT", "/orders", payload);
+
         console.log("[delta] Updated Stop Loss Order:", updateRes);
 
         return { success: updateRes?.success ?? false, slLimitPrice: limitPrice };
