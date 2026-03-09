@@ -119,8 +119,8 @@ export class TradingV2 {
             );
 
             // ───────────────── HANDLE PENDING TRADE ─────────────────
-            if (state.lastEntryOrderId && Utils.isTradePending(state) && !c.DRY_RUN) {
-
+            if (state.lastEntryOrderId && Utils.isTradePending(state)) {
+            
                 tradingCronLogger.info(
                     `[TradingCycle:${symbol}] Found pending trade with order ID: ${state.lastEntryOrderId}. Fetching order details...`
                 );
@@ -156,7 +156,6 @@ export class TradingV2 {
                 if (Utils.isTradePending(state)) return;
             }
 
-
             const now = new Date();
             const istMinutes = Number(
                 now.toLocaleString("en-IN", {
@@ -164,30 +163,13 @@ export class TradingV2 {
                     minute: "numeric"
                 })
             );
-            if (!c.RUN_MINUTES.includes(istMinutes)) {
+            console.log({ istMinutes, now });
+
+            if (!c.RUN_MINUTES.includes(istMinutes) && null) {
                 skipTradingLogger.info(
                     `[TradingCron] Skipping config: ${c.id} (${c.SYMBOL}) because it is not in the RUN_MINUTES list.`
                 );
                 return;
-            }
-
-            // ───────────────── COOLDOWN CHECK ─────────────────
-            const cooldownMins = c.COOLDOWN_PERIOD_MINUTES || 0;
-            if (cooldownMins > 0 && state.lastTradeSettledAt) {
-                const lastSettled = new Date(state.lastTradeSettledAt).getTime();
-                const now = Date.now();
-                const diffMins = (now - lastSettled) / (1000 * 60);
-
-                if (diffMins < cooldownMins) {
-                    skipTradingLogger.info(`[Cooldown] SKIP: Cooldown active for ${symbol}`, {
-                        configId,
-                        userId,
-                        symbol,
-                        cooldownMins,
-                        remainingMins: (cooldownMins - diffMins).toFixed(2)
-                    });
-                    return;
-                }
             }
 
             // ───────────────── MULTI TIMEFRAME ALIGNMENT ─────────────────

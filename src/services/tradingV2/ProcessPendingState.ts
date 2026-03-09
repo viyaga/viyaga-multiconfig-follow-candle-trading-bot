@@ -243,8 +243,7 @@ export class ProcessPendingState {
 
         try {
 
-            if (!s.lastStopLossOrderId || !s.lastSlPrice)
-                throw new Error("SL order or price missing in state");
+            if (!s.lastStopLossOrderId || !s.lastSlPrice) throw new Error("SL order or price missing in state");
 
             let slPrice = e.side === "buy" ? targetCandle.low : targetCandle.high;
 
@@ -261,7 +260,7 @@ export class ProcessPendingState {
 
                 reversalLogger.info(
                     `[detectLowerTimeframeReversal] ${sym}`,
-                    { side: e.side, slPrice, isOppositeColor: r.isOppositeColor, isOppositeDirection: r.isOppositeDirection, points: r.points, last: r.last, prev: r.prev }
+                    { points: r.points, side: e.side, slPrice, isOppositeColor: r.isOppositeColor, isOppositeDirection: r.isOppositeDirection, last: r.last, prev: r.prev }
                 );
             }
 
@@ -287,7 +286,7 @@ export class ProcessPendingState {
             );
 
             if (!updateRes.success && updateRes.isSlSame) return s;
-            if (!updateRes.success && updateRes.isReversed) return s;
+            if (!updateRes.success && updateRes.isSlReversed) return s;
 
             if (!updateRes.success)
                 return this.placeCancelledBracketOrders(s, e, sl);
@@ -344,10 +343,9 @@ export class ProcessPendingState {
     ): Promise<IMartingaleState> {
         const cfg = TradingConfig.getConfig();
         const positions = await deltaExchange.getPositions(cfg.PRODUCT_ID);
-        const hasOpenPosition =
-            Array.isArray(positions)
-                ? positions.some(p => Number(p.size) !== 0)
-                : positions && Number(positions.size) !== 0;
+        const hasOpenPosition = Array.isArray(positions)
+            ? positions.some(p => Number(p.size) !== 0)
+            : positions && Number(positions.size) !== 0;
 
         console.log({ hasOpenPosition });
 

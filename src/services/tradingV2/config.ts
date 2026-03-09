@@ -45,7 +45,6 @@ export class TradingConfig {
             DRY_RUN: false,
             IS_TESTING: false,
             REVERSAL_POINT_THRESHOLD: 3,
-            COOLDOWN_PERIOD_MINUTES: 55
         }
     ];
 

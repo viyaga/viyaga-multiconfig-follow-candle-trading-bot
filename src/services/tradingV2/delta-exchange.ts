@@ -57,7 +57,7 @@ export class DeltaExchange {
         productSymbol: string,
         orderSide: OrderSide,
         sl: number
-    ): Promise<{ success: boolean, slLimitPrice: string, isSlSame?: boolean, isReversed?: boolean }> {
+    ): Promise<{ success: boolean, slLimitPrice: string, isSlSame?: boolean, isSlReversed?: boolean }> {
 
         const c = TradingConfig.getConfig();
 
@@ -83,13 +83,13 @@ export class DeltaExchange {
         }
 
         // Check wrong direction movement
-        const isReversed =
+        const isSlReversed =
             (orderSide === "buy" && newSl < lastSlPrice) ||
             (orderSide === "sell" && newSl > lastSlPrice);
 
-        if (isReversed) {
+        if (isSlReversed) {
             console.log("[updateStopLossOrder] SL moved in wrong direction. Skipping update.");
-            return { success: false, slLimitPrice: limitPrice, isReversed: true };
+            return { success: false, slLimitPrice: limitPrice, isSlReversed: true };
         }
 
         const payload = {

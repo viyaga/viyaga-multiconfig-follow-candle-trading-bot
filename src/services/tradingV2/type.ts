@@ -26,7 +26,6 @@ export interface ConfigType {
     DRY_RUN: boolean;
     IS_TESTING: boolean;
     REVERSAL_POINT_THRESHOLD: number;
-    COOLDOWN_PERIOD_MINUTES: number;
 }
 
 export interface InternalChopConfig {

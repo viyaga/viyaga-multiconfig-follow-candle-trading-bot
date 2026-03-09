@@ -44,9 +44,8 @@ const tradingCycleCronJob = (): void => {
                 tradingCronLogger.info(`[TradingCron] Processing batch of ${configs.length} configs...`);
                 const results = await Promise.allSettled(
                     configs.map(cfg => {
-
                         tradingCronLogger.info(`[TradingCron] Starting cycle for config: ${cfg.id} (${cfg.SYMBOL})`);
-                        // Wrap execution in AsyncLocalStorage context to ensure config isolation
+                        
                         return TradingConfig.configStore.run(cfg, async () => {
                             return TradingV2.runTradingCycle(cfg);
                         });
