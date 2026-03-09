@@ -257,12 +257,12 @@ export class ProcessPendingState {
 
                 if (r.shouldTighten && r.slPrice !== undefined) {
                     slPrice = r.slPrice;
-
-                    reversalLogger.info(
-                        `[15m-ReversalDetected] ${sym} tighten SL → ${slPrice} | Points: ${r.points}`,
-                        { side: e.side, slPrice, points: r.points, last: r.last, prev: r.prev }
-                    );
                 }
+
+                reversalLogger.info(
+                    `[15m-ReversalDetected] ${sym} tighten SL → ${slPrice} | Points: ${r.points}`,
+                    { side: e.side, slPrice, points: r.points, last: r.last, prev: r.prev }
+                );
             }
 
             let sl =
