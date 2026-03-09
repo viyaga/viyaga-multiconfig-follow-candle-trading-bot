@@ -158,9 +158,16 @@ export class TradingV2 {
 
 
             const now = new Date();
-            const minutes = now.getMinutes();
-            if (!c.RUN_MINUTES.includes(minutes)) {
-                skipTradingLogger.info(`[TradingCron] Skipping config: ${c.id} (${c.SYMBOL}) because it is not in the RUN_MINUTES list.`);
+            const istMinutes = Number(
+                now.toLocaleString("en-IN", {
+                    timeZone: "Asia/Kolkata",
+                    minute: "numeric"
+                })
+            );
+            if (!c.RUN_MINUTES.includes(istMinutes)) {
+                skipTradingLogger.info(
+                    `[TradingCron] Skipping config: ${c.id} (${c.SYMBOL}) because it is not in the RUN_MINUTES list.`
+                );
                 return;
             }
 
