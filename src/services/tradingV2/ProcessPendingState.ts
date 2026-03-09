@@ -63,7 +63,7 @@ export class ProcessPendingState {
 
         const c = TradingConfig.getConfig();
 
-        const targetAmount = Math.abs(netDebt) * 1.2; // 50% extra to cover fees and slippage
+        const targetAmount = Math.abs(netDebt) * 1.5; // 50% extra to cover fees and slippage
         const marginRequiredPerLot = currentPrice * c.LOT_SIZE / c.LEVERAGE
         const lots = c.INITIAL_BASE_QUANTITY + Math.ceil(
             targetAmount / marginRequiredPerLot
