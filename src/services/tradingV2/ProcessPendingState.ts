@@ -255,13 +255,13 @@ export class ProcessPendingState {
                     lowerTFCandles
                 );
 
-                if (r.shouldTighten && r.slPrice !== undefined) {
+                if (r.shouldTighten && r.slPrice) {
                     slPrice = r.slPrice;
                 }
 
                 reversalLogger.info(
-                    `[15m-ReversalDetected] ${sym} tighten SL → ${slPrice} | Points: ${r.points}`,
-                    { side: e.side, slPrice, points: r.points, last: r.last, prev: r.prev }
+                    `[detectLowerTimeframeReversal] ${sym}`,
+                    { side: e.side, slPrice, isOppositeColor: r.isOppositeColor, isOppositeDirection: r.isOppositeDirection, points: r.points, last: r.last, prev: r.prev }
                 );
             }
 

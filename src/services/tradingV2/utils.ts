@@ -215,15 +215,17 @@ export class Utils {
         side: "buy" | "sell",
         targetCandle: TargetCandle,
         candles: Candle[]
-    ): { shouldTighten: boolean; slPrice?: number; points: number; last?: Candle; prev?: Candle } {
+    ): { shouldTighten: boolean; slPrice: number | null; isOppositeColor: boolean; isOppositeDirection: boolean; points: number; last: Candle; prev: Candle } {
 
-        if (candles.length < 6) {
-            return { shouldTighten: false, points: 0 };
+        if (candles.length < 3) {
+            throw new Error("Not enough candles to detect reversal");
         }
 
         const cfg = TradingConfig.getConfig();
         const threshold = cfg.REVERSAL_POINT_THRESHOLD;
         let points = 0;
+        let isOppositeColor = false;
+        let isOppositeDirection = false;
 
         const lastIndex = candles.length - 1;
 
@@ -239,16 +241,19 @@ export class Utils {
         if (side === "buy") {
 
             const oppositeColor = "red";
+            isOppositeColor = lastColor === oppositeColor && prevColor === oppositeColor;
+            isOppositeDirection = last.low < prev.low;
 
-            if (lastColor === oppositeColor && prevColor === oppositeColor) points += 2;
-
-            if (last.low < prev.low) points += 2;
+            if (isOppositeColor) points += 2;
+            if (isOppositeDirection) points += 2;
 
             const shouldTighten = points >= threshold;
 
             return {
                 shouldTighten,
-                slPrice: shouldTighten ? last.low : undefined,
+                slPrice: shouldTighten ? last.low : null,
+                isOppositeColor,
+                isOppositeDirection,
                 points,
                 last,
                 prev
@@ -258,22 +263,25 @@ export class Utils {
         if (side === "sell") {
 
             const oppositeColor = "green";
+            isOppositeColor = lastColor === oppositeColor && prevColor === oppositeColor;
+            isOppositeDirection = last.high > prev.high;
 
-            if (lastColor === oppositeColor && prevColor === oppositeColor) points += 2;
-
-            if (last.high > prev.high) points += 2;
+            if (isOppositeColor) points += 2;
+            if (isOppositeDirection) points += 2;
 
             const shouldTighten = points >= threshold;
 
             return {
                 shouldTighten,
-                slPrice: shouldTighten ? last.high : undefined,
+                slPrice: shouldTighten ? last.high : null,
+                isOppositeColor,
+                isOppositeDirection,
                 points,
                 last,
                 prev
             };
         }
 
-        return { shouldTighten: false, points: 0 };
+        throw new Error("Invalid side");
     }
 }
