@@ -156,6 +156,14 @@ export class TradingV2 {
                 if (Utils.isTradePending(state)) return;
             }
 
+
+            const now = new Date();
+            const minutes = now.getMinutes();
+            if (!c.RUN_MINUTES.includes(minutes)) {
+                skipTradingLogger.info(`[TradingCron] Skipping config: ${c.id} (${c.SYMBOL}) because it is not in the RUN_MINUTES list.`);
+                return;
+            }
+
             // ───────────────── COOLDOWN CHECK ─────────────────
             const cooldownMins = c.COOLDOWN_PERIOD_MINUTES || 0;
             if (cooldownMins > 0 && state.lastTradeSettledAt) {
