@@ -36,7 +36,7 @@ export class TradingConfig {
             LOWER_TIMEFRAME: "15m",
             LEVERAGE: 20,
             INITIAL_BASE_QUANTITY: 1,
-            TRADING_MODE: "aggressive",
+            TRADING_MODE: "balanced", // balanced, aggressive, conservative
             MAX_ALLOWED_PRICE_MOVEMENT_PERCENT: 4,
             MIN_ALLOWED_PRICE_MOVEMENT_PERCENT: 0.01,
             TAKE_PROFIT_PERCENT: 3000,
