@@ -44,6 +44,14 @@ const tradingCycleCronJob = (): void => {
                 tradingCronLogger.info(`[TradingCron] Processing batch of ${configs.length} configs...`);
                 const results = await Promise.allSettled(
                     configs.map(cfg => {
+
+                        const now = new Date();
+                        const minutes = now.getMinutes();
+                        if (!cfg.RUN_MINUTES.includes(minutes)) {
+                            tradingCronLogger.info(`[TradingCron] Skipping config: ${cfg.id} (${cfg.SYMBOL}) because it is not in the RUN_MINUTES list.`);
+                            return;
+                        }
+
                         tradingCronLogger.info(`[TradingCron] Starting cycle for config: ${cfg.id} (${cfg.SYMBOL})`);
                         // Wrap execution in AsyncLocalStorage context to ensure config isolation
                         return TradingConfig.configStore.run(cfg, async () => {

@@ -2,7 +2,7 @@ import { TradingV2 } from ".";
 import { IMartingaleState, MartingaleState } from "../../models/martingaleState.model";
 import { TradingConfig } from "./config";
 import { deltaExchange } from "./delta-exchange";
-import { tradingCycleErrorLogger, tradingCronLogger } from "./logger";
+import { tradingCycleErrorLogger, tradingCronLogger, reversalLogger } from "./logger";
 import { Candle, OrderDetails, TargetCandle } from "./type";
 import { Utils } from "./utils";
 
@@ -258,7 +258,7 @@ export class ProcessPendingState {
                 if (r.shouldTighten && r.slPrice !== undefined) {
                     slPrice = r.slPrice;
 
-                    tradingCronLogger.info(
+                    reversalLogger.info(
                         `[15m-ReversalDetected] ${sym} tighten SL → ${slPrice} | Points: ${r.points}`,
                         { side: e.side, slPrice, points: r.points }
                     );

@@ -6,6 +6,7 @@ export interface ConfigType {
     DELTA_EXCHANGE_API_KEY: string,
     DELTA_EXCHANGE_SECRET_KEY: string,
     DELTA_EXCHANGE_BASE_URL_INDIA: string,
+    RUN_MINUTES: number[],
     PRODUCT_ID: number,
     SYMBOL: string,
     LOT_SIZE: number,
