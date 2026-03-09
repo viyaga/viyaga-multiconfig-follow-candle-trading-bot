@@ -35,7 +35,7 @@ export class TradingConfig {
             STRUCTURE_TIMEFRAME: "1d", // higher timeframe for structure
             LOWER_TIMEFRAME: "15m",
             LEVERAGE: 20,
-            INITIAL_BASE_QUANTITY: 10,
+            INITIAL_BASE_QUANTITY: 1,
             TRADING_MODE: "aggressive",
             MAX_ALLOWED_PRICE_MOVEMENT_PERCENT: 4,
             MIN_ALLOWED_PRICE_MOVEMENT_PERCENT: 0.01,

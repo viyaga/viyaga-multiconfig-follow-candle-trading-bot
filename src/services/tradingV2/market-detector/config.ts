@@ -36,17 +36,6 @@ export function getInternalConfig(config: ConfigType): InternalChopConfig {
             MIN_REQUIRED_CANDLES: 40,
             CHOP_SCORE_THRESHOLD: 3
         },
-
-        meme: {
-            ATR_PERIOD: 7,                     // reacts faster to volatility
-            ADX_PERIOD: 7,                     // meme trends form quickly
-            ADX_WEAK_THRESHOLD: 14,            // allow low ADX pumps
-            STRUCTURE_LOOKBACK: 6,             // structure changes fast
-            SMALL_BODY_PERCENT_THRESHOLD: 40,  // meme candles often messy
-            SMALL_BODY_MIN_COUNT: 4,           // allow noisy candles
-            MIN_REQUIRED_CANDLES: 30,          // new meme coins often short history
-            CHOP_SCORE_THRESHOLD: 4            // allow more chaos
-        }
     };
 
     return base[config.TRADING_MODE];
