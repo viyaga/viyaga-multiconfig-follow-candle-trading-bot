@@ -260,7 +260,7 @@ export class ProcessPendingState {
 
                     reversalLogger.info(
                         `[15m-ReversalDetected] ${sym} tighten SL → ${slPrice} | Points: ${r.points}`,
-                        { side: e.side, slPrice, points: r.points }
+                        { side: e.side, slPrice, points: r.points, last: r.last, prev: r.prev }
                     );
                 }
             }

@@ -215,7 +215,7 @@ export class Utils {
         side: "buy" | "sell",
         targetCandle: TargetCandle,
         candles: Candle[]
-    ): { shouldTighten: boolean; slPrice?: number; points: number } {
+    ): { shouldTighten: boolean; slPrice?: number; points: number; last?: Candle; prev?: Candle } {
 
         if (candles.length < 6) {
             return { shouldTighten: false, points: 0 };
@@ -257,7 +257,9 @@ export class Utils {
             return {
                 shouldTighten,
                 slPrice: shouldTighten ? last.low : undefined,
-                points
+                points,
+                last,
+                prev
             };
         }
 
@@ -278,7 +280,9 @@ export class Utils {
             return {
                 shouldTighten,
                 slPrice: shouldTighten ? last.high : undefined,
-                points
+                points,
+                last,
+                prev
             };
         }
 
