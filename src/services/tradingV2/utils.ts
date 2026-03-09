@@ -235,20 +235,12 @@ export class Utils {
 
         const lastColor = last.color;
         const prevColor = this.getCandleColor(prev);
-        const lastBody = this.getBodyPercent(last);
-
-        // still check spike using the array index
-        const volumeSpike = this.isVolumeSpike(candles, lastIndex);
 
         if (side === "buy") {
 
             const oppositeColor = "red";
 
             if (lastColor === oppositeColor && prevColor === oppositeColor) points += 2;
-
-            if (lastColor === oppositeColor && lastBody >= 60) points += 2;
-
-            if (lastColor === oppositeColor && volumeSpike) points += 2;
 
             if (last.low < prev.low) points += 2;
 
@@ -268,10 +260,6 @@ export class Utils {
             const oppositeColor = "green";
 
             if (lastColor === oppositeColor && prevColor === oppositeColor) points += 2;
-
-            if (lastColor === oppositeColor && lastBody >= 60) points += 2;
-
-            if (lastColor === oppositeColor && volumeSpike) points += 2;
 
             if (last.high > prev.high) points += 2;
 
