@@ -12,7 +12,8 @@ import {
     isTargetCandleNotGood,
     isRangeCompressed,
     getVolumeExpansionPoints,
-    getTargetCandleVolumeSpike
+    getTargetCandleVolumeSpike,
+    detectLiquiditySweep
 } from "./price-action";
 import { Utils } from "../utils";
 
@@ -34,6 +35,43 @@ export class MarketDetector {
         );
     }
 
+    private static isValidBreakout(
+        candles: Candle[],
+        target: TargetCandle,
+        atr: number,
+        atrAvg: number
+    ): boolean {
+
+        const lookback = 20;
+        const recent = candles.slice(-lookback);
+
+        const prevHigh = Math.max(...recent.slice(0, -1).map(c => c.high));
+        const prevLow = Math.min(...recent.slice(0, -1).map(c => c.low));
+
+        const buffer = atr * 0.1;
+
+        const breakoutUp = target.close > prevHigh + buffer;
+        const breakoutDown = target.close < prevLow - buffer;
+
+        if (!breakoutUp && !breakoutDown) return false;
+
+        const strongBody = Utils.getBodyPercent(target) > 60;
+
+        const rangePercent =
+            target.close === 0
+                ? 0
+                : ((target.high - target.low) / target.close) * 100;
+
+        const volatilityExpansion = rangePercent > atrAvg * 1.2;
+
+        const avgVol =
+            candles.slice(-20).reduce((a, b) => a + b.volume, 0) / 20;
+
+        const volumeSpike = target.volume > avgVol * 1.5;
+
+        return strongBody && volatilityExpansion && volumeSpike;
+    }
+
     private static calculateRegimeScore(
         targetCandle: TargetCandle,
         candles: Candle[],
@@ -42,129 +80,164 @@ export class MarketDetector {
     ): { score: number, isAllowed: boolean } {
 
         if (candles.length < cfg.MIN_REQUIRED_CANDLES) {
-            marketDetectorLogger.info(`[MarketRegimeDetail] ${symbol}`, {
-                regimeScore: 10, isAllowed: false,
-                earlyExit: "NOT_ENOUGH_CANDLES",
-                candlesAvailable: candles.length,
-                candlesRequired: cfg.MIN_REQUIRED_CANDLES
-            });
             return { score: 10, isAllowed: false };
         }
 
         let chopPoints = 0;
+
         const latestClose = candles[candles.length - 1].close;
 
         /* ================= ATR ================= */
-        const atr = calculateATR(candles, cfg.ATR_PERIOD);
-        const atrPercent = latestClose === 0 ? 0 : (atr / latestClose) * 100;
-        const atrAvg = getRollingATRPercentAvg(candles, cfg.ATR_PERIOD);
 
-        const atrWeak = atrPercent < atrAvg * 0.75;
-        if (atrWeak) chopPoints += 2;
+        const atr = calculateATR(candles, cfg.ATR_PERIOD);
+
+        const atrPercent =
+            latestClose === 0 ? 0 : (atr / latestClose) * 100;
+
+        const atrAvg =
+            getRollingATRPercentAvg(candles, cfg.ATR_PERIOD);
+
+        if (atrPercent < atrAvg * 0.75)
+            chopPoints += 2;
 
         /* ================= ADX ================= */
-        const adxSeries = calculateADXSeries(candles, cfg.ADX_PERIOD);
-        let currentADX = 0;
-        let adxRising = false;
 
-        if (adxSeries.length >= 2) {
-            currentADX = adxSeries[adxSeries.length - 1];
-            const prevADX = adxSeries[adxSeries.length - 2];
-            adxRising = currentADX > prevADX;
+        const adxSeries =
+            calculateADXSeries(candles, cfg.ADX_PERIOD);
 
-            if (currentADX < cfg.ADX_WEAK_THRESHOLD) chopPoints += 2;
-            if (adxRising && currentADX > cfg.ADX_WEAK_THRESHOLD)
-                chopPoints -= 1;
+        if (adxSeries.length > 0) {
+
+            const adx = adxSeries[adxSeries.length - 1];
+
+            if (adx < cfg.ADX_WEAK_THRESHOLD)
+                chopPoints += 2;
         }
-
-        chopPoints = Math.max(0, chopPoints);
 
         /* ================= STRUCTURE ================= */
-        const recent = candles.slice(-cfg.STRUCTURE_LOOKBACK);
-        const rangePercent = Utils.getRangePercent(recent);
-        const structureWeak = rangePercent < atrAvg * 1.2;
 
-        if (structureWeak) chopPoints += 2;
+        const recent =
+            candles.slice(-cfg.STRUCTURE_LOOKBACK);
+
+        const rangePercent =
+            Utils.getRangePercent(recent);
+
+        const structureWeak =
+            rangePercent < atrAvg * 1.2;
+
+        if (structureWeak)
+            chopPoints += 1;
 
         /* ================= MICRO CHOP ================= */
-        const microChopDetected = detectMicroChop(candles, atrAvg, cfg.SMALL_BODY_PERCENT_THRESHOLD, cfg.SMALL_BODY_MIN_COUNT);
-        if (microChopDetected) {
-            chopPoints += 2;
-        }
+
+        const microChopDetected =
+            detectMicroChop(
+                candles,
+                atrAvg,
+                cfg.SMALL_BODY_PERCENT_THRESHOLD,
+                cfg.SMALL_BODY_MIN_COUNT
+            );
+
+        if (microChopDetected)
+            chopPoints += 1;
 
         /* ================= TARGET CANDLE ================= */
-        const targetCandleNotGood = isTargetCandleNotGood(targetCandle, atrPercent, 0.3);
-        if (targetCandleNotGood) {
+
+        const targetBad =
+            isTargetCandleNotGood(
+                targetCandle,
+                atrPercent,
+                0.3
+            );
+
+        if (targetBad)
             chopPoints += 2;
-        }
 
         /* ================= VOLUME ================= */
-        const volumeContracting = isVolumeContracting(candles);
-        if (volumeContracting) chopPoints += 2;
 
-        const volumeExpansionPts = getVolumeExpansionPoints(candles);
-        const targetVolumeSpikeBoost = getTargetCandleVolumeSpike(targetCandle, candles);
-        chopPoints -= volumeExpansionPts;
-        chopPoints -= targetVolumeSpikeBoost;
+        if (isVolumeContracting(candles))
+            chopPoints += 2;
+
+        chopPoints -= getVolumeExpansionPoints(candles);
+
+        chopPoints -= getTargetCandleVolumeSpike(
+            targetCandle,
+            candles
+        );
 
         chopPoints = Math.max(0, chopPoints);
 
         /* ================= COMPRESSION ================= */
-        const rangeCompressed = isRangeCompressed(candles, 3, 15, 3);
-        if (rangeCompressed) {
-            chopPoints += 2;
+
+        const compression =
+            isRangeCompressed(candles, 5, 20, 2);
+
+        if (!compression) {
+
+            marketDetectorLogger.info(
+                `[CompressionBlocked] ${symbol}`
+            );
+
+            return { score: 10, isAllowed: false };
         }
 
-        /* ================= BREAKOUT BOOST ================= */
-        const last = candles[candles.length - 1];
-        const prevHigh = Math.max(...recent.slice(0, -1).map(c => c.high));
-        const prevLow = Math.min(...recent.slice(0, -1).map(c => c.low));
+        /* ================= BREAKOUT ================= */
 
-        const isBreakout =
-            last.close > prevHigh || last.close < prevLow;
+        const breakoutValid =
+            MarketDetector.isValidBreakout(
+                candles,
+                targetCandle,
+                atr,
+                atrAvg
+            );
 
-        const strongBody = Utils.getBodyPercent(last) > 65;
-        const breakoutBoostApplied = isBreakout && strongBody && atrPercent > atrAvg;
+        if (!breakoutValid) {
 
-        if (breakoutBoostApplied) {
-            chopPoints = Math.max(0, chopPoints - 4);
+            marketDetectorLogger.info(
+                `[BreakoutBlocked] ${symbol}`
+            );
+
+            return { score: 10, isAllowed: false };
         }
+
+        /* ================= LIQUIDITY SWEEP ================= */
+
+        const liquiditySweep =
+            detectLiquiditySweep(candles, 10);
+
+        if (!liquiditySweep) {
+
+            marketDetectorLogger.info(
+                `[LiquiditySweepBlocked] ${symbol}`
+            );
+
+            return { score: 10, isAllowed: false };
+        }
+
+        /* ================= FINAL SCORE ================= */
 
         const finalScore = chopPoints;
-        const isAllowed = finalScore <= cfg.CHOP_SCORE_THRESHOLD;
 
-        marketDetectorLogger.info(`[MarketRegimeDetail] ${symbol}`, {
-            // ── Final verdict ──────────────────────────────────────────
-            regimeScore: finalScore,
-            isAllowed,
-            chopScoreThreshold: cfg.CHOP_SCORE_THRESHOLD,
-            // ── ATR ────────────────────────────────────────────────────
-            atrPercent: +atrPercent.toFixed(4),
-            atrAvg: +atrAvg.toFixed(4),
-            atrWeak,
-            // ── ADX ────────────────────────────────────────────────────
-            adx: +currentADX.toFixed(4),
-            adxThreshold: cfg.ADX_WEAK_THRESHOLD,
-            adxRising,
-            // ── Structure ──────────────────────────────────────────────
-            rangePercent: +rangePercent.toFixed(4),
-            structureWeak,
-            // ── Micro-chop ─────────────────────────────────────────────
-            microChopDetected,
-            // ── Target candle ──────────────────────────────────────────
-            targetCandleNotGood,
-            // ── Volume ─────────────────────────────────────────────────
-            volumeContracting,
-            volumeExpansionPts,
-            targetVolumeSpikeBoost,
-            // ── Compression ────────────────────────────────────────────
-            rangeCompressed,
-            // ── Breakout boost ─────────────────────────────────────────
-            isBreakout,
-            strongBody,
-            breakoutBoostApplied
-        });
+        const isAllowed =
+            finalScore <= cfg.CHOP_SCORE_THRESHOLD;
 
-        return { score: finalScore, isAllowed };
+        marketDetectorLogger.info(
+            `[MarketRegimeDetail] ${symbol}`,
+            {
+                regimeScore: finalScore,
+                isAllowed,
+                atrPercent,
+                atrAvg,
+                structureWeak,
+                microChopDetected,
+                compression,
+                breakoutValid,
+                liquiditySweep
+            }
+        );
+
+        return {
+            score: finalScore,
+            isAllowed
+        };
     }
 }

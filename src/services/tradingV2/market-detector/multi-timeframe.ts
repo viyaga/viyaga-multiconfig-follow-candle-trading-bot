@@ -70,47 +70,28 @@ export class MultiTimeframeAlignment {
             });
         };
 
-        // 🚫 HARD BLOCKS (very choppy TF)
-        if (structureScore >= 6 || confirmationScore >= 6) {
-            blockedReason = "HARD_BLOCK_HIGH_CHOP_SCORE";
+        // Hard block if higher timeframe is extremely choppy
+        if (structureScore >= 7 || confirmationScore >= 7) {
+            blockedReason = "HIGH_TF_CHOP_BLOCK";
             logMTF();
             return { entryScore, confirmationScore, structureScore, isAllowed: false };
         }
 
-        // 🚫 If any TF already blocked internally
         if (!structureResult.isAllowed || !confirmationResult.isAllowed) {
-            blockedReason =
-                !structureResult.isAllowed && !confirmationResult.isAllowed
-                    ? "STRUCTURE_AND_CONFIRMATION_BLOCKED"
-                    : !structureResult.isAllowed
-                        ? "STRUCTURE_BLOCKED"
-                        : "CONFIRMATION_BLOCKED";
-
+            blockedReason = "HTF_FILTER_BLOCK";
             logMTF();
             return { entryScore, confirmationScore, structureScore, isAllowed: false };
         }
 
-        // 🚫 Cumulative Chop Filter (medium stacking protection)
-        if (structureScore + confirmationScore > 10) {
-            blockedReason = "CUMULATIVE_CHOP_BLOCK";
-
-            marketDetectorLogger.info(
-                `[MTF] BLOCKED by cumulative chop filter | StructureScore=${structureScore} | ConfirmationScore=${confirmationScore} | Sum=${structureScore + confirmationScore}`
-            );
-
-            logMTF();
-            return { entryScore, confirmationScore, structureScore, isAllowed: false };
-        }
-
-        // ✅ Final Allow Condition
+        // Breakout alignment rule
         if (
-            structureScore <= 6 &&
-            confirmationScore <= 6 &&
+            structureScore <= 5 &&
+            confirmationScore <= 5 &&
             entryResult.isAllowed
         ) {
             isAllowed = true;
         } else {
-            blockedReason = "ENTRY_TF_BLOCKED";
+            blockedReason = "ENTRY_FILTER_BLOCK";
         }
 
         logMTF();
@@ -119,7 +100,7 @@ export class MultiTimeframeAlignment {
             entryScore,
             confirmationScore,
             structureScore,
-            isAllowed,
+            isAllowed
         };
     }
 }
