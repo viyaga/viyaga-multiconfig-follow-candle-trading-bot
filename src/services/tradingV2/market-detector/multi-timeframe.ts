@@ -26,19 +26,22 @@ export class MultiTimeframeAlignment {
         const entryResult = MarketDetector.getMarketRegimeScore(
             entryTarget,
             entryCandles,
-            entryConfig
+            entryConfig,
+            "entry"
         );
 
         const confirmationResult = MarketDetector.getMarketRegimeScore(
             confirmationTarget,
             confirmationCandles,
-            confirmationConfig
+            confirmationConfig,
+            "confirmation"
         );
 
         const structureResult = MarketDetector.getMarketRegimeScore(
             structureTarget,
             structureCandles,
-            structureConfig
+            structureConfig,
+            "structure"
         );
 
         const entryScore = entryResult.score;

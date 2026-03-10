@@ -1,10 +1,11 @@
-import { Candle, ConfigType, InternalChopConfig, TargetCandle } from "../type";
+import { Candle, ConfigType, InternalChopConfig, TargetCandle, MarketEvaluationMode } from "../type";
 import { marketDetectorLogger } from "../logger";
 import { getInternalConfig } from "./config";
 import {
     calculateATR,
     getRollingATRPercentAvg,
-    calculateADXSeries
+    calculateADXSeries,
+    calculateVEISeries
 } from "./indicators";
 import {
     detectMicroChop,
@@ -22,7 +23,8 @@ export class MarketDetector {
     static getMarketRegimeScore(
         targetCandle: TargetCandle,
         candles: Candle[],
-        config: ConfigType
+        config: ConfigType,
+        mode: MarketEvaluationMode = "entry"
     ): { score: number, isAllowed: boolean } {
 
         const internal = getInternalConfig(config);
@@ -31,7 +33,8 @@ export class MarketDetector {
             targetCandle,
             candles,
             internal,
-            config.SYMBOL
+            config.SYMBOL,
+            mode
         );
     }
 
@@ -39,16 +42,18 @@ export class MarketDetector {
         candles: Candle[],
         target: TargetCandle,
         atr: number,
-        atrAvg: number
+        atrAvg: number,
+        cfg: InternalChopConfig
     ): boolean {
 
-        const lookback = 20;
+        const lookback = cfg.STRUCTURE_LOOKBACK || 20;
         const recent = candles.slice(-lookback);
 
         const prevHigh = Math.max(...recent.slice(0, -1).map(c => c.high));
         const prevLow = Math.min(...recent.slice(0, -1).map(c => c.low));
 
-        const buffer = atr * 0.1;
+        // Improved breakout buffer
+        const buffer = atr * 0.3;
 
         const breakoutUp = target.close > prevHigh + buffer;
         const breakoutDown = target.close < prevLow - buffer;
@@ -62,21 +67,28 @@ export class MarketDetector {
                 ? 0
                 : ((target.high - target.low) / target.close) * 100;
 
-        const volatilityExpansion = rangePercent > atrAvg * 1.2;
+        const volatilityExpansion =
+            rangePercent > atrAvg * 0.35 &&
+            rangePercent > atrAvg * 1.2;
 
         const avgVol =
             candles.slice(-20).reduce((a, b) => a + b.volume, 0) / 20;
 
         const volumeSpike = target.volume > avgVol * 1.5;
 
-        return strongBody && volatilityExpansion && volumeSpike;
+        const strongMomentum =
+            target.volume > avgVol * 2 &&
+            Utils.getBodyPercent(target) > 70;
+
+        return strongBody && volatilityExpansion && (volumeSpike || strongMomentum);
     }
 
     private static calculateRegimeScore(
         targetCandle: TargetCandle,
         candles: Candle[],
         cfg: InternalChopConfig,
-        symbol: string
+        symbol: string,
+        mode: MarketEvaluationMode
     ): { score: number, isAllowed: boolean } {
 
         if (candles.length < cfg.MIN_REQUIRED_CANDLES) {
@@ -111,6 +123,15 @@ export class MarketDetector {
 
             if (adx < cfg.ADX_WEAK_THRESHOLD)
                 chopPoints += 2;
+        }
+
+        /* ================= VEI ================= */
+
+        const veiSeries = calculateVEISeries(candles, 20);
+        const currentVei = veiSeries.length > 0 ? veiSeries[veiSeries.length - 1] : 1.0;
+
+        if (currentVei < 1.1) {
+            chopPoints += 2;
         }
 
         /* ================= STRUCTURE ================= */
@@ -166,62 +187,66 @@ export class MarketDetector {
 
         chopPoints = Math.max(0, chopPoints);
 
-        /* ================= COMPRESSION ================= */
+        /* ================= MODE SPECIFIC ================= */
 
-        const compression =
-            isRangeCompressed(candles, 5, 20, 2);
+        let compression = false;
+        let breakoutValid = false;
+        let liquiditySweep = false;
 
-        if (!compression) {
+        if (mode === "structure") {
 
-            marketDetectorLogger.info(
-                `[CompressionBlocked] ${symbol}`
-            );
+            compression = isRangeCompressed(candles, 5, cfg.STRUCTURE_LOOKBACK, 2);
 
-            return { score: 10, isAllowed: false };
-        }
+            if (!compression) {
+                marketDetectorLogger.info(`[MarketRegime] ${symbol} Structure-Blocked (No Compression)`);
+                return { score: chopPoints + 5, isAllowed: false };
+            }
 
-        /* ================= BREAKOUT ================= */
+        } else if (mode === "confirmation") {
 
-        const breakoutValid =
-            MarketDetector.isValidBreakout(
-                candles,
-                targetCandle,
-                atr,
-                atrAvg
-            );
+            const isExpanding =
+                (atrPercent > atrAvg * 1.0) ||
+                (currentVei > 1.2);
 
-        if (!breakoutValid) {
+            if (!isExpanding) {
+                marketDetectorLogger.info(`[MarketRegime] ${symbol} Confirmation-Blocked (No Expansion)`);
+                return { score: chopPoints + 3, isAllowed: false };
+            }
 
-            marketDetectorLogger.info(
-                `[BreakoutBlocked] ${symbol}`
-            );
+        } else {
 
-            return { score: 10, isAllowed: false };
-        }
+            // ENTRY MODE
 
-        /* ================= LIQUIDITY SWEEP ================= */
+            breakoutValid = MarketDetector.isValidBreakout(candles, targetCandle, atr, atrAvg, cfg);
 
-        const liquiditySweep =
-            detectLiquiditySweep(candles, 10);
+            if (!breakoutValid) {
+                marketDetectorLogger.info(`[BreakoutBlocked] ${symbol}`);
+                return { score: 10, isAllowed: false };
+            }
 
-        if (!liquiditySweep) {
+            liquiditySweep = detectLiquiditySweep(candles, cfg.STRUCTURE_LOOKBACK);
 
-            marketDetectorLogger.info(
-                `[LiquiditySweepBlocked] ${symbol}`
-            );
+            const avgVol =
+                candles.slice(-20).reduce((a, b) => a + b.volume, 0) / 20;
 
-            return { score: 10, isAllowed: false };
+            const strongMomentum =
+                targetCandle.volume > avgVol * 2 &&
+                Utils.getBodyPercent(targetCandle) > 70;
+
+            // Allow breakout if sweep OR strong momentum
+            if (!liquiditySweep && !strongMomentum) {
+                marketDetectorLogger.info(`[SweepOrMomentumBlocked] ${symbol}`);
+                return { score: 10, isAllowed: false };
+            }
         }
 
         /* ================= FINAL SCORE ================= */
 
         const finalScore = chopPoints;
-
-        const isAllowed =
-            finalScore <= cfg.CHOP_SCORE_THRESHOLD;
+        const isAllowed = finalScore <= cfg.CHOP_SCORE_THRESHOLD;
 
         marketDetectorLogger.info(
-            `[MarketRegimeDetail] ${symbol}`,
+            `[MarketRegimeDetail] ${symbol} Mode: ${mode}`,
             {
                 regimeScore: finalScore,
                 isAllowed,
@@ -229,9 +254,9 @@ export class MarketDetector {
                 atrAvg,
                 structureWeak,
                 microChopDetected,
-                compression,
-                breakoutValid,
-                liquiditySweep
+                compression: mode === "structure" ? compression : undefined,
+                breakoutValid: mode === "entry" ? breakoutValid : undefined,
+                liquiditySweep: mode === "entry" ? liquiditySweep : undefined
             }
         );
 

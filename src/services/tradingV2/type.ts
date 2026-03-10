@@ -27,6 +27,8 @@ export interface ConfigType {
     IS_TESTING: boolean;
 }
 
+export type MarketEvaluationMode = "structure" | "confirmation" | "entry";
+
 export interface InternalChopConfig {
     ATR_PERIOD: number;
     ADX_PERIOD: number;

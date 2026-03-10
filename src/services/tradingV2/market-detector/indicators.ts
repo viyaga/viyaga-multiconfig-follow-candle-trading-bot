@@ -95,3 +95,20 @@ export function calculateADXSeries(candles: Candle[], period: number): number[] 
 
     return series;
 }
+
+export function calculateVEISeries(candles: Candle[], period: number = 20): number[] {
+    if (candles.length < period) return [];
+
+    const veiSeries: number[] = [];
+
+    for (let i = period; i < candles.length; i++) {
+        const slice = candles.slice(i - period, i + 1);
+        const currentRange = slice[slice.length - 1].high - slice[slice.length - 1].low;
+
+        const avgRange = slice.reduce((acc, c) => acc + (c.high - c.low), 0) / slice.length;
+
+        veiSeries.push(avgRange === 0 ? 1 : currentRange / avgRange);
+    }
+
+    return veiSeries;
+}

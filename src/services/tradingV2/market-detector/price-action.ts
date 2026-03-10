@@ -8,9 +8,9 @@ export function detectMicroChop(
     minSmallBodies: number
 ): boolean {
 
-    if (candles.length < 5) return false;
+    if (candles.length < 8) return false;
 
-    const windows = [3, 4, 5];
+    const windows = [4, 6, 8];
 
     for (const size of windows) {
 
@@ -168,41 +168,44 @@ export function isRangeCompressed(
 
 /**
  * 🔥 Liquidity Sweep Detector
- * Detects stop-hunt sweeps before real breakouts
+ * Detects stop-hunt sweeps before real breakouts.
+ * Better: Sweep can happen in last 3 candles.
  */
 export function detectLiquiditySweep(
     candles: Candle[],
-    lookback: number = 10
+    lookback: number = 10,
+    sweepWindow: number = 3
 ): boolean {
 
-    if (candles.length < lookback + 2) return false;
+    if (candles.length < lookback + sweepWindow) return false;
 
+    // Check last N candles for a sweep
+    const recentCandles = candles.slice(-sweepWindow);
+    const historyBeforeSweep = candles.slice(-lookback - sweepWindow, -sweepWindow);
+
+    const prevHigh = Math.max(...historyBeforeSweep.map(c => c.high));
+    const prevLow = Math.min(...historyBeforeSweep.map(c => c.low));
+
+    let sweepDetected = false;
+
+    for (const candle of recentCandles) {
+        if (candle.high > prevHigh || candle.low < prevLow) {
+            sweepDetected = true;
+            break;
+        }
+    }
+
+    if (!sweepDetected) return false;
+
+    // Finally, we need a strong close in the direction of the sweep (or generally strong)
     const last = candles[candles.length - 1];
+    const bodyPercent = Utils.getBodyPercent(last);
 
-    const prev = candles.slice(-lookback - 1, -1);
+    const isStrongClose =
+        (last.close > prevHigh || last.close < prevLow) &&
+        bodyPercent > 55;
 
-    const prevHigh =
-        Math.max(...prev.map(c => c.high));
-
-    const prevLow =
-        Math.min(...prev.map(c => c.low));
-
-    const sweepHigh = last.high > prevHigh;
-    const sweepLow = last.low < prevLow;
-
-    const bodyPercent =
-        Utils.getBodyPercent(last);
-
-    const strongCloseUp =
-        last.close > prevHigh && bodyPercent > 55;
-
-    const strongCloseDown =
-        last.close < prevLow && bodyPercent > 55;
-
-    return (
-        (sweepHigh && strongCloseUp) ||
-        (sweepLow && strongCloseDown)
-    );
+    return isStrongClose;
 }
 
 export function getVolumeExpansionPoints(

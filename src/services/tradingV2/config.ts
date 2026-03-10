@@ -26,7 +26,7 @@ export class TradingConfig {
             DELTA_EXCHANGE_SECRET_KEY: "he9E1B0eeJfhJnxlM49EXhKrYOfNln5b4EOLMZotCLWl6gRFip510Z6yxci1",
             DELTA_EXCHANGE_BASE_URL_INDIA: "https://api.india.delta.exchange/v2",
 
-            RUN_MINUTES: [16, 31, 46, 1],
+            RUN_MINUTES: [1, 16, 31, 46],
 
             PRODUCT_ID: 3136,
             SYMBOL: "ETHUSD",
@@ -54,7 +54,7 @@ export class TradingConfig {
             MAX_ALLOWED_PRICE_MOVEMENT_PERCENT: 4,
             MIN_ALLOWED_PRICE_MOVEMENT_PERCENT: 0.01,
 
-            TAKE_PROFIT_PERCENT: 3000,
+            TAKE_PROFIT_PERCENT: 30,
 
             SL_TRIGGER_BUFFER_PERCENT: 0.1,
             SL_LIMIT_BUFFER_PERCENT: 0.3,
