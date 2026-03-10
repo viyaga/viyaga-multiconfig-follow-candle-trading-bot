@@ -13,6 +13,8 @@ export class MultiTimeframeAlignment {
 
     static evaluate(
         entryTarget: TargetCandle,
+        confirmationTarget: TargetCandle,
+        structureTarget: TargetCandle,
         entryCandles: Candle[],
         confirmationCandles: Candle[],
         structureCandles: Candle[],
@@ -28,13 +30,13 @@ export class MultiTimeframeAlignment {
         );
 
         const confirmationResult = MarketDetector.getMarketRegimeScore(
-            entryTarget,
+            confirmationTarget,
             confirmationCandles,
             confirmationConfig
         );
 
         const structureResult = MarketDetector.getMarketRegimeScore(
-            entryTarget,
+            structureTarget,
             structureCandles,
             structureConfig
         );
@@ -103,4 +105,5 @@ export class MultiTimeframeAlignment {
             isAllowed
         };
     }
+
 }

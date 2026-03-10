@@ -22,7 +22,7 @@ export function detectMicroChop(
 
         const rangePercent =
             close === 0 ? 0 :
-            ((high - low) / close) * 100;
+                ((high - low) / close) * 100;
 
         const smallBodies =
             slice.filter(
@@ -82,7 +82,7 @@ export function isTargetCandleNotGood(
 
     const rangePercent =
         close === 0 ? 0 :
-        (range / close) * 100;
+            (range / close) * 100;
 
     const bodyPercent = Utils.getBodyPercent(targetCandle);
     const bodyMovePercent = Utils.getBodyMovePercent(targetCandle);

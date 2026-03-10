@@ -162,10 +162,10 @@ export class TradingV2 {
                     timeZone: "Asia/Kolkata",
                     minute: "numeric"
                 })
-            );
+            )
             console.log({ istMinutes, now });
 
-            if (!c.RUN_MINUTES.includes(istMinutes) && null) {
+            if (!c.RUN_MINUTES.includes(istMinutes)) {
                 skipTradingLogger.info(
                     `[TradingCron] Skipping config: ${c.id} (${c.SYMBOL}) because it is not in the RUN_MINUTES list.`
                 );
@@ -230,6 +230,8 @@ export class TradingV2 {
 
             const mtf = MultiTimeframeAlignment.evaluate(
                 targetCandle,
+                confirmationTargetCandle,
+                structureTargetCandle,
                 candles,
                 targetDataConfirmation.candles,
                 targetDataStructure.candles,
