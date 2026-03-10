@@ -120,7 +120,7 @@ export class TradingV2 {
 
             // ───────────────── HANDLE PENDING TRADE ─────────────────
             if (state.lastEntryOrderId && Utils.isTradePending(state)) {
-            
+
                 tradingCronLogger.info(
                     `[TradingCycle:${symbol}] Found pending trade with order ID: ${state.lastEntryOrderId}. Fetching order details...`
                 );
@@ -180,11 +180,39 @@ export class TradingV2 {
                 TIMEFRAME: c.CONFIRMATION_TIMEFRAME,
                 SYMBOL: c.SYMBOL
             });
+            const confirmationTargetCandle = targetDataConfirmation?.target;
+            if (!confirmationTargetCandle) {
+                skipTradingLogger.info(
+                    `[MarketData] SKIP: Could not find required higher timeframe candle data for ${symbol}. API might be lagging.`,
+                    {
+                        configId,
+                        userId,
+                        symbol,
+                        confirmationTimeframe: c.CONFIRMATION_TIMEFRAME,
+                        structureTimeframe: c.STRUCTURE_TIMEFRAME
+                    }
+                );
+                return;
+            }
 
             const targetDataStructure = await TradingV2.getTargetCandle({
                 TIMEFRAME: c.STRUCTURE_TIMEFRAME,
                 SYMBOL: c.SYMBOL
             });
+            const structureTargetCandle = targetDataStructure?.target;
+            if (!structureTargetCandle) {
+                skipTradingLogger.info(
+                    `[MarketData] SKIP: Could not find required higher timeframe candle data for ${symbol}. API might be lagging.`,
+                    {
+                        configId,
+                        userId,
+                        symbol,
+                        confirmationTimeframe: c.CONFIRMATION_TIMEFRAME,
+                        structureTimeframe: c.STRUCTURE_TIMEFRAME
+                    }
+                );
+                return;
+            }
 
             if (!targetDataConfirmation || !targetDataStructure) {
                 skipTradingLogger.info(
@@ -291,9 +319,11 @@ export class TradingV2 {
             const entryPrice = Utils.resolveEntryPrice(entry);
             const tp = Utils.calculateTpPrice(entryPrice, side);
 
+            const initialSlCandle = structureTargetCandle
+
             const slPrice =
                 reversalSL ??
-                (targetCandle.color === "green" ? targetCandle.low : targetCandle.high);
+                (side === "buy" ? initialSlCandle.low : initialSlCandle.high);
 
             let sl =
                 side === "buy"

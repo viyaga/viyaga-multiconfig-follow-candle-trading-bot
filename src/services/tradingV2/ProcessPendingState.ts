@@ -245,7 +245,16 @@ export class ProcessPendingState {
 
             if (!s.lastStopLossOrderId || !s.lastSlPrice) throw new Error("SL order or price missing in state");
 
-            let slPrice = e.side === "buy" ? targetCandle.low : targetCandle.high;
+            const c = TradingConfig.getConfig();
+
+            // Follow the higher timeframe candle to give good room
+            const higherTfData = await TradingV2.getTargetCandle({
+                TIMEFRAME: c.STRUCTURE_TIMEFRAME,
+                SYMBOL: sym
+            });
+            const trailCandle = higherTfData?.target || targetCandle;
+
+            let slPrice = e.side === "buy" ? trailCandle.low : trailCandle.high;
 
             if (lowerTFCandles.length) {
                 const r = Utils.detectLowerTimeframeReversal(
