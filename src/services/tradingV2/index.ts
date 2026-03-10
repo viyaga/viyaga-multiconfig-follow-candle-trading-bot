@@ -92,21 +92,18 @@ export class TradingV2 {
 
             // ───────────────── MARKET DATA ─────────────────
             const targetData = await TradingV2.getTargetCandle(c);
-            const lowerTFData = await TradingV2.getTargetCandle({ ...c, TIMEFRAME: c.LOWER_TIMEFRAME });
 
-            if (!targetData || !lowerTFData) {
+            if (!targetData) {
                 skipTradingLogger.info(`[MarketData] SKIP: Could not find required candle data for ${symbol} ${c.TIMEFRAME}. API might be lagging.`, {
                     configId,
                     userId,
                     symbol,
-                    candleTimeframe: c.TIMEFRAME,
-                    lowerTimeframe: c.LOWER_TIMEFRAME
+                    candleTimeframe: c.TIMEFRAME
                 });
                 return;
             }
 
             const { target: targetCandle, candles } = targetData;
-            const { target: lowerTFTargetCandle, candles: lowerTFCandles } = lowerTFData;
 
             const currentPrice = await TradingV2.getCurrentPrice(symbol);
 
@@ -144,9 +141,7 @@ export class TradingV2 {
                     state,
                     orderDetails,
                     targetCandle,
-                    currentPrice,
-                    lowerTFTargetCandle,
-                    lowerTFCandles
+                    currentPrice
                 );
 
                 tradingCronLogger.info(
@@ -273,22 +268,6 @@ export class TradingV2 {
             // ───────────────── TRADE SIDE ─────────────────
             const side = targetCandle.color === "green" ? "buy" : "sell";
 
-            const reversalCheck = Utils.detectLowerTimeframeReversal(
-                side,
-                lowerTFTargetCandle,
-                lowerTFCandles
-            );
-
-            let reversalSL: number | undefined;
-
-            if (reversalCheck.shouldTighten && reversalCheck.slPrice) {
-                reversalSL = reversalCheck.slPrice;
-
-                tradingCronLogger.info(
-                    `[TradingCycle:${symbol}] Reversal detected. Using reversal SL: ${reversalSL}`
-                );
-            }
-
             // ───────────────── DRY RUN ─────────────────
             if (c.DRY_RUN) {
                 skipTradingLogger.info(`[MarketRegime] SKIP: DRY_RUN mode enabled for ${symbol}`, {
@@ -323,9 +302,7 @@ export class TradingV2 {
 
             const initialSlCandle = structureTargetCandle
 
-            const slPrice =
-                reversalSL ??
-                (side === "buy" ? initialSlCandle.low : initialSlCandle.high);
+            const slPrice = side === "buy" ? initialSlCandle.low : initialSlCandle.high;
 
             let sl =
                 side === "buy"

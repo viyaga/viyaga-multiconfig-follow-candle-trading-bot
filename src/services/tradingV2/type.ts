@@ -25,7 +25,6 @@ export interface ConfigType {
     SL_LIMIT_BUFFER_PERCENT: number;
     DRY_RUN: boolean;
     IS_TESTING: boolean;
-    REVERSAL_POINT_THRESHOLD: number;
 }
 
 export interface InternalChopConfig {

@@ -2,7 +2,7 @@ import { TradingV2 } from ".";
 import { IMartingaleState, MartingaleState } from "../../models/martingaleState.model";
 import { TradingConfig } from "./config";
 import { deltaExchange } from "./delta-exchange";
-import { tradingCycleErrorLogger, tradingCronLogger, reversalLogger } from "./logger";
+import { tradingCycleErrorLogger, tradingCronLogger } from "./logger";
 import { Candle, OrderDetails, TargetCandle } from "./type";
 import { Utils } from "./utils";
 
@@ -236,9 +236,7 @@ export class ProcessPendingState {
         s: IMartingaleState,
         e: OrderDetails,
         targetCandle: TargetCandle,
-        currentPrice: number,
-        lowerTFTargetCandle: TargetCandle,
-        lowerTFCandles: Candle[]
+        currentPrice: number
     ): Promise<IMartingaleState> {
 
         try {
@@ -255,23 +253,6 @@ export class ProcessPendingState {
             const trailCandle = higherTfData?.target || targetCandle;
 
             let slPrice = e.side === "buy" ? trailCandle.low : trailCandle.high;
-
-            if (lowerTFCandles.length) {
-                const r = Utils.detectLowerTimeframeReversal(
-                    e.side,
-                    lowerTFTargetCandle,
-                    lowerTFCandles
-                );
-
-                if (r.shouldTighten && r.slPrice) {
-                    slPrice = r.slPrice;
-                }
-
-                reversalLogger.info(
-                    `[detectLowerTimeframeReversal] ${sym}`,
-                    { points: r.points, side: e.side, slPrice, isOppositeColor: r.isOppositeColor, isOppositeDirection: r.isOppositeDirection, last: r.last, prev: r.prev }
-                );
-            }
 
             let sl =
                 e.side === "buy"
@@ -319,9 +300,7 @@ export class ProcessPendingState {
         state: IMartingaleState,
         order: OrderDetails,
         targetCandle: TargetCandle,
-        currentPrice: number,
-        lowerTFTargetCandle: TargetCandle,
-        lowerTFCandles: Candle[]
+        currentPrice: number
     ): Promise<IMartingaleState> {
 
         try {
@@ -330,7 +309,7 @@ export class ProcessPendingState {
                 case "CANCELLED":
                     return this.handleCanceledEntryOrder(state);
                 case "CLOSED":
-                    return this.handleClosedEntryOrder(sym, state, order, targetCandle, currentPrice, lowerTFTargetCandle, lowerTFCandles);
+                    return this.handleClosedEntryOrder(sym, state, order, targetCandle, currentPrice);
                 default:
                     return state;
             }
@@ -346,9 +325,7 @@ export class ProcessPendingState {
         s: IMartingaleState,
         e: OrderDetails,
         targetCandle: TargetCandle,
-        currentPrice: number,
-        lowerTFTargetCandle: TargetCandle,
-        lowerTFCandles: Candle[]
+        currentPrice: number
     ): Promise<IMartingaleState> {
         const cfg = TradingConfig.getConfig();
         const positions = await deltaExchange.getPositions(cfg.PRODUCT_ID);
@@ -359,7 +336,7 @@ export class ProcessPendingState {
         console.log({ hasOpenPosition });
 
         return hasOpenPosition
-            ? this.manageOpenPosition(sym, s, e, targetCandle, currentPrice, lowerTFTargetCandle, lowerTFCandles)
+            ? this.manageOpenPosition(sym, s, e, targetCandle, currentPrice)
             : this.processClosedPosition(s, Number(e.paid_commission || 0), currentPrice);
     }
 }
