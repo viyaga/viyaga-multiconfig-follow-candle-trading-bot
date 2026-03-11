@@ -242,7 +242,17 @@ export class TradingV2 {
             )) return;
 
             // ───────────────── TRADE SIDE ─────────────────
-            const side = mtf.direction.toLowerCase() as "buy" | "sell";
+            const side = mtf.direction.toLowerCase() as "buy" | "sell" | "none";
+
+            if (side === "none") {
+                skipTradingLogger.info(`[MarketRegime] SKIP: No breakout direction for ${symbol}`, {
+                    configId,
+                    userId,
+                    symbol,
+                    timeframe: c.TIMEFRAME
+                });
+                return;
+            }
 
             // ───────────────── DRY RUN ─────────────────
             if (c.DRY_RUN) {
