@@ -235,7 +235,7 @@ export class ProcessPendingState {
         sym: string,
         s: IMartingaleState,
         e: OrderDetails,
-        targetCandle: TargetCandle,
+        structureTargetCandle: TargetCandle,
         currentPrice: number
     ): Promise<IMartingaleState> {
 
@@ -243,16 +243,7 @@ export class ProcessPendingState {
 
             if (!s.lastStopLossOrderId || !s.lastSlPrice) throw new Error("SL order or price missing in state");
 
-            const c = TradingConfig.getConfig();
-
-            // Follow the higher timeframe candle to give good room
-            const higherTfData = await TradingV2.getTargetCandle({
-                TIMEFRAME: c.STRUCTURE_TIMEFRAME,
-                SYMBOL: sym
-            });
-            const trailCandle = higherTfData?.target || targetCandle;
-
-            let slPrice = e.side === "buy" ? trailCandle.low : trailCandle.high;
+            let slPrice = e.side === "buy" ? structureTargetCandle.low : structureTargetCandle.high;
 
             let sl =
                 e.side === "buy"
@@ -299,7 +290,7 @@ export class ProcessPendingState {
         sym: string,
         state: IMartingaleState,
         order: OrderDetails,
-        targetCandle: TargetCandle,
+        structureTargetCandle: TargetCandle,
         currentPrice: number
     ): Promise<IMartingaleState> {
 
@@ -309,7 +300,7 @@ export class ProcessPendingState {
                 case "CANCELLED":
                     return this.handleCanceledEntryOrder(state);
                 case "CLOSED":
-                    return this.handleClosedEntryOrder(sym, state, order, targetCandle, currentPrice);
+                    return this.handleClosedEntryOrder(sym, state, order, structureTargetCandle, currentPrice);
                 default:
                     return state;
             }
@@ -324,7 +315,7 @@ export class ProcessPendingState {
         sym: string,
         s: IMartingaleState,
         e: OrderDetails,
-        targetCandle: TargetCandle,
+        structureTargetCandle: TargetCandle,
         currentPrice: number
     ): Promise<IMartingaleState> {
         const cfg = TradingConfig.getConfig();
@@ -336,7 +327,7 @@ export class ProcessPendingState {
         console.log({ hasOpenPosition });
 
         return hasOpenPosition
-            ? this.manageOpenPosition(sym, s, e, targetCandle, currentPrice)
+            ? this.manageOpenPosition(sym, s, e, structureTargetCandle, currentPrice)
             : this.processClosedPosition(s, Number(e.paid_commission || 0), currentPrice);
     }
 }

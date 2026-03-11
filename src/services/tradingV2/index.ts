@@ -14,19 +14,23 @@ export class TradingV2 {
        TARGET CANDLE
     ========================================================================= */
 
-    static async getTargetCandle(c: {
-        TIMEFRAME: string;
-        SYMBOL: string;
-    }): Promise<{ target: TargetCandle; candles: Candle[] } | null> {
+    static async getTargetCandle(
+        c: {
+            SYMBOL: string;
+            TIMEFRAME: string;
+            CONFIRMATION_TIMEFRAME: string;
+            STRUCTURE_TIMEFRAME: string;
+        }, timeframeType: 'ENTRY' | 'CONFIRMATION' | 'STRUCTURE'): Promise<{ target: TargetCandle; candles: Candle[] } | null> {
 
-        const dur = Utils.getTimeframeDurationMs(c.TIMEFRAME);
+        const timeframe = timeframeType === 'ENTRY' ? c.TIMEFRAME : timeframeType === 'CONFIRMATION' ? c.CONFIRMATION_TIMEFRAME : c.STRUCTURE_TIMEFRAME;
+        const dur = Utils.getTimeframeDurationMs(timeframe);
         const now = Date.now();
 
         const currentCandleStart = Math.floor(now / dur) * dur;
 
         const cd = await deltaExchange.getCandlestickData(
             c.SYMBOL,
-            c.TIMEFRAME,
+            timeframe,
             currentCandleStart - 80 * dur,
             now
         );
@@ -89,21 +93,24 @@ export class TradingV2 {
         }
 
         try {
-
             // ───────────────── MARKET DATA ─────────────────
-            const targetData = await TradingV2.getTargetCandle(c);
+            const targetDataStructure = await TradingV2.getTargetCandle(c, 'STRUCTURE');
 
-            if (!targetData) {
-                skipTradingLogger.info(`[MarketData] SKIP: Could not find required candle data for ${symbol} ${c.TIMEFRAME}. API might be lagging.`, {
-                    configId,
-                    userId,
-                    symbol,
-                    candleTimeframe: c.TIMEFRAME
-                });
+            if (!targetDataStructure) {
+                skipTradingLogger.info(
+                    `[MarketData] SKIP: Could not find required candle data for ${symbol}. API might be lagging.`,
+                    {
+                        configId,
+                        userId,
+                        symbol,
+                        confirmationTimeframe: c.CONFIRMATION_TIMEFRAME,
+                        structureTimeframe: c.STRUCTURE_TIMEFRAME
+                    }
+                );
                 return;
             }
 
-            const { target: targetCandle, candles } = targetData;
+            const { target: structureTargetCandle, candles: structureCandles } = targetDataStructure;
 
             const currentPrice = await TradingV2.getCurrentPrice(symbol);
 
@@ -140,7 +147,7 @@ export class TradingV2 {
                     symbol,
                     state,
                     orderDetails,
-                    targetCandle,
+                    structureTargetCandle,
                     currentPrice
                 );
 
@@ -171,14 +178,13 @@ export class TradingV2 {
             const configConfirmation: ConfigType = { ...c, TIMEFRAME: c.CONFIRMATION_TIMEFRAME };
             const configStructure: ConfigType = { ...c, TIMEFRAME: c.STRUCTURE_TIMEFRAME };
 
-            const targetDataConfirmation = await TradingV2.getTargetCandle({
-                TIMEFRAME: c.CONFIRMATION_TIMEFRAME,
-                SYMBOL: c.SYMBOL
-            });
-            const confirmationTargetCandle = targetDataConfirmation?.target;
-            if (!confirmationTargetCandle) {
+            const targetData = await TradingV2.getTargetCandle(c, 'ENTRY');
+
+            const targetDataConfirmation = await TradingV2.getTargetCandle(c, 'CONFIRMATION');
+
+            if (!targetData || !targetDataConfirmation) {
                 skipTradingLogger.info(
-                    `[MarketData] SKIP: Could not find required higher timeframe candle data for ${symbol}. API might be lagging.`,
+                    `[MarketData] SKIP: Could not find required candle data for ${symbol}. API might be lagging.`,
                     {
                         configId,
                         userId,
@@ -190,46 +196,16 @@ export class TradingV2 {
                 return;
             }
 
-            const targetDataStructure = await TradingV2.getTargetCandle({
-                TIMEFRAME: c.STRUCTURE_TIMEFRAME,
-                SYMBOL: c.SYMBOL
-            });
-            const structureTargetCandle = targetDataStructure?.target;
-            if (!structureTargetCandle) {
-                skipTradingLogger.info(
-                    `[MarketData] SKIP: Could not find required higher timeframe candle data for ${symbol}. API might be lagging.`,
-                    {
-                        configId,
-                        userId,
-                        symbol,
-                        confirmationTimeframe: c.CONFIRMATION_TIMEFRAME,
-                        structureTimeframe: c.STRUCTURE_TIMEFRAME
-                    }
-                );
-                return;
-            }
-
-            if (!targetDataConfirmation || !targetDataStructure) {
-                skipTradingLogger.info(
-                    `[MarketData] SKIP: Could not find required higher timeframe candle data for ${symbol}. API might be lagging.`,
-                    {
-                        configId,
-                        userId,
-                        symbol,
-                        confirmationTimeframe: c.CONFIRMATION_TIMEFRAME,
-                        structureTimeframe: c.STRUCTURE_TIMEFRAME
-                    }
-                );
-                return;
-            }
+            const { target: confirmationTargetCandle, candles: confirmationCandles } = targetDataConfirmation;
+            const { target: targetCandle, candles } = targetData;
 
             const mtf = MultiTimeframeAlignment.evaluate(
                 targetCandle,
                 confirmationTargetCandle,
                 structureTargetCandle,
                 candles,
-                targetDataConfirmation.candles,
-                targetDataStructure.candles,
+                confirmationCandles,
+                structureCandles,
                 c,
                 configConfirmation,
                 configStructure
@@ -266,7 +242,7 @@ export class TradingV2 {
             )) return;
 
             // ───────────────── TRADE SIDE ─────────────────
-            const side = targetCandle.color === "green" ? "buy" : "sell";
+            const side = mtf.direction.toLowerCase() as "buy" | "sell";
 
             // ───────────────── DRY RUN ─────────────────
             if (c.DRY_RUN) {

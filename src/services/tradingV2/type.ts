@@ -25,6 +25,7 @@ export interface ConfigType {
     SL_LIMIT_BUFFER_PERCENT: number;
     DRY_RUN: boolean;
     IS_TESTING: boolean;
+    STRUCTURE_LOOKBACK?: number;
 }
 
 export type MarketEvaluationMode = "structure" | "confirmation" | "entry";
