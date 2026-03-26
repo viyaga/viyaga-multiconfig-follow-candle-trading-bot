@@ -1,6 +1,7 @@
 import { marketDetectorLogger } from "../logger";
 import { Candle, ConfigType, TargetCandle } from "../type";
 import { MarketDetector } from "./market-detector";
+import { evaluateBreakoutTrade } from "./master-breakout-system";
 
 export interface TripleTFResult {
     entryScore: number;
@@ -11,26 +12,6 @@ export interface TripleTFResult {
 }
 
 export class MultiTimeframeAlignment {
-
-    static getBreakoutDirection(
-        candles: Candle[],
-        target: TargetCandle,
-        lookback: number
-    ): "BUY" | "SELL" | "NONE" {
-
-        const recent = candles.slice(-lookback);
-
-        const prevHigh = Math.max(...recent.slice(0, -1).map(c => c.high));
-        const prevLow = Math.min(...recent.slice(0, -1).map(c => c.low));
-
-        if (target.close > prevHigh)
-            return "BUY";
-
-        if (target.close < prevLow)
-            return "SELL";
-
-        return "NONE";
-    }
 
     static evaluate(
         entryTarget: TargetCandle,
@@ -44,13 +25,7 @@ export class MultiTimeframeAlignment {
         structureConfig: ConfigType,
     ): TripleTFResult {
 
-        const entryResult = MarketDetector.getMarketRegimeScore(
-            entryTarget,
-            entryCandles,
-            entryConfig,
-            "entry"
-        );
-
+        // ───────────────── HTF REGIME (CHOP) ─────────────────
         const confirmationResult = MarketDetector.getMarketRegimeScore(
             confirmationTarget,
             confirmationCandles,
@@ -65,18 +40,18 @@ export class MultiTimeframeAlignment {
             "structure"
         );
 
-        const entryScore = entryResult.score;
         const confirmationScore = confirmationResult.score;
         const structureScore = structureResult.score;
 
         const symbol = entryConfig.SYMBOL;
 
-        const direction =
-            this.getBreakoutDirection(
-                entryCandles,
-                entryTarget,
-                entryConfig.STRUCTURE_LOOKBACK || 20
-            );
+        // ───────────────── MASTER BREAKOUT SCORE (ENTRY) ─────────────────
+        // 🔥 No separate breakout + market score
+        // ✅ One final score for entry
+        const breakout = evaluateBreakoutTrade(entryCandles, entryTarget, entryConfig);
+        const direction = breakout.direction;
+        const breakoutScore = breakout.score;
+        const isBreakoutTrade = breakout.isTrade;
 
         let isAllowed = false;
         let blockedReason: string | null = null;
@@ -85,9 +60,10 @@ export class MultiTimeframeAlignment {
             marketDetectorLogger.info(`[MTFDetail] ${symbol}`, {
                 isAllowed,
                 blockedReason,
+                breakoutScore,
                 entry: {
-                    score: entryScore,
-                    allowed: entryResult.isAllowed,
+                    score: breakoutScore,
+                    isTrade: isBreakoutTrade,
                     timeframe: entryConfig.TIMEFRAME
                 },
                 confirmation: {
@@ -103,24 +79,12 @@ export class MultiTimeframeAlignment {
             });
         };
 
-        // Hard block if higher timeframe is extremely choppy
-        if (structureScore >= 7 || confirmationScore >= 7) {
-            blockedReason = "HIGH_TF_CHOP_BLOCK";
-            logMTF();
-            return { entryScore, confirmationScore, structureScore, isAllowed: false, direction };
-        }
-
-        if (!structureResult.isAllowed || !confirmationResult.isAllowed) {
-            blockedReason = "HTF_FILTER_BLOCK";
-            logMTF();
-            return { entryScore, confirmationScore, structureScore, isAllowed: false, direction };
-        }
-
+        // 🔴 MANDATORY BREAKOUT
         if (direction === "NONE") {
-            blockedReason = "NO_BREAKOUT_DIRECTION";
+            blockedReason = "NO_BREAKOUT";
             logMTF();
             return {
-                entryScore,
+                entryScore: breakoutScore,
                 confirmationScore,
                 structureScore,
                 isAllowed: false,
@@ -128,26 +92,55 @@ export class MultiTimeframeAlignment {
             };
         }
 
-        // Breakout alignment rule
-        if (
-            structureScore <= 5 &&
-            confirmationScore <= 5 &&
-            entryResult.isAllowed
-        ) {
-            isAllowed = true;
+        // 🔴 HARD BLOCK: HTF chop (Optional but kept for safety)
+        if (structureScore >= 7 || confirmationScore >= 7) {
+            blockedReason = "HIGH_TF_CHOP_BLOCK";
+            logMTF();
+            return {
+                entryScore: breakoutScore,
+                confirmationScore,
+                structureScore,
+                isAllowed: false,
+                direction
+            };
+        }
+
+        if (!structureResult.isAllowed || !confirmationResult.isAllowed) {
+            blockedReason = "HTF_FILTER_BLOCK";
+            logMTF();
+            return {
+                entryScore: breakoutScore,
+                confirmationScore,
+                structureScore,
+                isAllowed: false,
+                direction
+            };
+        }
+
+        // ✅ FINAL ENTRY LOGIC
+        // 🔥 Score-based decision (no binary thinking)
+
+        if (breakoutScore >= 10) {
+            isAllowed = true; // strong breakout
+        } else if (breakoutScore >= 8) {
+            // medium → allow only if HTF is clean
+            if (confirmationScore <= 4 && structureScore <= 4) {
+                isAllowed = true;
+            } else {
+                blockedReason = "HTF_NOT_SUPPORTING";
+            }
         } else {
-            blockedReason = "ENTRY_FILTER_BLOCK";
+            blockedReason = "LOW_SCORE_BREAKOUT";
         }
 
         logMTF();
 
         return {
-            entryScore,
+            entryScore: breakoutScore,
             confirmationScore,
             structureScore,
             isAllowed,
             direction
         };
     }
-
 }
