@@ -5,8 +5,8 @@ import { evaluateBreakoutTrade } from "./master-breakout-system";
 
 export interface TripleTFResult {
     entryScore: number;
-    confirmationScore: number;
-    structureScore: number;
+    confirmationProbability: number;
+    structureProbability: number;
     isAllowed: boolean;
     direction: "BUY" | "SELL" | "NONE";
 }
@@ -26,22 +26,22 @@ export class MultiTimeframeAlignment {
     ): TripleTFResult {
 
         // ───────────────── HTF REGIME (CHOP) ─────────────────
-        const confirmationResult = MarketDetector.getMarketRegimeScore(
+        const confirmationResult = MarketDetector.getMarketProbability(
             confirmationTarget,
             confirmationCandles,
             confirmationConfig,
             "confirmation"
         );
 
-        const structureResult = MarketDetector.getMarketRegimeScore(
+        const structureResult = MarketDetector.getMarketProbability(
             structureTarget,
             structureCandles,
             structureConfig,
             "structure"
         );
 
-        const confirmationScore = confirmationResult.score;
-        const structureScore = structureResult.score;
+        const confirmationProbability = confirmationResult.probability;
+        const structureProbability = structureResult.probability;
 
         const symbol = entryConfig.SYMBOL;
 
@@ -67,12 +67,12 @@ export class MultiTimeframeAlignment {
                     timeframe: entryConfig.TIMEFRAME
                 },
                 confirmation: {
-                    score: confirmationScore,
+                    score: confirmationProbability,
                     allowed: confirmationResult.isAllowed,
                     timeframe: confirmationConfig.TIMEFRAME
                 },
                 structure: {
-                    score: structureScore,
+                    score: structureProbability,
                     allowed: structureResult.isAllowed,
                     timeframe: structureConfig.TIMEFRAME
                 },
@@ -85,21 +85,21 @@ export class MultiTimeframeAlignment {
             logMTF();
             return {
                 entryScore: breakoutScore,
-                confirmationScore,
-                structureScore,
+                confirmationProbability,
+                structureProbability,
                 isAllowed: false,
                 direction: "NONE"
             };
         }
 
         // 🔴 HARD BLOCK: HTF chop (Optional but kept for safety)
-        if (structureScore >= 7 || confirmationScore >= 7) {
+        if (structureProbability >= 55 || confirmationProbability >= 55) {
             blockedReason = "HIGH_TF_CHOP_BLOCK";
             logMTF();
             return {
                 entryScore: breakoutScore,
-                confirmationScore,
-                structureScore,
+                confirmationProbability,
+                structureProbability,
                 isAllowed: false,
                 direction
             };
@@ -110,8 +110,8 @@ export class MultiTimeframeAlignment {
             logMTF();
             return {
                 entryScore: breakoutScore,
-                confirmationScore,
-                structureScore,
+                confirmationProbability,
+                structureProbability,
                 isAllowed: false,
                 direction
             };
@@ -124,7 +124,7 @@ export class MultiTimeframeAlignment {
             isAllowed = true; // strong breakout
         } else if (breakoutScore >= 8) {
             // medium → allow only if HTF is clean
-            if (confirmationScore <= 4 && structureScore <= 4) {
+            if (confirmationProbability <= 4 && structureProbability <= 4) {
                 isAllowed = true;
             } else {
                 blockedReason = "HTF_NOT_SUPPORTING";
@@ -137,8 +137,8 @@ export class MultiTimeframeAlignment {
 
         return {
             entryScore: breakoutScore,
-            confirmationScore,
-            structureScore,
+            confirmationProbability,
+            structureProbability,
             isAllowed,
             direction
         };

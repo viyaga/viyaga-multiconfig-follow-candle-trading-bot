@@ -17,6 +17,7 @@ export interface ConfigType {
     LOWER_TIMEFRAME: string,
     LEVERAGE: number,
     INITIAL_BASE_QUANTITY: number,
+    MAX_QUANTITY: number,
     TRADING_MODE: "conservative" | "balanced" | "aggressive" | "meme"
     MAX_ALLOWED_PRICE_MOVEMENT_PERCENT: number,
     MIN_ALLOWED_PRICE_MOVEMENT_PERCENT: number,
@@ -41,7 +42,7 @@ export interface InternalChopConfig {
     SMALL_BODY_MIN_COUNT: number;
 
     MIN_REQUIRED_CANDLES: number;
-    CHOP_SCORE_THRESHOLD: number;
+    PROBABILITY_THRESHOLD: number;
 };
 
 /* ───────────────────────

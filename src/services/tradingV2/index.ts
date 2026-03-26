@@ -259,6 +259,18 @@ export class TradingV2 {
             // ───────────────── QUANTITY ─────────────────
             const qty = c.IS_TESTING ? 1 : state.lastTradeQuantity;
 
+            if (qty && qty > c.MAX_QUANTITY) {
+                skipTradingLogger.info(`[Quantity] SKIP: Quantity exceeds MAX_QUANTITY for ${symbol}`, {
+                    configId,
+                    userId,
+                    symbol,
+                    timeframe: c.TIMEFRAME,
+                    qty,
+                    maxQuantity: c.MAX_QUANTITY
+                });
+                return;
+            }
+
             tradingCronLogger.info(
                 `[TradingCycle:${symbol}] Quantity: ${qty} (IS_TESTING=${c.IS_TESTING})`
             );
