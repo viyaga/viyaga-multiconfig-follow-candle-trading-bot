@@ -46,8 +46,9 @@ export class Utils {
         return Number(price);
     }
 
-    static async isPriceMovingInCandleDirection(
+    static async isPriceMovingInOrderSideDirection(
         candle: TargetCandle,
+        side: OrderSide,
         currentPrice: number,
         configId: string,
         userId: string,
@@ -56,7 +57,7 @@ export class Utils {
     ): Promise<boolean> {
         let isTrendValid = false;
 
-        if (candle.color === "red") {
+        if (side === "sell") {
             // red candle → price should less than high
             isTrendValid = currentPrice < candle.high;
         } else {
@@ -82,6 +83,7 @@ export class Utils {
 
     static async isPriceMovementPercentWithinRange(
         candle: TargetCandle,
+        side: OrderSide,
         currentPrice: number,
         configId: string,
         userId: string,
@@ -93,7 +95,7 @@ export class Utils {
         const minPercent = cfg.MIN_ALLOWED_PRICE_MOVEMENT_PERCENT;
 
         const basePrice =
-            candle.color === "red"
+            side === "sell"
                 ? candle.high   // red candle → from high
                 : candle.low;   // green candle → from low
 

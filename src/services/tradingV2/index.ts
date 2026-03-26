@@ -223,16 +223,6 @@ export class TradingV2 {
                 return;
             }
 
-            // ───────────────── PRICE VALIDATION ─────────────────
-            if (!await Utils.isPriceMovingInCandleDirection(
-                targetCandle,
-                currentPrice,
-                configId,
-                userId,
-                symbol,
-                c.TIMEFRAME
-            )) return;
-
             // ───────────────── TRADE SIDE ─────────────────
             const side = mtf.direction.toLowerCase() as "buy" | "sell" | "none";
 
@@ -245,6 +235,17 @@ export class TradingV2 {
                 });
                 return;
             }
+
+            // ───────────────── PRICE VALIDATION ─────────────────
+            if (!await Utils.isPriceMovingInOrderSideDirection(
+                targetCandle,
+                side,
+                currentPrice,
+                configId,
+                userId,
+                symbol,
+                c.TIMEFRAME
+            )) return;
 
             // ───────────────── DRY RUN ─────────────────
             if (c.DRY_RUN) {
@@ -300,6 +301,7 @@ export class TradingV2 {
 
             const slCandle = await Utils.isPriceMovementPercentWithinRange(
                 structureTargetCandle,
+                side,
                 currentPrice,
                 configId,
                 userId,
@@ -307,6 +309,7 @@ export class TradingV2 {
                 c.TIMEFRAME
             ) ? structureTargetCandle : await Utils.isPriceMovementPercentWithinRange(
                 confirmationTargetCandle,
+                side,
                 currentPrice,
                 configId,
                 userId,
