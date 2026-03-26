@@ -48,6 +48,7 @@ export class TradingConfig {
             LEVERAGE: 20,
 
             INITIAL_BASE_QUANTITY: 1,
+            //MAX_BASE_QUANTITY: 10,
 
             TRADING_MODE: "balanced",
 

@@ -232,15 +232,6 @@ export class TradingV2 {
                 c.TIMEFRAME
             )) return;
 
-            if (!await Utils.isPriceMovementPercentWithinRange(
-                targetCandle,
-                currentPrice,
-                configId,
-                userId,
-                symbol,
-                c.TIMEFRAME
-            )) return;
-
             // ───────────────── TRADE SIDE ─────────────────
             const side = mtf.direction.toLowerCase() as "buy" | "sell" | "none";
 
@@ -286,9 +277,23 @@ export class TradingV2 {
             const entryPrice = Utils.resolveEntryPrice(entry);
             const tp = Utils.calculateTpPrice(entryPrice, side);
 
-            const initialSlCandle = structureTargetCandle
+            const slCandle = await Utils.isPriceMovementPercentWithinRange(
+                structureTargetCandle,
+                currentPrice,
+                configId,
+                userId,
+                symbol,
+                c.TIMEFRAME
+            ) ? structureTargetCandle : await Utils.isPriceMovementPercentWithinRange(
+                confirmationTargetCandle,
+                currentPrice,
+                configId,
+                userId,
+                symbol,
+                c.TIMEFRAME
+            ) ? confirmationTargetCandle : targetCandle;
 
-            const slPrice = side === "buy" ? initialSlCandle.low : initialSlCandle.high;
+            const slPrice = side === "buy" ? slCandle.low : slCandle.high;
 
             let sl =
                 side === "buy"
