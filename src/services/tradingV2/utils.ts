@@ -1,6 +1,6 @@
 import { IMartingaleState } from "../../models/martingaleState.model";
 import { TradingConfig } from "./config";
-import { Candle, OrderDetails, OrderSide, TargetCandle } from "./type";
+import { Candle, OrderSide, TargetCandle } from "./type";
 import { skipTradingLogger } from "./logger";
 
 export class Utils {

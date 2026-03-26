@@ -93,9 +93,9 @@ export class MultiTimeframeAlignment {
         let decision: TradeDecision = "SKIP";
         if (finalScore >= 75) decision = "STRONG_TRADE";
         else if (finalScore >= 65) decision = "GOOD_TRADE";
-        else if (finalScore >= 55) decision = "WEAK_TRADE";
+        else if (finalScore >= 45) decision = "WEAK_TRADE";
 
-        const isAllowed = finalScore >= 55;
+        const isAllowed = finalScore >= 45;
 
         marketDetectorLogger.info(`[MTFDetail] ${symbol}`, {
             direction,

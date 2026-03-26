@@ -211,12 +211,13 @@ export class TradingV2 {
                 configStructure
             );
 
-            if (!mtf.isAllowed) {
-                skipTradingLogger.info(`[MarketRegime] SKIP: MTF Alignment Failed for ${symbol}`, {
+            if (mtf.finalScore < 45) {
+                skipTradingLogger.info(`[MarketRegime] SKIP: MTF Final Score too low for ${symbol}`, {
                     configId,
                     userId,
                     symbol,
                     timeframe: c.TIMEFRAME,
+                    finalScore: mtf.finalScore,
                     mtf
                 });
                 return;
@@ -257,7 +258,15 @@ export class TradingV2 {
             }
 
             // ───────────────── QUANTITY ─────────────────
-            const qty = c.IS_TESTING ? 1 : state.lastTradeQuantity;
+            let multiplier = 1;
+            if (mtf.finalScore >= 75) multiplier = 1.5;
+            else if (mtf.finalScore >= 65) multiplier = 1;
+            else if (mtf.finalScore >= 55) multiplier = 0.8;
+            else multiplier = 0.6;
+
+            const baseQty = c.IS_TESTING ? 1 : state.lastTradeQuantity;
+            if (!baseQty) throw new Error("Base quantity not found");
+            const qty = Math.floor(baseQty * multiplier);
 
             if (qty && qty > c.MAX_QUANTITY) {
                 skipTradingLogger.info(`[Quantity] SKIP: Quantity exceeds MAX_QUANTITY for ${symbol}`, {
