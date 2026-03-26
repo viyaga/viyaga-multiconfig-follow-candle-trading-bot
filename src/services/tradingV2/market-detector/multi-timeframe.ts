@@ -3,16 +3,23 @@ import { Candle, ConfigType, TargetCandle } from "../type";
 import { MarketDetector } from "./market-detector";
 import { evaluateBreakoutTrade } from "./master-breakout-system";
 
+export type TradeDecision = "STRONG_TRADE" | "GOOD_TRADE" | "WEAK_TRADE" | "SKIP";
+
 export interface TripleTFResult {
-    entryScore: number;
-    confirmationProbability: number;
-    structureProbability: number;
+    entryScore: number; // breakout quality score 0..100
+    confirmationProbability: number; // 0..100
+    structureProbability: number; // 0..100
+    finalScore: number; // 0..100
+    decision: TradeDecision;
     isAllowed: boolean;
     direction: "BUY" | "SELL" | "NONE";
 }
 
-export class MultiTimeframeAlignment {
+function clamp(value: number, min: number, max: number): number {
+    return Math.max(min, Math.min(max, value));
+}
 
+export class MultiTimeframeAlignment {
     static evaluate(
         entryTarget: TargetCandle,
         confirmationTarget: TargetCandle,
@@ -24,8 +31,6 @@ export class MultiTimeframeAlignment {
         confirmationConfig: ConfigType,
         structureConfig: ConfigType,
     ): TripleTFResult {
-
-        // ───────────────── HTF REGIME (CHOP) ─────────────────
         const confirmationResult = MarketDetector.getMarketProbability(
             confirmationTarget,
             confirmationCandles,
@@ -43,104 +48,88 @@ export class MultiTimeframeAlignment {
         const confirmationProbability = confirmationResult.probability;
         const structureProbability = structureResult.probability;
 
-        const symbol = entryConfig.SYMBOL;
-
-        // ───────────────── MASTER BREAKOUT SCORE (ENTRY) ─────────────────
-        // 🔥 No separate breakout + market score
-        // ✅ One final score for entry
         const breakout = evaluateBreakoutTrade(entryCandles, entryTarget, entryConfig);
         const direction = breakout.direction;
-        const breakoutScore = breakout.score;
-        const isBreakoutTrade = breakout.isTrade;
+        const entryScore = breakout.score;
 
-        let isAllowed = false;
-        let blockedReason: string | null = null;
+        const symbol = entryConfig.SYMBOL;
 
-        const logMTF = () => {
-            marketDetectorLogger.info(`[MTFDetail] ${symbol}`, {
-                isAllowed,
-                blockedReason,
-                breakoutScore,
-                entry: {
-                    score: breakoutScore,
-                    isTrade: isBreakoutTrade,
-                    timeframe: entryConfig.TIMEFRAME
-                },
-                confirmation: {
-                    score: confirmationProbability,
-                    allowed: confirmationResult.isAllowed,
-                    timeframe: confirmationConfig.TIMEFRAME
-                },
-                structure: {
-                    score: structureProbability,
-                    allowed: structureResult.isAllowed,
-                    timeframe: structureConfig.TIMEFRAME
-                },
-            });
-        };
-
-        // 🔴 MANDATORY BREAKOUT
         if (direction === "NONE") {
-            blockedReason = "NO_BREAKOUT";
-            logMTF();
-            return {
-                entryScore: breakoutScore,
+            const finalScore = 0;
+            const decision: TradeDecision = "SKIP";
+
+            marketDetectorLogger.info(`[MTFDetail] ${symbol}`, {
+                direction,
+                entryScore,
                 confirmationProbability,
                 structureProbability,
+                finalScore,
+                decision,
                 isAllowed: false,
-                direction: "NONE"
+            });
+
+            return {
+                entryScore,
+                confirmationProbability,
+                structureProbability,
+                finalScore,
+                decision,
+                isAllowed: false,
+                direction: "NONE",
             };
         }
 
-        // 🔴 HARD BLOCK: HTF chop (Optional but kept for safety)
-        if (structureProbability >= 55 || confirmationProbability >= 55) {
-            blockedReason = "HIGH_TF_CHOP_BLOCK";
-            logMTF();
-            return {
-                entryScore: breakoutScore,
-                confirmationProbability,
-                structureProbability,
-                isAllowed: false,
-                direction
-            };
-        }
+        const weightedScore =
+            (entryScore * 0.50) +
+            (confirmationProbability * 0.25) +
+            (structureProbability * 0.25);
 
-        if (!structureResult.isAllowed || !confirmationResult.isAllowed) {
-            blockedReason = "HTF_FILTER_BLOCK";
-            logMTF();
-            return {
-                entryScore: breakoutScore,
-                confirmationProbability,
-                structureProbability,
-                isAllowed: false,
-                direction
-            };
-        }
+        const softPenalty =
+            Math.max(0, 50 - confirmationProbability) * 0.20 +
+            Math.max(0, 50 - structureProbability) * 0.20;
 
-        // ✅ FINAL ENTRY LOGIC
-        // 🔥 Score-based decision (no binary thinking)
+        const finalScore = clamp(Math.round(weightedScore - softPenalty), 0, 100);
 
-        if (breakoutScore >= 10) {
-            isAllowed = true; // strong breakout
-        } else if (breakoutScore >= 8) {
-            // medium → allow only if HTF is clean
-            if (confirmationProbability <= 4 && structureProbability <= 4) {
-                isAllowed = true;
-            } else {
-                blockedReason = "HTF_NOT_SUPPORTING";
-            }
-        } else {
-            blockedReason = "LOW_SCORE_BREAKOUT";
-        }
+        let decision: TradeDecision = "SKIP";
+        if (finalScore >= 75) decision = "STRONG_TRADE";
+        else if (finalScore >= 65) decision = "GOOD_TRADE";
+        else if (finalScore >= 55) decision = "WEAK_TRADE";
 
-        logMTF();
+        const isAllowed = finalScore >= 55;
 
-        return {
-            entryScore: breakoutScore,
+        marketDetectorLogger.info(`[MTFDetail] ${symbol}`, {
+            direction,
+            entryScore,
             confirmationProbability,
             structureProbability,
+            finalScore,
+            decision,
             isAllowed,
-            direction
+            entry: {
+                score: entryScore,
+                isTrade: breakout.isTrade,
+                timeframe: entryConfig.TIMEFRAME,
+            },
+            confirmation: {
+                score: confirmationProbability,
+                allowed: confirmationResult.isAllowed,
+                timeframe: confirmationConfig.TIMEFRAME,
+            },
+            structure: {
+                score: structureProbability,
+                allowed: structureResult.isAllowed,
+                timeframe: structureConfig.TIMEFRAME,
+            },
+        });
+
+        return {
+            entryScore,
+            confirmationProbability,
+            structureProbability,
+            finalScore,
+            decision,
+            isAllowed,
+            direction,
         };
     }
 }
