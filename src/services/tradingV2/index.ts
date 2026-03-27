@@ -323,7 +323,7 @@ export class TradingV2 {
             );
 
             // ───────────────── TP / SL ─────────────────
-            const tpSlResult = await deltaExchange.placeTPSLBracketOrder(tp, sl, side);
+            const tpSlResult = await deltaExchange.placeTPSLBracketOrder(tp, sl, side, { cycleId, configId });
 
             cronLogger.info(
                 `TP/SL orders placed: TP_ID=${tpSlResult.ids.tp}, SL_ID=${tpSlResult.ids.sl}`

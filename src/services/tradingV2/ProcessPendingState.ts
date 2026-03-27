@@ -158,7 +158,8 @@ export class ProcessPendingState {
     static async placeCancelledBracketOrders(
         state: IMartingaleState,
         e: OrderDetails,
-        sl: number
+        sl: number,
+        logContext?: any
     ): Promise<IMartingaleState> {
         const slOrder = await deltaExchange.getOrderDetails(
             state.lastStopLossOrderId!
@@ -171,7 +172,7 @@ export class ProcessPendingState {
         const cancelRes = await deltaExchange.cancelStopOrders({
             product_id: TradingConfig.getConfig().PRODUCT_ID,
         });
-        getContextualLogger(tradingCronLogger).debug("Cancelled existing stop orders during bracket replacement", { cancelRes });
+        getContextualLogger(tradingCronLogger, logContext).debug("Cancelled existing stop orders during bracket replacement", { cancelRes });
 
         const entryPrice =
             e.average_fill_price ?? e.meta_data?.entry_price;
@@ -277,7 +278,7 @@ export class ProcessPendingState {
             if (!updateRes.success && updateRes.isSlReversed) return s;
 
             if (!updateRes.success)
-                return this.placeCancelledBracketOrders(s, e, sl);
+                return this.placeCancelledBracketOrders(s, e, sl, logContext);
 
             const updated = await this.updateStateSl(s, Number(updateRes.slLimitPrice));
 

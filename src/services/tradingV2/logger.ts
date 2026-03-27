@@ -73,7 +73,7 @@ export const tradingCronLogger = createLogger('trading-cron', 'trading-cron.log'
  * Contextual Logger Helper
  * Attaches common metadata to every log call for a specific trading cycle
  */
-export const getContextualLogger = (logger: winston.Logger, context: { cycleId?: string, symbol?: string, configId?: string }) => {
+export const getContextualLogger = (logger: winston.Logger, context: { cycleId?: string, symbol?: string, configId?: string } = {}) => {
     return {
         debug: (message: string, meta?: any) => logger.debug(message, { ...context, ...meta }),
         info: (message: string, meta?: any) => logger.info(message, { ...context, ...meta }),
