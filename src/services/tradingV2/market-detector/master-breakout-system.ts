@@ -112,6 +112,30 @@ export function evaluateBreakoutTrade(
         return { score: 0, direction: "NONE", isTrade: false };
     }
 
+    const bodyPercent = Utils.getBodyPercent(target);
+
+    /* ================= HARD FILTERS (NEW) ================= */
+
+    // 1. Explosive Candle Filter: Breakouts MUST be strong
+    if (bodyPercent < 65) {
+        return { score: 0, direction: "NONE", isTrade: false };
+    }
+
+    // 2. Volatility Expansion Filter: No expansion = no trade
+    if (atrAvg > 0 && atrPercent < atrAvg) {
+        return { score: 0, direction: "NONE", isTrade: false };
+    }
+
+    // 3. Volume Confirmation Filter: No volume = fake move
+    const volumeLookback = 20;
+    const avgVol = candles.length >= volumeLookback
+        ? candles.slice(-volumeLookback).reduce((a, b) => a + b.volume, 0) / volumeLookback
+        : 0;
+
+    if (avgVol > 0 && target.volume < avgVol * 1.2) {
+        return { score: 0, direction: "NONE", isTrade: false };
+    }
+
     let score = 50;
 
     /* ================= STRUCTURE / COMPRESSION ================= */
@@ -148,8 +172,6 @@ export function evaluateBreakoutTrade(
     else score -= 4;
 
     /* ================= BREAKOUT QUALITY ================= */
-
-    const bodyPercent = Utils.getBodyPercent(target);
 
     if (bodyPercent > 75) score += 12;
     else if (bodyPercent > 65) score += 9;
