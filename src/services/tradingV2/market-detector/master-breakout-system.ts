@@ -29,6 +29,8 @@ function clamp(value: number, min: number, max: number): number {
     return Math.max(min, Math.min(max, value));
 }
 
+/* ================= BREAKOUT DETECTOR ================= */
+
 function getBreakout(
     historyCandles: Candle[],
     target: TargetCandle,
@@ -37,9 +39,7 @@ function getBreakout(
 ) {
     const recent = historyCandles.slice(-lookback);
 
-    if (recent.length < 2) {
-        return null;
-    }
+    if (recent.length < 2) return null;
 
     const prevHigh = Math.max(...recent.map(c => c.high));
     const prevLow = Math.min(...recent.map(c => c.low));
@@ -49,9 +49,7 @@ function getBreakout(
     const breakoutUp = target.close > prevHigh + buffer;
     const breakoutDown = target.close < prevLow - buffer;
 
-    if (!breakoutUp && !breakoutDown) {
-        return null;
-    }
+    if (!breakoutUp && !breakoutDown) return null;
 
     return {
         breakoutUp,
@@ -62,24 +60,32 @@ function getBreakout(
     };
 }
 
+/* ================= MAIN ENGINE ================= */
+
 export function evaluateBreakoutTrade(
     candles: Candle[],
     target: TargetCandle,
     config: ConfigType
 ): MasterScoreResult {
+
     const cfg = getInternalConfig(config);
 
     if (candles.length < cfg.MIN_REQUIRED_CANDLES) {
         return { score: 0, direction: "NONE", isTrade: false };
     }
 
-    const historyCandles = candles.length > 1 ? candles.slice(0, -1) : [];
-
-    if (historyCandles.length < Math.max(10, cfg.STRUCTURE_LOOKBACK)) {
+    const history = candles.slice(0, -1);
+    if (history.length < Math.max(10, cfg.STRUCTURE_LOOKBACK)) {
         return { score: 0, direction: "NONE", isTrade: false };
     }
 
     const latestClose = target.close;
+
+    /* ================= BASE ================= */
+
+    let score = 50;
+    let direction: TradeDirection = "NONE";
+    let breakoutLevel = 0;
 
     /* ================= ATR ================= */
 
@@ -89,67 +95,63 @@ export function evaluateBreakoutTrade(
 
     /* ================= BREAKOUT ================= */
 
-    const breakout = getBreakout(historyCandles, target, cfg.STRUCTURE_LOOKBACK, atr);
+    const breakout = getBreakout(history, target, cfg.STRUCTURE_LOOKBACK, atr);
 
-    if (!breakout) {
-        return { score: 0, direction: "NONE", isTrade: false };
+    if (breakout) {
+        if (breakout.breakoutUp) {
+            direction = "BUY";
+            breakoutLevel = breakout.prevHigh;
+            score += 15;
+        } else if (breakout.breakoutDown) {
+            direction = "SELL";
+            breakoutLevel = breakout.prevLow;
+            score += 15;
+        }
+    } else {
+        score -= 20;
     }
 
-    const { breakoutUp, breakoutDown, prevHigh, prevLow } = breakout;
-
-    let direction: TradeDirection = "NONE";
-    let breakoutLevel = 0;
-
-    if (breakoutUp) {
-        direction = "BUY";
-        breakoutLevel = prevHigh;
-    } else if (breakoutDown) {
-        direction = "SELL";
-        breakoutLevel = prevLow;
-    }
-
-    if (direction === "NONE" || breakoutLevel <= 0) {
-        return { score: 0, direction: "NONE", isTrade: false };
-    }
+    /* ================= CANDLE STRENGTH ================= */
 
     const bodyPercent = Utils.getBodyPercent(target);
 
-    /* ================= HARD FILTERS (NEW) ================= */
-
-    // 1. Explosive Candle Filter: Breakouts MUST be strong
-    if (bodyPercent < 65) {
-        return { score: 0, direction: "NONE", isTrade: false };
-    }
-
-    // 2. Volatility Expansion Filter: No expansion = no trade
-    if (atrAvg > 0 && atrPercent < atrAvg) {
-        return { score: 0, direction: "NONE", isTrade: false };
-    }
-
-    // 3. Volume Confirmation Filter: No volume = fake move
-    const volumeLookback = 20;
-    const avgVol = candles.length >= volumeLookback
-        ? candles.slice(-volumeLookback).reduce((a, b) => a + b.volume, 0) / volumeLookback
-        : 0;
-
-    if (avgVol > 0 && target.volume < avgVol * 1.2) {
-        return { score: 0, direction: "NONE", isTrade: false };
-    }
-
-    let score = 50;
-
-    /* ================= STRUCTURE / COMPRESSION ================= */
-
-    const compressed = isRangeCompressed(candles, 5, cfg.STRUCTURE_LOOKBACK, 2);
-    score += compressed ? 6 : -3;
+    if (bodyPercent > 75) score += 12;
+    else if (bodyPercent > 65) score += 8;
+    else if (bodyPercent > 55) score += 4;
+    else score -= 10;
 
     /* ================= VOLATILITY ================= */
 
     if (atrAvg > 0) {
-        if (atrPercent > atrAvg * 1.1) score += 8;
-        else if (atrPercent > atrAvg * 0.95) score += 4;
-        else score -= 6;
+        if (atrPercent > atrAvg * 1.2) score += 10;
+        else if (atrPercent > atrAvg) score += 6;
+        else score -= 8;
     }
+
+    /* ================= STRUCTURE ================= */
+
+    const compressed = isRangeCompressed(candles, 5, cfg.STRUCTURE_LOOKBACK, 2);
+    score += compressed ? 6 : -3;
+
+    /* ================= VOLUME ================= */
+
+    const volumeWindow = Math.min(20, candles.length);
+    const avgVol =
+        candles.slice(-volumeWindow).reduce((a, b) => a + b.volume, 0) / volumeWindow;
+
+    if (avgVol > 0) {
+        const ratio = target.volume / avgVol;
+
+        if (ratio > 2) score += 12;
+        else if (ratio > 1.5) score += 8;
+        else if (ratio > 1.2) score += 4;
+        else score -= 10;
+    }
+
+    if (isVolumeContracting(candles)) score -= 8;
+
+    score += getVolumeExpansionPoints(candles);
+    score += getTargetCandleVolumeSpike(target, candles);
 
     /* ================= ADX ================= */
 
@@ -157,9 +159,9 @@ export function evaluateBreakoutTrade(
     if (adxSeries.length > 0) {
         const adx = adxSeries[adxSeries.length - 1];
 
-        if (adx > cfg.ADX_WEAK_THRESHOLD + 5) score += 8;
-        else if (adx > cfg.ADX_WEAK_THRESHOLD) score += 4;
-        else score -= 4;
+        if (adx > cfg.ADX_WEAK_THRESHOLD + 10) score += 10;
+        else if (adx > cfg.ADX_WEAK_THRESHOLD) score += 6;
+        else score -= 6;
     }
 
     /* ================= VEI ================= */
@@ -167,37 +169,13 @@ export function evaluateBreakoutTrade(
     const veiSeries = calculateVEISeries(candles, 20);
     const vei = veiSeries.length > 0 ? veiSeries[veiSeries.length - 1] : 1;
 
-    if (vei > 1.3) score += 8;
-    else if (vei > 1.1) score += 4;
-    else score -= 4;
-
-    /* ================= BREAKOUT QUALITY ================= */
-
-    if (bodyPercent > 75) score += 12;
-    else if (bodyPercent > 65) score += 9;
-    else if (bodyPercent > 55) score += 5;
-    else score -= 10;
-
-    const distance = breakoutLevel === 0
-        ? 0
-        : (Math.abs(target.close - breakoutLevel) / breakoutLevel) * 100;
-
-    if (distance > 0.6) score += 8;
-    else if (distance > 0.3) score += 5;
-    else if (distance > 0.15) score += 2;
-    else score -= 4;
-
-    /* ================= VOLUME ================= */
-
-    if (!isVolumeContracting(candles)) score += 5;
-    else score -= 6;
-
-    score += getVolumeExpansionPoints(candles);
-    score += getTargetCandleVolumeSpike(target, candles);
+    if (vei > 1.4) score += 8;
+    else if (vei > 1.2) score += 5;
+    else score -= 5;
 
     /* ================= MOMENTUM ================= */
 
-    const prev = historyCandles[historyCandles.length - 1];
+    const prev = history[history.length - 1];
 
     if (
         (direction === "BUY" && target.close > prev.close) ||
@@ -214,7 +192,7 @@ export function evaluateBreakoutTrade(
         score += 6;
     }
 
-    /* ================= PENALTIES ================= */
+    /* ================= CHOP ================= */
 
     if (
         detectMicroChop(
@@ -227,13 +205,29 @@ export function evaluateBreakoutTrade(
         score -= 12;
     }
 
+    /* ================= TARGET QUALITY ================= */
+
     if (isTargetCandleNotGood(target, atrPercent, 0.3)) {
         score -= 10;
     }
 
+    /* ================= RETEST SCORING ================= */
+
+    if (breakoutLevel > 0) {
+        const distance =
+            Math.abs(target.close - breakoutLevel) / breakoutLevel;
+
+        if (distance < 0.002) score += 12;       // perfect retest
+        else if (distance < 0.005) score += 8;
+        else if (distance < 0.01) score += 4;
+        else score -= 6;                         // overextended
+    }
+
+    /* ================= FINAL ================= */
+
     score = clamp(score, 0, 100);
 
-    const isTrade = score >= 65;
+    const isTrade = score >= 60;
 
     return {
         score,
