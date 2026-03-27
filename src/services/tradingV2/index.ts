@@ -1,6 +1,6 @@
 import { Data } from "./data";
 import { deltaExchange } from "./delta-exchange";
-import { tradingCycleErrorLogger, martingaleTradeLogger, skipTradingLogger, tradingCronLogger } from "./logger";
+import { tradingCycleErrorLogger, martingaleTradeLogger, skipTradingLogger, tradingCronLogger, getContextualLogger } from "./logger";
 import { ConfigType, TargetCandle, Candle } from "./type";
 import { Utils } from "./utils";
 import { ProcessPendingState } from "./ProcessPendingState";
@@ -77,13 +77,16 @@ export class TradingV2 {
 
     static async runTradingCycle(c: ConfigType) {
         const { id: configId, SYMBOL: symbol, USER_ID: userId } = c;
+        const cycleId = `cycle-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+
+        const cronLogger = getContextualLogger(tradingCronLogger, { cycleId, symbol, configId });
+        const skipLogger = getContextualLogger(skipTradingLogger, { cycleId, symbol, configId });
+        const errorLogger = getContextualLogger(tradingCycleErrorLogger, { cycleId, symbol, configId });
+        const tradeLogger = getContextualLogger(martingaleTradeLogger, { cycleId, symbol, configId });
 
         // 🚫 Risk guard
         if (c.LEVERAGE * c.MAX_ALLOWED_PRICE_MOVEMENT_PERCENT > 80) {
-            skipTradingLogger.info(`[Config] SKIP: Leverage risk too high for ${symbol}`, {
-                configId,
-                userId,
-                symbol,
+            skipLogger.info(`[Config] SKIP: Leverage risk too high for ${symbol}`, {
                 candleTimeframe: c.TIMEFRAME,
                 leverage: c.LEVERAGE,
                 maxAllowedPercent: c.MAX_ALLOWED_PRICE_MOVEMENT_PERCENT,
@@ -97,12 +100,9 @@ export class TradingV2 {
             const targetDataStructure = await TradingV2.getTargetCandle(c, 'STRUCTURE');
 
             if (!targetDataStructure) {
-                skipTradingLogger.info(
+                skipLogger.info(
                     `[MarketData] SKIP: Could not find required candle data for ${symbol}. API might be lagging.`,
                     {
-                        configId,
-                        userId,
-                        symbol,
                         confirmationTimeframe: c.CONFIRMATION_TIMEFRAME,
                         structureTimeframe: c.STRUCTURE_TIMEFRAME
                     }
@@ -125,8 +125,8 @@ export class TradingV2 {
             // ───────────────── HANDLE PENDING TRADE ─────────────────
             if (state.lastEntryOrderId && Utils.isTradePending(state)) {
 
-                tradingCronLogger.info(
-                    `[TradingCycle:${symbol}] Found pending trade with order ID: ${state.lastEntryOrderId}. Fetching order details...`
+                cronLogger.info(
+                    `Found pending trade with order ID: ${state.lastEntryOrderId}. Fetching order details...`
                 );
 
                 const orderDetails = await deltaExchange.getOrderDetails(state.lastEntryOrderId);
@@ -135,12 +135,12 @@ export class TradingV2 {
                     throw new Error("Failed to fetch order details for pending trade.");
                 }
 
-                tradingCronLogger.info(
-                    `[TradingCycle:${symbol}] Order details retrieved: Status=${orderDetails.status}`
+                cronLogger.info(
+                    `Order details retrieved: Status=${orderDetails.status}`
                 );
 
-                tradingCronLogger.info(
-                    `[TradingCycle:${symbol}] Processing pending trade state...`
+                cronLogger.info(
+                    `Processing pending trade state...`
                 );
 
                 state = await ProcessPendingState.processStateOfPendingTrade(
@@ -148,11 +148,12 @@ export class TradingV2 {
                     state,
                     orderDetails,
                     structureTargetCandle,
-                    currentPrice
+                    currentPrice,
+                    { cycleId, configId } // Pass context for logging
                 );
 
-                tradingCronLogger.info(
-                    `[TradingCycle:${symbol}] Pending state processed: NewOutcome=${state.lastTradeOutcome}`
+                cronLogger.info(
+                    `Pending state processed: NewOutcome=${state.lastTradeOutcome}`
                 );
 
                 if (Utils.isTradePending(state)) return;
@@ -165,11 +166,11 @@ export class TradingV2 {
                     minute: "numeric"
                 })
             )
-            console.log({ istMinutes, now });
+            cronLogger.debug(`Current time check for run minutes`, { istMinutes, now });
 
             if (!c.RUN_MINUTES.includes(istMinutes)) {
-                skipTradingLogger.info(
-                    `[TradingCron] Skipping config: ${c.id} (${c.SYMBOL}) because it is not in the RUN_MINUTES list.`
+                skipLogger.info(
+                    `Skipping config: ${c.id} (${c.SYMBOL}) because it is not in the RUN_MINUTES list.`
                 );
                 return;
             }
@@ -183,12 +184,9 @@ export class TradingV2 {
             const targetDataConfirmation = await TradingV2.getTargetCandle(c, 'CONFIRMATION');
 
             if (!targetData || !targetDataConfirmation) {
-                skipTradingLogger.info(
+                skipLogger.info(
                     `[MarketData] SKIP: Could not find required candle data for ${symbol}. API might be lagging.`,
                     {
-                        configId,
-                        userId,
-                        symbol,
                         confirmationTimeframe: c.CONFIRMATION_TIMEFRAME,
                         structureTimeframe: c.STRUCTURE_TIMEFRAME
                     }
@@ -208,14 +206,12 @@ export class TradingV2 {
                 structureCandles,
                 c,
                 configConfirmation,
-                configStructure
+                configStructure,
+                { cycleId, configId }
             );
 
             if (mtf.finalScore < 45) {
-                skipTradingLogger.info(`[MarketRegime] SKIP: MTF Final Score too low for ${symbol}`, {
-                    configId,
-                    userId,
-                    symbol,
+                skipLogger.info(`[MarketRegime] SKIP: MTF Final Score too low`, {
                     timeframe: c.TIMEFRAME,
                     finalScore: mtf.finalScore,
                     mtf
@@ -227,10 +223,7 @@ export class TradingV2 {
             const side = mtf.direction.toLowerCase() as "buy" | "sell" | "none";
 
             if (side === "none") {
-                skipTradingLogger.info(`[MarketRegime] SKIP: No breakout direction for ${symbol}`, {
-                    configId,
-                    userId,
-                    symbol,
+                skipLogger.info(`[MarketRegime] SKIP: No breakout direction`, {
                     timeframe: c.TIMEFRAME
                 });
                 return;
@@ -249,10 +242,7 @@ export class TradingV2 {
 
             // ───────────────── DRY RUN ─────────────────
             if (c.DRY_RUN) {
-                skipTradingLogger.info(`[MarketRegime] SKIP: DRY_RUN mode enabled for ${symbol}`, {
-                    configId,
-                    userId,
-                    symbol,
+                skipLogger.info(`[MarketRegime] SKIP: DRY_RUN mode enabled`, {
                     timeframe: c.TIMEFRAME
                 });
                 return;
@@ -270,10 +260,7 @@ export class TradingV2 {
             const qty = Math.floor(baseQty * multiplier);
 
             if (qty && qty > c.MAX_QUANTITY) {
-                skipTradingLogger.info(`[Quantity] SKIP: Quantity exceeds MAX_QUANTITY for ${symbol}`, {
-                    configId,
-                    userId,
-                    symbol,
+                skipLogger.info(`[Quantity] SKIP: Quantity exceeds MAX_QUANTITY`, {
                     timeframe: c.TIMEFRAME,
                     qty,
                     maxQuantity: c.MAX_QUANTITY
@@ -281,8 +268,8 @@ export class TradingV2 {
                 return;
             }
 
-            tradingCronLogger.info(
-                `[TradingCycle:${symbol}] Quantity: ${qty} (IS_TESTING=${c.IS_TESTING})`
+            cronLogger.info(
+                `Quantity: ${qty} (IS_TESTING=${c.IS_TESTING})`
             );
 
             if (!qty || qty <= 0) {
@@ -292,8 +279,8 @@ export class TradingV2 {
             // ───────────────── ENTRY ORDER ─────────────────
             const entry = await deltaExchange.placeEntryOrder(symbol, side, qty);
 
-            tradingCronLogger.info(
-                `[TradingCycle:${symbol}] Entry order placed successfully: OrderID=${entry.result?.id}`
+            cronLogger.info(
+                `Entry order placed successfully: OrderID=${entry.result?.id}`
             );
 
             const entryPrice = Utils.resolveEntryPrice(entry);
@@ -331,15 +318,15 @@ export class TradingV2 {
                     : sl * (1 + buffer / 100);
             }
 
-            tradingCronLogger.info(
-                `[TradingCycle:${symbol}] Price levels - Entry: ${entryPrice}, TP: ${tp}, SL: ${sl}`
+            cronLogger.info(
+                `Price levels - Entry: ${entryPrice}, TP: ${tp}, SL: ${sl}`
             );
 
             // ───────────────── TP / SL ─────────────────
             const tpSlResult = await deltaExchange.placeTPSLBracketOrder(tp, sl, side);
 
-            tradingCronLogger.info(
-                `[TradingCycle:${symbol}] TP/SL orders placed: TP_ID=${tpSlResult.ids.tp}, SL_ID=${tpSlResult.ids.sl}`
+            cronLogger.info(
+                `TP/SL orders placed: TP_ID=${tpSlResult.ids.tp}, SL_ID=${tpSlResult.ids.sl}`
             );
 
             // ───────────────── UPDATE STATE ─────────────────
@@ -370,8 +357,8 @@ export class TradingV2 {
                 throw new Error("Failed to update martingale state");
             }
 
-            tradingCronLogger.info(
-                `[TradingCycle:${symbol}] Martingale state updated successfully`
+            cronLogger.info(
+                `Martingale state updated successfully`
             );
 
             // ───────────────── TRADE RECORD ─────────────────
@@ -386,12 +373,9 @@ export class TradingV2 {
                 martingaleState: updatedState
             });
 
-            martingaleTradeLogger.info(
-                `[ExecutedTrade] NEW TRADE RECORDED ${symbol} ${side.toUpperCase()} at ${entryPrice}`,
+            tradeLogger.info(
+                `NEW TRADE RECORDED ${side.toUpperCase()} at ${entryPrice}`,
                 {
-                    configId,
-                    userId,
-                    symbol,
                     candleTimeframe: c.TIMEFRAME,
                     side,
                     quantity: qty,
@@ -402,13 +386,13 @@ export class TradingV2 {
                 }
             );
 
-            tradingCronLogger.info(
-                `[TradingCycle:${symbol}] ✓ TRADE COMPLETED SUCCESSFULLY\n`
+            cronLogger.info(
+                `✓ TRADE COMPLETED SUCCESSFULLY\n`
             );
 
         } catch (err) {
-            tradingCycleErrorLogger.error(
-                `[TradingCycle:${symbol}] ✗ ERROR in trading cycle:`,
+            errorLogger.error(
+                `✗ ERROR in trading cycle:`,
                 { error: err }
             );
             throw err;

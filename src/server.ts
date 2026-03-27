@@ -1,6 +1,7 @@
 import { env, connectDB } from './config';
 import app from './app';
 import startCronJobs from './cron';
+import { tradingCronLogger } from './services/tradingV2/logger';
 
 
 
@@ -13,8 +14,8 @@ const startServer = async (): Promise<void> => {
 
     // Start the Express server
     app.listen(env.port, () => {
-        console.log(`Server running on port ${env.port}`);
-        console.log(`Access API at http://localhost:${env.port}`);
+        tradingCronLogger.info(`Server running on port ${env.port}`);
+        tradingCronLogger.info(`Access API at http://localhost:${env.port}`);
     });
 };
 

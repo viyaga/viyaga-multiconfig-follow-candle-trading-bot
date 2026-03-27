@@ -2,7 +2,7 @@ import { TradingV2 } from ".";
 import { IMartingaleState, MartingaleState } from "../../models/martingaleState.model";
 import { TradingConfig } from "./config";
 import { deltaExchange } from "./delta-exchange";
-import { tradingCycleErrorLogger, tradingCronLogger } from "./logger";
+import { tradingCycleErrorLogger, tradingCronLogger, getContextualLogger } from "./logger";
 import { Candle, OrderDetails, TargetCandle } from "./type";
 import { Utils } from "./utils";
 
@@ -38,9 +38,11 @@ export class ProcessPendingState {
         winPnl: number,
         tempFees: number,
         incrementalPnl: number,
-        incrementalFees: number
+        incrementalFees: number,
+        logContext?: any
     ): IMartingaleState {
-        console.log(`[outcome] WIN | Final PnL: ${winPnl} | Total Fees: ${tempFees} | Incremental PnL: ${incrementalPnl} | Incremental Fees: ${incrementalFees}`);
+        const logger = getContextualLogger(tradingCronLogger, logContext);
+        logger.info(`Outcome: WIN | Final PnL: ${winPnl} | Total Fees: ${tempFees} | Incremental PnL: ${incrementalPnl} | Incremental Fees: ${incrementalFees}`);
         const currentState = this.resetState(s);
         return {
             ...currentState,
@@ -58,8 +60,10 @@ export class ProcessPendingState {
         fees: number,
         currentPrice: number,
         incrementalPnl: number,
-        incrementalFees: number
+        incrementalFees: number,
+        logContext?: any
     ): IMartingaleState {
+        const logger = getContextualLogger(tradingCronLogger, logContext);
 
         const c = TradingConfig.getConfig();
 
@@ -70,7 +74,7 @@ export class ProcessPendingState {
         );
         const nextLevel = s.currentLevel + 1;
 
-        console.log({ lots });
+        logger.info(`Outcome: LOSS | Net Debt: ${netDebt} | Next Level: ${nextLevel} | Calculated Lots: ${lots}`);
 
         const currentState = this.resetState(s);
         return {
@@ -107,7 +111,8 @@ export class ProcessPendingState {
     static async processClosedPosition(
         s: IMartingaleState,
         entryCommission: number,
-        currentPrice: number
+        currentPrice: number,
+        logContext?: any
     ): Promise<IMartingaleState> {
 
         if (!s.lastStopLossOrderId || !s.lastTakeProfitOrderId) throw new Error("[checkTPSL] Missing TP/SL order IDs in state.");
@@ -118,7 +123,7 @@ export class ProcessPendingState {
             const incrementalFees = Number(tp.paid_commission || 0) + entryCommission;
             const netPnl = s.pnl + incrementalPnl;
             const fees = s.cumulativeFees + incrementalFees;
-            return this.handleWin(s, netPnl, fees, incrementalPnl, incrementalFees);
+            return this.handleWin(s, netPnl, fees, incrementalPnl, incrementalFees, logContext);
         }
 
         const sl = await deltaExchange.getOrderDetails(s.lastStopLossOrderId);
@@ -131,19 +136,20 @@ export class ProcessPendingState {
             const netDebt = netPnl - fees;
 
             return netDebt >= 0
-                ? this.handleWin(s, netPnl, fees, incrementalPnl, incrementalFees)
-                : this.handleLoss(s, netDebt, netPnl, fees, currentPrice, incrementalPnl, incrementalFees);
+                ? this.handleWin(s, netPnl, fees, incrementalPnl, incrementalFees, logContext)
+                : this.handleLoss(s, netDebt, netPnl, fees, currentPrice, incrementalPnl, incrementalFees, logContext);
         }
 
         if (tp?.status === "CANCELLED" && sl?.status === "CANCELLED") {
-            console.log("[processClosedPosition] TP and SL orders are cancelled by user. consider this as loss");
+            const logger = getContextualLogger(tradingCronLogger, logContext);
+            logger.warn("TP and SL orders were cancelled by user. Treating as LOSS.");
 
             const incrementalPnl = 0;
             const incrementalFees = entryCommission;
             const netPnl = s.pnl;
             const fees = s.cumulativeFees + incrementalFees;
             const netDebt = netPnl - fees;
-            return this.handleLoss(s, netDebt, netPnl, fees, currentPrice, incrementalPnl, incrementalFees);
+            return this.handleLoss(s, netDebt, netPnl, fees, currentPrice, incrementalPnl, incrementalFees, logContext);
         }
 
         throw new Error("[processClosedPosition] Neither TP nor SL orders are filled/closed.");
@@ -165,7 +171,7 @@ export class ProcessPendingState {
         const cancelRes = await deltaExchange.cancelStopOrders({
             product_id: TradingConfig.getConfig().PRODUCT_ID,
         });
-        console.log({ cancelRes });
+        getContextualLogger(tradingCronLogger).debug("Cancelled existing stop orders during bracket replacement", { cancelRes });
 
         const entryPrice =
             e.average_fill_price ?? e.meta_data?.entry_price;
@@ -236,9 +242,10 @@ export class ProcessPendingState {
         s: IMartingaleState,
         e: OrderDetails,
         structureTargetCandle: TargetCandle,
-        currentPrice: number
+        currentPrice: number,
+        logContext?: any
     ): Promise<IMartingaleState> {
-
+        const logger = getContextualLogger(tradingCycleErrorLogger, logContext);
         try {
 
             if (!s.lastStopLossOrderId || !s.lastSlPrice) throw new Error("SL order or price missing in state");
@@ -279,9 +286,7 @@ export class ProcessPendingState {
             return updated as IMartingaleState;
 
         } catch (err) {
-
-            tradingCycleErrorLogger.error("[manageOpenPosition]", err);
-
+            logger.error("Error in manageOpenPosition", { error: err });
             return s;
         }
     }
@@ -291,9 +296,10 @@ export class ProcessPendingState {
         state: IMartingaleState,
         order: OrderDetails,
         structureTargetCandle: TargetCandle,
-        currentPrice: number
+        currentPrice: number,
+        logContext?: any
     ): Promise<IMartingaleState> {
-
+        const logger = getContextualLogger(tradingCycleErrorLogger, logContext);
         try {
 
             switch (order.status.toUpperCase()) {
@@ -306,7 +312,7 @@ export class ProcessPendingState {
             }
 
         } catch (err) {
-            tradingCycleErrorLogger.error("[processOutcome] error", err);
+            logger.error("Error in processStateOfPendingTrade", { error: err });
             return state;
         }
     }
@@ -316,7 +322,8 @@ export class ProcessPendingState {
         s: IMartingaleState,
         e: OrderDetails,
         structureTargetCandle: TargetCandle,
-        currentPrice: number
+        currentPrice: number,
+        logContext?: any
     ): Promise<IMartingaleState> {
         const cfg = TradingConfig.getConfig();
         const positions = await deltaExchange.getPositions(cfg.PRODUCT_ID);
@@ -324,10 +331,10 @@ export class ProcessPendingState {
             ? positions.some(p => Number(p.size) !== 0)
             : positions && Number(positions.size) !== 0;
 
-        console.log({ hasOpenPosition });
+        getContextualLogger(tradingCronLogger, logContext).debug("Checking for open positions after entry order close", { hasOpenPosition });
 
         return hasOpenPosition
-            ? this.manageOpenPosition(sym, s, e, structureTargetCandle, currentPrice)
-            : this.processClosedPosition(s, Number(e.paid_commission || 0), currentPrice);
+            ? this.manageOpenPosition(sym, s, e, structureTargetCandle, currentPrice, logContext)
+            : this.processClosedPosition(s, Number(e.paid_commission || 0), currentPrice, logContext);
     }
 }

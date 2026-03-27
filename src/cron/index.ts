@@ -1,9 +1,10 @@
 import tradingCycleCronJob from './trading-cycle.cron';
+import { tradingCronLogger } from '../services/tradingV2/logger';
 
 const startCronJobs = (): void => {
-    console.log(`[CronJobManager] Starting cron jobs at ${new Date().toISOString()}`);
+    tradingCronLogger.info(`Starting cron jobs...`);
     tradingCycleCronJob();
-    console.log('[CronJobManager] All cron jobs started successfully.');
+    tradingCronLogger.info('All cron jobs started successfully.');
 };
 
 export default startCronJobs;

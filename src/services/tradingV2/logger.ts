@@ -1,164 +1,84 @@
 import winston from "winston";
 import { getIstTime } from "../../utils/timeUtils";
 
-// Logger for trade errors
-export const tradingCycleErrorLogger = winston.createLogger({
-    level: 'error',
-    format: winston.format.combine(
-        winston.format.timestamp({
-            format: getIstTime
-        }),
-        winston.format.errors({ stack: true }),
-        winston.format.splat(),
-        winston.format.json()
-    ),
-    defaultMeta: { service: 'error-logger' },
-    transports: [
-        new winston.transports.Console({
-            format: winston.format.combine(
-                winston.format.colorize(),
-                winston.format.printf(({ timestamp, level, message, stack, ...meta }) => {
-                    let msg = `${timestamp} [${level}]: ${message}`;
-                    if (stack) msg += `\n${stack}`;
-                    if (Object.keys(meta).length > 0) msg += ` ${JSON.stringify(meta, null, 2)}`;
-                    return msg;
-                })
-            ),
-        }),
-        new winston.transports.File({
-            filename: 'logs/error.log',
-            level: 'error',
-            maxsize: 5242880, // 5MB
-            maxFiles: 5,
-            tailable: true,
-            format: winston.format.combine(
-                winston.format.timestamp({ format: getIstTime }),
-                winston.format.printf(({ timestamp, level, message, stack, ...meta }) => {
-                    let msg = `${timestamp} [${level}]: ${message}`;
-                    if (stack) msg += `\n${stack}`;
-                    if (Object.keys(meta).length > 0) msg += ` ${JSON.stringify(meta)}`;
-                    return msg;
-                })
-            )
-        })
-    ],
-});
+// Standard format for all loggers
+const standardFormat = winston.format.combine(
+    winston.format.timestamp({ format: getIstTime }),
+    winston.format.errors({ stack: true }),
+    winston.format.splat(),
+    winston.format.json()
+);
 
-// Logger for market detector metrics
-export const marketDetectorLogger = winston.createLogger({
-    level: 'info',
-    format: winston.format.combine(
-        winston.format.timestamp({ format: getIstTime }),
-        winston.format.json()
-    ),
-    defaultMeta: { service: 'market-detector-logger' },
-    transports: [
-        new winston.transports.File({
-            filename: 'logs/market-detector.log',
-            level: 'info',
-            maxsize: 5242880, // 5MB
-            maxFiles: 5,
-            tailable: true,
-            format: winston.format.combine(
-                winston.format.timestamp({ format: getIstTime }),
-                winston.format.printf(({ timestamp, level, message, ...meta }) => {
-                    return `${timestamp} [${level}]: ${message} ${Object.keys(meta).length > 0 ? JSON.stringify(meta) : ''}`;
-                })
-            )
-        })
-    ],
-});
+const consoleFormat = winston.format.combine(
+    winston.format.colorize(),
+    winston.format.timestamp({ format: getIstTime }),
+    winston.format.printf(({ timestamp, level, message, stack, service, ...meta }) => {
+        const serviceTag = service ? `[${service}]` : '';
+        let msg = `${timestamp} ${level}: ${serviceTag} ${message}`;
+        if (stack) msg += `\n${stack}`;
+        if (Object.keys(meta).length > 0) {
+            msg += ` ${JSON.stringify(meta, null, 2)}`;
+        }
+        return msg;
+    })
+);
 
-// Logger for executed trades and martingale state
-export const martingaleTradeLogger = winston.createLogger({
-    level: 'info',
-    format: winston.format.combine(
-        winston.format.timestamp({
-            format: getIstTime
-        }),
-        winston.format.json()
-    ),
-    defaultMeta: { service: 'martingale-trade-logger' },
-    transports: [
-        new winston.transports.File({
-            filename: 'logs/martingale-executed-trades.log',
-            level: 'info',
-            maxsize: 5242880, // 5MB
-            maxFiles: 5,
-            tailable: true,
-            format: winston.format.combine(
-                winston.format.timestamp({ format: getIstTime }),
-                winston.format.printf(({ timestamp, level, message, ...meta }) => {
-                    return `${timestamp} [${level}]: ${message} ${Object.keys(meta).length > 0 ? JSON.stringify(meta) : ''}`;
-                })
-            )
-        })
-    ],
-});
+const fileFormat = winston.format.combine(
+    winston.format.timestamp({ format: getIstTime }),
+    winston.format.printf(({ timestamp, level, message, stack, service, ...meta }) => {
+        const serviceTag = service ? `[${service}]` : '';
+        let msg = `${timestamp} [${level.toUpperCase()}]: ${serviceTag} ${message}`;
+        if (stack) msg += `\n${stack}`;
+        if (Object.keys(meta).length > 0) msg += ` ${JSON.stringify(meta)}`;
+        return msg;
+    })
+);
 
-// Logger for skip reasons
-export const skipTradingLogger = winston.createLogger({
-    level: 'info',
-    format: winston.format.combine(
-        winston.format.timestamp({ format: getIstTime }),
-        winston.format.json()
-    ),
-    defaultMeta: { service: 'skip-trading-logger' },
-    transports: [
-        new winston.transports.Console({
-            format: winston.format.combine(
-                winston.format.colorize(),
-                winston.format.printf(({ timestamp, level, message, ...meta }) => {
-                    return `${timestamp} [${level}]: ${message} ${Object.keys(meta).length > 0 ? JSON.stringify(meta) : ''}`;
-                })
-            ),
-        }),
+// Generic logger creator
+const createLogger = (serviceName: string, fileName: string, level: string = 'info', useConsole: boolean = true) => {
+    const transports: winston.transport[] = [
         new winston.transports.File({
-            filename: 'logs/skip-trading.log',
-            level: 'info',
+            filename: `logs/${fileName}`,
+            level,
             maxsize: 5242880, // 5MB
             maxFiles: 5,
             tailable: true,
-            format: winston.format.combine(
-                winston.format.timestamp({ format: getIstTime }),
-                winston.format.printf(({ timestamp, level, message, ...meta }) => {
-                    return `${timestamp} [${level}]: ${message} ${Object.keys(meta).length > 0 ? JSON.stringify(meta) : ''}`;
-                })
-            )
+            format: fileFormat
         })
-    ],
-});
+    ];
 
-// Logger for trading cycle cron job
-export const tradingCronLogger = winston.createLogger({
-    level: 'info',
-    format: winston.format.combine(
-        winston.format.timestamp({ format: getIstTime }),
-        winston.format.json()
-    ),
-    defaultMeta: { service: 'trading-cron-logger' },
-    transports: [
-        new winston.transports.Console({
-            format: winston.format.combine(
-                winston.format.colorize(),
-                winston.format.printf(({ timestamp, level, message, ...meta }) => {
-                    return `${timestamp} [${level}]: ${message} ${Object.keys(meta).length > 0 ? JSON.stringify(meta, null, 2) : ''}`;
-                })
-            ),
-        }),
-        new winston.transports.File({
-            filename: 'logs/trading-cron.log',
-            level: 'info',
-            maxsize: 5242880, // 5MB
-            maxFiles: 5,
-            tailable: true,
-            format: winston.format.combine(
-                winston.format.timestamp({ format: getIstTime }),
-                winston.format.printf(({ timestamp, level, message, ...meta }) => {
-                    return `${timestamp} [${level}]: ${message} ${Object.keys(meta).length > 0 ? JSON.stringify(meta) : ''}`;
-                })
-            )
-        })
-    ],
-});
+    if (useConsole) {
+        transports.push(new winston.transports.Console({
+            format: consoleFormat,
+            level: 'debug' // Console shows everything up to debug by default
+        }));
+    }
+
+    return winston.createLogger({
+        level,
+        format: standardFormat,
+        defaultMeta: { service: serviceName },
+        transports
+    });
+};
+
+// Logger instances
+export const tradingCycleErrorLogger = createLogger('trading-error', 'error.log', 'error');
+export const marketDetectorLogger = createLogger('market-detector', 'market-detector.log', 'info', false);
+export const martingaleTradeLogger = createLogger('martingale-trade', 'martingale-executed-trades.log', 'info', false);
+export const skipTradingLogger = createLogger('skip-trading', 'skip-trading.log', 'info');
+export const tradingCronLogger = createLogger('trading-cron', 'trading-cron.log', 'info');
+
+/**
+ * Contextual Logger Helper
+ * Attaches common metadata to every log call for a specific trading cycle
+ */
+export const getContextualLogger = (logger: winston.Logger, context: { cycleId?: string, symbol?: string, configId?: string }) => {
+    return {
+        debug: (message: string, meta?: any) => logger.debug(message, { ...context, ...meta }),
+        info: (message: string, meta?: any) => logger.info(message, { ...context, ...meta }),
+        warn: (message: string, meta?: any) => logger.warn(message, { ...context, ...meta }),
+        error: (message: string, meta?: any) => logger.error(message, { ...context, ...meta }),
+    };
+};
 

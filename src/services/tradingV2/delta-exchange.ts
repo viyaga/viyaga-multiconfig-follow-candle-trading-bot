@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { TradingConfig } from "./config";
 import { Utils } from "./utils";
-import { tradingCycleErrorLogger } from "./logger";
+import { tradingCycleErrorLogger, tradingCronLogger, getContextualLogger } from "./logger";
 import { CancelAllOrdersFilter, CancelAllOrdersPayload, OrderDetails, OrderSide, Position, TickerData } from "./type";
 
 export class DeltaExchange {
@@ -56,8 +56,11 @@ export class DeltaExchange {
         productId: number,
         productSymbol: string,
         orderSide: OrderSide,
-        sl: number
+        sl: number,
+        logContext?: any
     ): Promise<{ success: boolean, slLimitPrice: string, isSlSame?: boolean, isSlReversed?: boolean }> {
+
+        const logger = getContextualLogger(tradingCronLogger, logContext);
 
         const c = TradingConfig.getConfig();
 
@@ -74,11 +77,11 @@ export class DeltaExchange {
 
         const newSl = Number(limitPrice);
 
-        console.log("[updateStopLossOrder] SL price", { newSl, lastSlPrice });
+        logger.debug("SL price calculation", { newSl, lastSlPrice });
 
         // SL unchanged
         if (newSl === lastSlPrice) {
-            console.log("[updateStopLossOrder] SL prices unchanged. Skipping update.");
+            logger.debug("SL prices unchanged. Skipping update.");
             return { success: false, slLimitPrice: String(sl), isSlSame: true };
         }
 
@@ -88,7 +91,7 @@ export class DeltaExchange {
             (orderSide === "sell" && newSl > lastSlPrice);
 
         if (isSlReversed) {
-            console.log("[updateStopLossOrder] SL moved in wrong direction. Skipping update.");
+            logger.warn("SL moved in wrong direction. Skipping update.");
             return { success: false, slLimitPrice: limitPrice, isSlReversed: true };
         }
 
@@ -100,11 +103,11 @@ export class DeltaExchange {
             stop_price: stopPrice,
         };
 
-        console.log("[delta] Updating Stop Loss Order:", payload);
+        logger.info("Updating Stop Loss Order", { payload });
 
         const updateRes: any = await this.signedRequest("PUT", "/orders", payload);
 
-        console.log("[delta] Updated Stop Loss Order:", updateRes);
+        logger.debug("Updated Stop Loss Order response", { updateRes });
 
         return { success: updateRes?.success ?? false, slLimitPrice: limitPrice };
     }
@@ -124,12 +127,13 @@ export class DeltaExchange {
         return (await this.signedRequest("GET", "/positions", undefined, pid ? new URLSearchParams({ product_id: String(pid) }) : undefined))?.result ?? null;
     }
 
-    async placeTPSLBracketOrder(tp: number, sl: number, positionSide: OrderSide): Promise<{ success: boolean; ids: { tp: string; sl: string } }> {
+    async placeTPSLBracketOrder(tp: number, sl: number, positionSide: OrderSide, logContext?: any): Promise<{ success: boolean; ids: { tp: string; sl: string } }> {
         const payload = Utils.constructBracketOrderPayload(tp, sl, positionSide);
+        const logger = getContextualLogger(tradingCronLogger, logContext);
         if (!payload.stop_loss_order && !payload.take_profit_order)
             return { success: false, ids: { tp: "", sl: "" } };
 
-        console.log("[delta] Placing TP/SL orders:", tp, sl, payload);
+        logger.info("Placing TP/SL orders", { tp, sl, payload });
         try {
             const raw = await this.signedRequest("POST", "/orders/bracket", payload);
             return raw?.result

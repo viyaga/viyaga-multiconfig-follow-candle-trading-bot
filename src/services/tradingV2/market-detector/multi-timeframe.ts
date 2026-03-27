@@ -30,19 +30,22 @@ export class MultiTimeframeAlignment {
         entryConfig: ConfigType,
         confirmationConfig: ConfigType,
         structureConfig: ConfigType,
+        logContext?: any
     ): TripleTFResult {
         const confirmationResult = MarketDetector.getMarketProbability(
             confirmationTarget,
             confirmationCandles,
             confirmationConfig,
-            "confirmation"
+            "confirmation",
+            logContext
         );
 
         const structureResult = MarketDetector.getMarketProbability(
             structureTarget,
             structureCandles,
             structureConfig,
-            "structure"
+            "structure",
+            logContext
         );
 
         const confirmationProbability = confirmationResult.probability;

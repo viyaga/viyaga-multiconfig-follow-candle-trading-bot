@@ -2,6 +2,7 @@ import { env } from "../../config";
 
 import { IMartingaleState, MartingaleState } from "../../models/martingaleState.model";
 import { TradingConfig } from "./config";
+import { tradingCronLogger } from "./logger";
 import { ConfigType } from "./type";
 
 export class Data {
@@ -10,7 +11,7 @@ export class Data {
         let st = await MartingaleState.findOne({ configId, userId, symbol: sym });
 
         if (!st) {
-            console.log(`[data] Creating new state for ${sym}`);
+            tradingCronLogger.info(`[Data] Creating new state for ${sym}`);
             st = new MartingaleState({
                 userId,
                 configId,
@@ -28,7 +29,7 @@ export class Data {
             await (st as any).save();
         }
 
-        console.log(`[data] Loaded state for ${sym}:`, st);
+        tradingCronLogger.debug(`[Data] Loaded state for ${sym}`, { state: st });
         return st;
     }
 

@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { TradingConfig } from '../services/tradingV2/config';
 import { runTradingCycle } from '../services/tradingV2';
 import { ConfigType } from '../services/tradingV2/type';
+import { tradingCronLogger } from '../services/tradingV2/logger';
 
 const router: Router = Router();
 
@@ -51,8 +52,8 @@ router.post('/trigger-cycle', async (req: Request, res: Response) => {
             ...customConfig
         };
 
-        console.log(`[API] Manual trigger received at ${timestamp}`);
-        console.log(`[API] Using config:`, {
+        tradingCronLogger.info(`[API] Manual trigger received at ${timestamp}`);
+        tradingCronLogger.debug(`[API] Using config:`, {
             USER_ID: mergedConfig.USER_ID,
             PRODUCT_ID: mergedConfig.PRODUCT_ID,
             SYMBOL: mergedConfig.SYMBOL,
@@ -80,7 +81,7 @@ router.post('/trigger-cycle', async (req: Request, res: Response) => {
         });
 
     } catch (error) {
-        console.error('[API] Error triggering trading cycle:', error);
+        tradingCronLogger.error('[API] Error triggering trading cycle:', { error });
 
         // Return error response
         res.status(500).json({
