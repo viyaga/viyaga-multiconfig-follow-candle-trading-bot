@@ -83,23 +83,19 @@ export class MultiTimeframeAlignment {
             };
         }
 
-        const weightedScore =
-            (entryScore * 0.50) +
-            (confirmationProbability * 0.25) +
-            (structureProbability * 0.25);
-
-        const softPenalty =
-            Math.max(0, 50 - confirmationProbability) * 0.20 +
-            Math.max(0, 50 - structureProbability) * 0.20;
-
-        const finalScore = clamp(Math.round(weightedScore - softPenalty), 0, 100);
+        const finalScore = Math.round(
+            (entryScore * 0.60) +
+            (confirmationProbability * 0.20) +
+            (structureProbability * 0.20)
+        );
 
         let decision: TradeDecision = "SKIP";
+
         if (finalScore >= 75) decision = "STRONG_TRADE";
         else if (finalScore >= 65) decision = "GOOD_TRADE";
-        else if (finalScore >= 45) decision = "WEAK_TRADE";
+        else if (finalScore >= 50) decision = "WEAK_TRADE";
 
-        const isAllowed = finalScore >= 45;
+        const isAllowed = finalScore >= 50;
 
         marketDetectorLogger.info(`[MTFDetail] ${symbol}`, {
             direction,

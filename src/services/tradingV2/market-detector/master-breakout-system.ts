@@ -20,7 +20,7 @@ import { Utils } from "../utils";
 export type TradeDirection = "BUY" | "SELL" | "NONE";
 
 export interface MasterScoreResult {
-    score: number; // 0..100
+    score: number;
     direction: TradeDirection;
     isTrade: boolean;
 }
@@ -29,16 +29,15 @@ function clamp(value: number, min: number, max: number): number {
     return Math.max(min, Math.min(max, value));
 }
 
-/* ================= BREAKOUT DETECTOR ================= */
+/* ================= BREAKOUT ================= */
 
 function getBreakout(
-    historyCandles: Candle[],
+    history: Candle[],
     target: TargetCandle,
     lookback: number,
     atr: number
 ) {
-    const recent = historyCandles.slice(-lookback);
-
+    const recent = history.slice(-lookback);
     if (recent.length < 2) return null;
 
     const prevHigh = Math.max(...recent.map(c => c.high));
@@ -51,16 +50,10 @@ function getBreakout(
 
     if (!breakoutUp && !breakoutDown) return null;
 
-    return {
-        breakoutUp,
-        breakoutDown,
-        prevHigh,
-        prevLow,
-        buffer,
-    };
+    return { breakoutUp, breakoutDown, prevHigh, prevLow };
 }
 
-/* ================= MAIN ENGINE ================= */
+/* ================= MAIN ================= */
 
 export function evaluateBreakoutTrade(
     candles: Candle[],
@@ -75,17 +68,12 @@ export function evaluateBreakoutTrade(
     }
 
     const history = candles.slice(0, -1);
-    if (history.length < Math.max(10, cfg.STRUCTURE_LOOKBACK)) {
-        return { score: 0, direction: "NONE", isTrade: false };
-    }
-
-    const latestClose = target.close;
-
-    /* ================= BASE ================= */
 
     let score = 50;
     let direction: TradeDirection = "NONE";
     let breakoutLevel = 0;
+
+    const latestClose = target.close;
 
     /* ================= ATR ================= */
 
@@ -101,37 +89,36 @@ export function evaluateBreakoutTrade(
         if (breakout.breakoutUp) {
             direction = "BUY";
             breakoutLevel = breakout.prevHigh;
-            score += 15;
-        } else if (breakout.breakoutDown) {
+        } else {
             direction = "SELL";
             breakoutLevel = breakout.prevLow;
-            score += 15;
         }
+
+        score += 25; // 🔥 dominant
     } else {
-        score -= 20;
+        score -= 10; // reduced penalty
     }
 
-    /* ================= CANDLE STRENGTH ================= */
+    /* ================= CANDLE ================= */
 
     const bodyPercent = Utils.getBodyPercent(target);
 
-    if (bodyPercent > 75) score += 12;
-    else if (bodyPercent > 65) score += 8;
-    else if (bodyPercent > 55) score += 4;
-    else score -= 20;
+    if (bodyPercent > 75) score += 10;
+    else if (bodyPercent > 65) score += 6;
+    else if (bodyPercent < 45) score -= 4;
 
     /* ================= VOLATILITY ================= */
 
     if (atrAvg > 0) {
-        if (atrPercent > atrAvg * 1.2) score += 10;
-        else if (atrPercent > atrAvg) score += 6;
-        else score -= 20;
+        if (atrPercent > atrAvg * 1.2) score += 8;
+        else if (atrPercent > atrAvg) score += 5;
+        else score -= 4;
     }
 
     /* ================= STRUCTURE ================= */
 
     const compressed = isRangeCompressed(candles, 5, cfg.STRUCTURE_LOOKBACK, 2);
-    score += compressed ? 6 : -20;
+    score += compressed ? 5 : -3;
 
     /* ================= VOLUME ================= */
 
@@ -141,13 +128,13 @@ export function evaluateBreakoutTrade(
     if (avgVol > 0) {
         const ratio = target.volume / avgVol;
 
-        if (ratio > 2) score += 12;
-        else if (ratio > 1.5) score += 8;
-        else if (ratio > 1.2) score += 4;
-        else score -= 20;
+        if (ratio > 2) score += 10;
+        else if (ratio > 1.5) score += 6;
+        else if (ratio > 1.2) score += 3;
+        else score -= 4;
     }
 
-    if (isVolumeContracting(candles)) score -= 8;
+    if (isVolumeContracting(candles)) score -= 4;
 
     score += getVolumeExpansionPoints(candles);
     score += getTargetCandleVolumeSpike(target, candles);
@@ -158,9 +145,9 @@ export function evaluateBreakoutTrade(
     if (adxSeries.length > 0) {
         const adx = adxSeries[adxSeries.length - 1];
 
-        if (adx > cfg.ADX_WEAK_THRESHOLD + 10) score += 10;
-        else if (adx > cfg.ADX_WEAK_THRESHOLD) score += 6;
-        else score -= 6;
+        if (adx > cfg.ADX_WEAK_THRESHOLD + 10) score += 8;
+        else if (adx > cfg.ADX_WEAK_THRESHOLD) score += 5;
+        else score -= 4;
     }
 
     /* ================= VEI ================= */
@@ -168,9 +155,9 @@ export function evaluateBreakoutTrade(
     const veiSeries = calculateVEISeries(candles, 20);
     const vei = veiSeries.length > 0 ? veiSeries[veiSeries.length - 1] : 1;
 
-    if (vei > 1.4) score += 8;
-    else if (vei > 1.2) score += 5;
-    else score -= 5;
+    if (vei > 1.4) score += 6;
+    else if (vei > 1.2) score += 3;
+    // ❌ no negative
 
     /* ================= MOMENTUM ================= */
 
@@ -180,15 +167,15 @@ export function evaluateBreakoutTrade(
         (direction === "BUY" && target.close > prev.close) ||
         (direction === "SELL" && target.close < prev.close)
     ) {
-        score += 8;
+        score += 6;
     } else {
-        score -= 8;
+        score -= 4;
     }
 
-    /* ================= LIQUIDITY SWEEP ================= */
+    /* ================= LIQUIDITY ================= */
 
     if (detectLiquiditySweep(candles, cfg.STRUCTURE_LOOKBACK)) {
-        score += 6;
+        score += 5;
     }
 
     /* ================= CHOP ================= */
@@ -201,36 +188,31 @@ export function evaluateBreakoutTrade(
             cfg.SMALL_BODY_MIN_COUNT
         )
     ) {
-        score -= 12;
+        score -= 6;
     }
 
     /* ================= TARGET QUALITY ================= */
 
     if (isTargetCandleNotGood(target, atrPercent, 0.3)) {
-        score -= 10;
+        score -= 5;
     }
 
-    /* ================= RETEST SCORING ================= */
+    /* ================= RETEST ================= */
 
     if (breakoutLevel > 0) {
-        const distance =
-            Math.abs(target.close - breakoutLevel) / breakoutLevel;
+        const distance = Math.abs(target.close - breakoutLevel) / breakoutLevel;
 
-        if (distance < 0.002) score += 12;       // perfect retest
-        else if (distance < 0.005) score += 8;
-        else if (distance < 0.01) score += 4;
-        else score -= 6;                         // overextended
+        if (distance < 0.002) score += 10;
+        else if (distance < 0.005) score += 6;
+        else if (distance < 0.01) score += 3;
+        // ✅ no penalty
     }
 
-    /* ================= FINAL ================= */
-
     score = clamp(score, 0, 100);
-
-    const isTrade = score >= 60;
 
     return {
         score,
         direction,
-        isTrade,
+        isTrade: score >= 55,
     };
 }

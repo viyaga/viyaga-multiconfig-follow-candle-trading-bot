@@ -134,7 +134,7 @@ export class TradingV2 {
                 { cycleId, configId }
             );
 
-            const scoreMultiplier = mtf.finalScore / 50; // Dynamic 0-2 multiplier base
+            const scoreMultiplier = mtf.finalScore < 60 ? 0 : mtf.finalScore < 65 ? 1 : mtf.finalScore < 75 ? 1.5 : 2;
 
             // ───────────────── STATE ─────────────────
             let state = await Data.getOrCreateState(
@@ -198,7 +198,7 @@ export class TradingV2 {
                 return;
             }
 
-            if (mtf.finalScore < 45) {
+            if (mtf.finalScore < 55) {
                 skipLogger.info(`[MarketRegime] SKIP: MTF Final Score too low`, {
                     timeframe: c.TIMEFRAME,
                     finalScore: mtf.finalScore,
