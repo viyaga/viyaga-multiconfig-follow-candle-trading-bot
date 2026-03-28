@@ -61,13 +61,14 @@ export class ProcessPendingState {
         currentPrice: number,
         incrementalPnl: number,
         incrementalFees: number,
+        multiplier: number,
         logContext?: any
     ): IMartingaleState {
         const logger = getContextualLogger(tradingCronLogger, logContext);
 
         const c = TradingConfig.getConfig();
 
-        const targetAmount = Math.abs(netDebt) * 1.5; // 50% extra to cover fees and slippage
+        const targetAmount = Math.abs(netDebt) * multiplier; // Dynamic multiplier based on MTF score
         const marginRequiredPerLot = currentPrice * c.LOT_SIZE / c.LEVERAGE
         const lots = c.INITIAL_BASE_QUANTITY + Math.ceil(
             targetAmount / marginRequiredPerLot
@@ -112,6 +113,7 @@ export class ProcessPendingState {
         s: IMartingaleState,
         entryCommission: number,
         currentPrice: number,
+        multiplier: number,
         logContext?: any
     ): Promise<IMartingaleState> {
 
@@ -137,7 +139,7 @@ export class ProcessPendingState {
 
             return netDebt >= 0
                 ? this.handleWin(s, netPnl, fees, incrementalPnl, incrementalFees, logContext)
-                : this.handleLoss(s, netDebt, netPnl, fees, currentPrice, incrementalPnl, incrementalFees, logContext);
+                : this.handleLoss(s, netDebt, netPnl, fees, currentPrice, incrementalPnl, incrementalFees, multiplier, logContext);
         }
 
         if (tp?.status === "CANCELLED" && sl?.status === "CANCELLED") {
@@ -149,7 +151,7 @@ export class ProcessPendingState {
             const netPnl = s.pnl;
             const fees = s.cumulativeFees + incrementalFees;
             const netDebt = netPnl - fees;
-            return this.handleLoss(s, netDebt, netPnl, fees, currentPrice, incrementalPnl, incrementalFees, logContext);
+            return this.handleLoss(s, netDebt, netPnl, fees, currentPrice, incrementalPnl, incrementalFees, multiplier, logContext);
         }
 
         throw new Error("[processClosedPosition] Neither TP nor SL orders are filled/closed.");
@@ -298,6 +300,7 @@ export class ProcessPendingState {
         order: OrderDetails,
         structureTargetCandle: TargetCandle,
         currentPrice: number,
+        multiplier: number,
         logContext?: any
     ): Promise<IMartingaleState> {
         const logger = getContextualLogger(tradingCycleErrorLogger, logContext);
@@ -307,7 +310,7 @@ export class ProcessPendingState {
                 case "CANCELLED":
                     return this.handleCanceledEntryOrder(state);
                 case "CLOSED":
-                    return this.handleClosedEntryOrder(sym, state, order, structureTargetCandle, currentPrice);
+                    return this.handleClosedEntryOrder(sym, state, order, structureTargetCandle, currentPrice, multiplier, logContext);
                 default:
                     return state;
             }
@@ -324,6 +327,7 @@ export class ProcessPendingState {
         e: OrderDetails,
         structureTargetCandle: TargetCandle,
         currentPrice: number,
+        multiplier: number,
         logContext?: any
     ): Promise<IMartingaleState> {
         const cfg = TradingConfig.getConfig();
@@ -336,6 +340,6 @@ export class ProcessPendingState {
 
         return hasOpenPosition
             ? this.manageOpenPosition(sym, s, e, structureTargetCandle, currentPrice, logContext)
-            : this.processClosedPosition(s, Number(e.paid_commission || 0), currentPrice, logContext);
+            : this.processClosedPosition(s, Number(e.paid_commission || 0), currentPrice, multiplier, logContext);
     }
 }

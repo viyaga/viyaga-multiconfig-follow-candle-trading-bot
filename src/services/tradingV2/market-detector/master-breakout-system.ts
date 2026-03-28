@@ -118,26 +118,25 @@ export function evaluateBreakoutTrade(
     if (bodyPercent > 75) score += 12;
     else if (bodyPercent > 65) score += 8;
     else if (bodyPercent > 55) score += 4;
-    else score -= 10;
+    else score -= 20;
 
     /* ================= VOLATILITY ================= */
 
     if (atrAvg > 0) {
         if (atrPercent > atrAvg * 1.2) score += 10;
         else if (atrPercent > atrAvg) score += 6;
-        else score -= 8;
+        else score -= 20;
     }
 
     /* ================= STRUCTURE ================= */
 
     const compressed = isRangeCompressed(candles, 5, cfg.STRUCTURE_LOOKBACK, 2);
-    score += compressed ? 6 : -3;
+    score += compressed ? 6 : -20;
 
     /* ================= VOLUME ================= */
 
     const volumeWindow = Math.min(20, candles.length);
-    const avgVol =
-        candles.slice(-volumeWindow).reduce((a, b) => a + b.volume, 0) / volumeWindow;
+    const avgVol = candles.slice(-volumeWindow).reduce((a, b) => a + b.volume, 0) / volumeWindow;
 
     if (avgVol > 0) {
         const ratio = target.volume / avgVol;
@@ -145,7 +144,7 @@ export function evaluateBreakoutTrade(
         if (ratio > 2) score += 12;
         else if (ratio > 1.5) score += 8;
         else if (ratio > 1.2) score += 4;
-        else score -= 10;
+        else score -= 20;
     }
 
     if (isVolumeContracting(candles)) score -= 8;

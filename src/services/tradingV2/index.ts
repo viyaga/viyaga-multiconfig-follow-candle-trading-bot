@@ -97,22 +97,44 @@ export class TradingV2 {
 
         try {
             // ───────────────── MARKET DATA ─────────────────
+            // ───────────────── MARKET DATA ─────────────────
+            const targetDataEntry = await TradingV2.getTargetCandle(c, 'ENTRY');
+            const targetDataConfirmation = await TradingV2.getTargetCandle(c, 'CONFIRMATION');
             const targetDataStructure = await TradingV2.getTargetCandle(c, 'STRUCTURE');
 
-            if (!targetDataStructure) {
-                skipLogger.info(
-                    `[MarketData] SKIP: Could not find required candle data for ${symbol}. API might be lagging.`,
-                    {
-                        confirmationTimeframe: c.CONFIRMATION_TIMEFRAME,
-                        structureTimeframe: c.STRUCTURE_TIMEFRAME
-                    }
-                );
+            if (!targetDataEntry || !targetDataConfirmation || !targetDataStructure) {
+                skipLogger.info(`[MarketData] SKIP: Missing candle data for ${symbol}`, {
+                    hasEntry: !!targetDataEntry,
+                    hasConf: !!targetDataConfirmation,
+                    hasStruct: !!targetDataStructure
+                });
                 return;
             }
 
+            const { target: targetCandle, candles: entryCandles } = targetDataEntry;
+            const { target: confirmationTargetCandle, candles: confirmationCandles } = targetDataConfirmation;
             const { target: structureTargetCandle, candles: structureCandles } = targetDataStructure;
 
             const currentPrice = await TradingV2.getCurrentPrice(symbol);
+
+            // ───────────────── MULTI TIMEFRAME ALIGNMENT ─────────────────
+            const configConfirmation: ConfigType = { ...c, TIMEFRAME: c.CONFIRMATION_TIMEFRAME };
+            const configStructure: ConfigType = { ...c, TIMEFRAME: c.STRUCTURE_TIMEFRAME };
+
+            const mtf = MultiTimeframeAlignment.evaluate(
+                targetCandle,
+                confirmationTargetCandle,
+                structureTargetCandle,
+                entryCandles,
+                confirmationCandles,
+                structureCandles,
+                c,
+                configConfirmation,
+                configStructure,
+                { cycleId, configId }
+            );
+
+            const scoreMultiplier = mtf.finalScore / 50; // Dynamic 0-2 multiplier base
 
             // ───────────────── STATE ─────────────────
             let state = await Data.getOrCreateState(
@@ -140,7 +162,7 @@ export class TradingV2 {
                 );
 
                 cronLogger.info(
-                    `Processing pending trade state...`
+                    `Processing pending trade state with multiplier: ${scoreMultiplier}`
                 );
 
                 state = await ProcessPendingState.processStateOfPendingTrade(
@@ -149,6 +171,7 @@ export class TradingV2 {
                     orderDetails,
                     structureTargetCandle,
                     currentPrice,
+                    scoreMultiplier,
                     { cycleId, configId } // Pass context for logging
                 );
 
@@ -174,41 +197,6 @@ export class TradingV2 {
                 );
                 return;
             }
-
-            // ───────────────── MULTI TIMEFRAME ALIGNMENT ─────────────────
-            const configConfirmation: ConfigType = { ...c, TIMEFRAME: c.CONFIRMATION_TIMEFRAME };
-            const configStructure: ConfigType = { ...c, TIMEFRAME: c.STRUCTURE_TIMEFRAME };
-
-            const targetData = await TradingV2.getTargetCandle(c, 'ENTRY');
-
-            const targetDataConfirmation = await TradingV2.getTargetCandle(c, 'CONFIRMATION');
-
-            if (!targetData || !targetDataConfirmation) {
-                skipLogger.info(
-                    `[MarketData] SKIP: Could not find required candle data for ${symbol}. API might be lagging.`,
-                    {
-                        confirmationTimeframe: c.CONFIRMATION_TIMEFRAME,
-                        structureTimeframe: c.STRUCTURE_TIMEFRAME
-                    }
-                );
-                return;
-            }
-
-            const { target: confirmationTargetCandle, candles: confirmationCandles } = targetDataConfirmation;
-            const { target: targetCandle, candles } = targetData;
-
-            const mtf = MultiTimeframeAlignment.evaluate(
-                targetCandle,
-                confirmationTargetCandle,
-                structureTargetCandle,
-                candles,
-                confirmationCandles,
-                structureCandles,
-                c,
-                configConfirmation,
-                configStructure,
-                { cycleId, configId }
-            );
 
             if (mtf.finalScore < 45) {
                 skipLogger.info(`[MarketRegime] SKIP: MTF Final Score too low`, {
@@ -249,15 +237,8 @@ export class TradingV2 {
             }
 
             // ───────────────── QUANTITY ─────────────────
-            let multiplier = 1;
-            if (mtf.finalScore >= 75) multiplier = 1.5;
-            else if (mtf.finalScore >= 65) multiplier = 1;
-            else if (mtf.finalScore >= 55) multiplier = 0.8;
-            else multiplier = 0.6;
-
-            const baseQty = c.IS_TESTING ? 1 : state.lastTradeQuantity;
-            if (!baseQty) throw new Error("Base quantity not found");
-            const qty = Math.floor(baseQty * multiplier);
+            const qty = c.IS_TESTING ? 1 : state.lastTradeQuantity;
+            if (!qty) throw new Error("Quantity not found");
 
             if (qty && qty > c.MAX_QUANTITY) {
                 skipLogger.info(`[Quantity] SKIP: Quantity exceeds MAX_QUANTITY`, {
