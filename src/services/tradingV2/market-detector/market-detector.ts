@@ -184,7 +184,7 @@ export class MarketDetector {
 
         /* ================= LIQUIDITY SWEEP ================= */
 
-        if (detectLiquiditySweep(candles, cfg.STRUCTURE_LOOKBACK)) {
+        if (detectLiquiditySweep(candles, cfg.LOOKBACK)) {
             prob += 8;
             details.misc.liquiditySweep = 8;
         }
@@ -212,7 +212,7 @@ export class MarketDetector {
         /* ================= MODE ================= */
 
         if (mode === "structure") {
-            const compression = isRangeCompressed(candles, 5, cfg.STRUCTURE_LOOKBACK, 2);
+            const compression = isRangeCompressed(candles, 5, cfg.LOOKBACK, 2);
             if (compression) {
                 prob += 5;
                 details.misc.compression = 5;

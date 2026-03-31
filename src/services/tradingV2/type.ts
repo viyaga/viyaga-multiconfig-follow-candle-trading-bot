@@ -26,7 +26,7 @@ export interface ConfigType {
     SL_LIMIT_BUFFER_PERCENT: number;
     DRY_RUN: boolean;
     IS_TESTING: boolean;
-    STRUCTURE_LOOKBACK?: number;
+    LOOKBACK?: number;
 }
 
 export type MarketEvaluationMode = "structure" | "confirmation" | "entry";
@@ -36,7 +36,7 @@ export interface InternalChopConfig {
     ADX_PERIOD: number;
 
     ADX_WEAK_THRESHOLD: number;
-    STRUCTURE_LOOKBACK: number;
+    LOOKBACK: number;
 
     SMALL_BODY_PERCENT_THRESHOLD: number;
     SMALL_BODY_MIN_COUNT: number;

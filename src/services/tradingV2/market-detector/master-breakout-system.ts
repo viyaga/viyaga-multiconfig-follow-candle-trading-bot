@@ -83,7 +83,7 @@ export function evaluateBreakoutTrade(
 
     /* ================= BREAKOUT ================= */
 
-    const breakout = getBreakout(history, target, cfg.STRUCTURE_LOOKBACK, atr);
+    const breakout = getBreakout(history, target, cfg.LOOKBACK, atr);
 
     if (breakout) {
         if (breakout.breakoutUp) {
@@ -145,7 +145,7 @@ export function evaluateBreakoutTrade(
 
     /* ================= COMPRESSION + EXPANSION ================= */
 
-    const compressed = isRangeCompressed(candles, 5, cfg.STRUCTURE_LOOKBACK, 2);
+    const compressed = isRangeCompressed(candles, 5, cfg.LOOKBACK, 2);
 
     if (compressed) score += 5;
 
@@ -160,10 +160,11 @@ export function evaluateBreakoutTrade(
 
     const ratio = target.volume / avgVol;
 
-    if (ratio > 2) score += 10;
-    else if (ratio > 1.5) score += 6;
-    else if (ratio > 1.2) score += 3;
-    else score -= 4;
+    if (ratio > 2.2) score += 12;
+    else if (ratio > 1.8) score += 8;
+    else if (ratio > 1.5) score += 5;
+    else if (ratio > 1.2) score += 2;
+    else score -= 15; // 🔥 heavy penalty for low volume ratio
 
     // ✅ pre-breakout contraction
     const preVol =
@@ -174,7 +175,14 @@ export function evaluateBreakoutTrade(
     if (isVolumeContracting(candles)) score -= 4;
 
     score += getVolumeExpansionPoints(candles);
-    score += getTargetCandleVolumeSpike(target, candles);
+    
+    const spikePoints = getTargetCandleVolumeSpike(target, candles);
+    score += spikePoints;
+
+    // 🔥 CRITICAL: breakout confirmation via volume
+    if (direction !== "NONE" && ratio < 1.4) {
+        score -= 12; // ❗ extra penalty for breakout without clear volume spike
+    }
 
     /* ================= ADX ================= */
 
@@ -202,7 +210,7 @@ export function evaluateBreakoutTrade(
 
     /* ================= LIQUIDITY ================= */
 
-    if (detectLiquiditySweep(candles, cfg.STRUCTURE_LOOKBACK)) {
+    if (detectLiquiditySweep(candles, cfg.LOOKBACK)) {
         score += 5;
     }
 
