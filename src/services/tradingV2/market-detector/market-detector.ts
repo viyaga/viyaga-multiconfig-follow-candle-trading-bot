@@ -126,11 +126,11 @@ export class MarketDetector {
         details.vei = { value: vei, score: 0 };
 
         if (vei > 1.4) {
-            prob += 8;
-            details.vei.score = 8;
-        } else if (vei > 1.2) {
             prob += 5;
             details.vei.score = 5;
+        } else if (vei > 1.2) {
+            prob += 3;
+            details.vei.score = 3;
         } else {
             prob -= 4;
             details.vei.score = -4;

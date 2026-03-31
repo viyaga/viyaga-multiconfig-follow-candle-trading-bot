@@ -84,9 +84,9 @@ export class MultiTimeframeAlignment {
         }
 
         const finalScore = Math.round(
-            (entryScore * 0.60) +
-            (confirmationProbability * 0.20) +
-            (structureProbability * 0.20)
+            (entryScore * 0.50) +
+            (confirmationProbability * 0.25) +
+            (structureProbability * 0.25)
         );
 
         let decision: TradeDecision = "SKIP";

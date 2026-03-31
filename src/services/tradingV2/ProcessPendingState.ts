@@ -12,7 +12,6 @@ export class ProcessPendingState {
        CANDLE ANALYSIS UTILITIES
     ========================================================================= */
 
-
     static resetState(s: IMartingaleState): IMartingaleState {
         const c = TradingConfig.getConfig();
         return {

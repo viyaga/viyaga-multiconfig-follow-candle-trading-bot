@@ -212,4 +212,14 @@ export class Utils {
                 .reduce((a, b) => a + b.volume, 0) / 5;
         return candles[index].volume > avg * 1.8;
     }
+
+    static calculateEMA(candles: Candle[], period: number): number {
+        if (candles.length < period) return 0;
+        const k = 2 / (period + 1);
+        let ema = candles.slice(0, period).reduce((a, b) => a + b.close, 0) / period;
+        for (let i = period; i < candles.length; i++) {
+            ema = (candles[i].close - ema) * k + ema;
+        }
+        return ema;
+    }
 }
