@@ -19,9 +19,6 @@ export interface ConfigType {
     INITIAL_BASE_QUANTITY: number,
     MAX_QUANTITY: number,
     TRADING_MODE: "conservative" | "balanced" | "aggressive" | "meme"
-    MAX_ALLOWED_PRICE_MOVEMENT_PERCENT: number,
-    MIN_ALLOWED_PRICE_MOVEMENT_PERCENT: number,
-    TAKE_PROFIT_PERCENT: number,
     SL_TRIGGER_BUFFER_PERCENT: number,
     SL_LIMIT_BUFFER_PERCENT: number;
     DRY_RUN: boolean;

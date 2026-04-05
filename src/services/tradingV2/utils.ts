@@ -81,70 +81,9 @@ export class Utils {
         return isTrendValid;
     }
 
-    static async isPriceMovementPercentWithinRange(
-        candle: TargetCandle,
-        side: OrderSide,
-        currentPrice: number,
-        configId: string,
-        userId: string,
-        symbol: string,
-        candleTimeframe: string
-    ): Promise<boolean> {
-        const cfg = TradingConfig.getConfig();
-        const maxPercent = cfg.MAX_ALLOWED_PRICE_MOVEMENT_PERCENT;
-        const minPercent = cfg.MIN_ALLOWED_PRICE_MOVEMENT_PERCENT;
-
-        const basePrice =
-            side === "sell"
-                ? candle.high   // red candle → from high
-                : candle.low;   // green candle → from low
-
-        const percentMove = Math.abs((currentPrice - basePrice) / basePrice) * 100;
-
-
-        const isWithinRange = percentMove >= minPercent && percentMove <= maxPercent;
-
-        if (!isWithinRange) {
-            skipTradingLogger.info(`[PriceRange] SKIP: Price movement percent not within range for ${symbol}`, {
-                configId,
-                userId,
-                symbol,
-                candleTimeframe,
-                currentPrice,
-                percentMove,
-                minPercent,
-                maxPercent
-            });
-            return false;
-        }
-
-        return true;
-    }
-
     static clampPrice(price: number): number {
         const decimals = TradingConfig.getConfig().PRICE_DECIMAL_PLACES;
         return Number(price.toFixed(decimals));
-    }
-
-    static calculateTpPrice(
-        entryPrice: number,
-        orderSide: OrderSide,
-    ): number {
-        const tpPercent = TradingConfig.getConfig().TAKE_PROFIT_PERCENT;
-        const tpOffset = entryPrice * (tpPercent / 100);
-
-        let tp =
-            orderSide === "buy"
-                ? entryPrice + tpOffset
-                : entryPrice - tpOffset;
-
-        // if tp is less than or equal to 0, set it to 1
-        if (tp <= 0) {
-            const decimals = TradingConfig.getConfig().PRICE_DECIMAL_PLACES;
-            tp = Math.pow(10, -decimals);
-        }
-
-        return this.clampPrice(tp);
     }
 
     static constructBracketOrderPayload(

@@ -52,11 +52,6 @@ export class TradingConfig {
 
             TRADING_MODE: "balanced",
 
-            MAX_ALLOWED_PRICE_MOVEMENT_PERCENT: 4,
-            MIN_ALLOWED_PRICE_MOVEMENT_PERCENT: 0.01,
-
-            TAKE_PROFIT_PERCENT: 30,
-
             SL_TRIGGER_BUFFER_PERCENT: 0.1,
             SL_LIMIT_BUFFER_PERCENT: 0.3,
 

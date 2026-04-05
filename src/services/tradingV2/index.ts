@@ -84,17 +84,6 @@ export class TradingV2 {
         const errorLogger = getContextualLogger(tradingCycleErrorLogger, { cycleId, symbol, configId });
         const tradeLogger = getContextualLogger(martingaleTradeLogger, { cycleId, symbol, configId });
 
-        // 🚫 Risk guard
-        if (c.LEVERAGE * c.MAX_ALLOWED_PRICE_MOVEMENT_PERCENT > 80) {
-            skipLogger.info(`[Config] SKIP: Leverage risk too high for ${symbol}`, {
-                candleTimeframe: c.TIMEFRAME,
-                leverage: c.LEVERAGE,
-                maxAllowedPercent: c.MAX_ALLOWED_PRICE_MOVEMENT_PERCENT,
-                riskScore: c.LEVERAGE * c.MAX_ALLOWED_PRICE_MOVEMENT_PERCENT
-            });
-            return;
-        }
-
         try {
             // ───────────────── MARKET DATA ─────────────────
             // ───────────────── MARKET DATA ─────────────────
@@ -265,38 +254,11 @@ export class TradingV2 {
             );
 
             const entryPrice = Utils.resolveEntryPrice(entry);
-            const tp = Utils.calculateTpPrice(entryPrice, side);
+            const tp = mtf.tp;
+            const sl = mtf.sl;
 
-            const slCandle = await Utils.isPriceMovementPercentWithinRange(
-                structureTargetCandle,
-                side,
-                currentPrice,
-                configId,
-                userId,
-                symbol,
-                c.TIMEFRAME
-            ) ? structureTargetCandle : await Utils.isPriceMovementPercentWithinRange(
-                confirmationTargetCandle,
-                side,
-                currentPrice,
-                configId,
-                userId,
-                symbol,
-                c.TIMEFRAME
-            ) ? confirmationTargetCandle : targetCandle;
-
-            const slPrice = side === "buy" ? slCandle.low : slCandle.high;
-
-            let sl =
-                side === "buy"
-                    ? Math.min(slPrice, currentPrice)
-                    : Math.max(slPrice, currentPrice);
-
-            if (sl === currentPrice) {
-                const buffer = 0.1;
-                sl = side === "buy"
-                    ? sl * (1 - buffer / 100)
-                    : sl * (1 + buffer / 100);
+            if (!tp || !sl) {
+                throw new Error(`[Trade] Invalid TP/SL from MTF: TP=${tp}, SL=${sl}`);
             }
 
             cronLogger.info(

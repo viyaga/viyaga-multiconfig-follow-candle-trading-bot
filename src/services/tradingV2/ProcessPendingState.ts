@@ -182,9 +182,9 @@ export class ProcessPendingState {
             throw new Error("Entry price not found");
         }
 
-        const tp = Utils.calculateTpPrice(Number(entryPrice), e.side);
+        const tp = state.lastTpPrice;
         if (!tp) {
-            throw new Error("TP calculation failed");
+            throw new Error("[placeCancelledBracketOrders] TP price not found in state");
         }
 
         const bracketRes =
