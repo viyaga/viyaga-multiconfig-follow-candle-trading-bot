@@ -2,17 +2,23 @@ import { marketDetectorLogger } from "../logger";
 import { Candle, ConfigType, TargetCandle } from "../type";
 import { MarketDetector } from "./market-detector";
 import { evaluateBreakoutTrade } from "./master-breakout-system";
+import { calculateATR } from "./indicators"; // 🔥 NEW
 
 export type TradeDecision = "STRONG_TRADE" | "GOOD_TRADE" | "WEAK_TRADE" | "SKIP";
 
 export interface TripleTFResult {
-    entryScore: number; // breakout quality score 0..100
-    confirmationProbability: number; // 0..100
-    structureProbability: number; // 0..100
-    finalScore: number; // 0..100
+    entryScore: number;
+    confirmationProbability: number;
+    structureProbability: number;
+    finalScore: number;
     decision: TradeDecision;
     isAllowed: boolean;
     direction: "BUY" | "SELL" | "NONE";
+
+    // 🔥 NEW
+    tp: number;
+    sl: number;
+    rr: number;
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -59,29 +65,21 @@ export class MultiTimeframeAlignment {
         const symbol = entryConfig.SYMBOL;
 
         if (direction === "NONE") {
-            const finalScore = 0;
-            const decision: TradeDecision = "SKIP";
-
-            marketDetectorLogger.info(`[MTFDetail] ${symbol}`, {
-                direction,
-                entryScore,
-                confirmationProbability,
-                structureProbability,
-                finalScore,
-                decision,
-                isAllowed: false,
-            });
-
             return {
                 entryScore,
                 confirmationProbability,
                 structureProbability,
-                finalScore,
-                decision,
+                finalScore: 0,
+                decision: "SKIP",
                 isAllowed: false,
                 direction: "NONE",
+                tp: 0,
+                sl: 0,
+                rr: 0
             };
         }
+
+        /* ================= FINAL SCORE ================= */
 
         const finalScore = Math.round(
             (entryScore * 0.50) +
@@ -95,7 +93,94 @@ export class MultiTimeframeAlignment {
         else if (finalScore >= 65) decision = "GOOD_TRADE";
         else if (finalScore >= 50) decision = "WEAK_TRADE";
 
-        const isAllowed = finalScore >= 50;
+        let isAllowed = finalScore >= 50;
+
+        /* ================= EXTRA FILTER (OPTIONAL BUT STRONG) ================= */
+
+        const isStrongTrend =
+            confirmationProbability > 60 &&
+            structureProbability > 60;
+
+        if (!isStrongTrend && entryScore < 65) {
+            isAllowed = false;
+        }
+
+        /* ================= 🔥 DYNAMIC TP/SL ================= */
+
+        let tp = 0;
+        let sl = 0;
+        let rr = 0;
+
+        if (isAllowed) {
+
+            const entryPrice = entryTarget.close;
+            const atr = calculateATR(entryCandles, 14);
+
+            if (atr > 0 && entryPrice > 0) {
+
+                /* ================= BASE ================= */
+
+                let slATR = 1.2;
+                let tpATR = 2.0;
+
+                /* ================= SCORE BASED ================= */
+
+                if (finalScore >= 75) {
+                    slATR = 1.5;
+                    tpATR = 3.0;
+                } else if (finalScore >= 65) {
+                    slATR = 1.3;
+                    tpATR = 2.4;
+                } else {
+                    slATR = 1.0;
+                    tpATR = 1.6;
+                }
+
+                /* ================= CONFIRMATION BOOST ================= */
+
+                if (confirmationProbability > 70) {
+                    tpATR += 0.4;
+                }
+
+                if (structureProbability < 55) {
+                    tpATR -= 0.3;
+                }
+
+                /* ================= CALC ================= */
+
+                if (direction === "BUY") {
+                    sl = entryPrice - atr * slATR;
+                    tp = entryPrice + atr * tpATR;
+                } else {
+                    sl = entryPrice + atr * slATR;
+                    tp = entryPrice - atr * tpATR;
+                }
+
+                const risk = Math.abs(entryPrice - sl);
+                const reward = Math.abs(tp - entryPrice);
+
+                rr = risk > 0 ? reward / risk : 0;
+
+                /* ================= 🔥 RR FILTER ================= */
+
+                if (rr < 1.4) {
+                    return {
+                        entryScore,
+                        confirmationProbability,
+                        structureProbability,
+                        finalScore,
+                        decision: "SKIP",
+                        isAllowed: false,
+                        direction: "NONE",
+                        tp: 0,
+                        sl: 0,
+                        rr: 0
+                    };
+                }
+            }
+        }
+
+        /* ================= LOG ================= */
 
         marketDetectorLogger.info(`[MTFDetail] ${symbol}`, {
             direction,
@@ -105,21 +190,9 @@ export class MultiTimeframeAlignment {
             finalScore,
             decision,
             isAllowed,
-            entry: {
-                score: entryScore,
-                isTrade: breakout.isTrade,
-                timeframe: entryConfig.TIMEFRAME,
-            },
-            confirmation: {
-                score: confirmationProbability,
-                allowed: confirmationResult.isAllowed,
-                timeframe: confirmationConfig.TIMEFRAME,
-            },
-            structure: {
-                score: structureProbability,
-                allowed: structureResult.isAllowed,
-                timeframe: structureConfig.TIMEFRAME,
-            },
+            tp,
+            sl,
+            rr
         });
 
         return {
@@ -130,6 +203,9 @@ export class MultiTimeframeAlignment {
             decision,
             isAllowed,
             direction,
+            tp,
+            sl,
+            rr
         };
     }
-}
+}
