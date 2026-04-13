@@ -182,18 +182,20 @@ export class MultiTimeframeAlignment {
 
         /* ================= LOG ================= */
 
-        marketDetectorLogger.info(`[MTFDetail] ${symbol}`, {
-            direction,
-            entryScore,
-            confirmationProbability,
-            structureProbability,
-            finalScore,
-            decision,
-            isAllowed,
-            tp,
-            sl,
-            rr
-        });
+        if (entryScore > 50 || confirmationProbability > 60 || structureProbability > 60) {
+            marketDetectorLogger.info(`[MTFDetail] ${symbol}`, {
+                FS: finalScore,
+                isAllowed,
+                tp,
+                sl,
+                D: direction,
+                ES: entryScore,
+                CP: confirmationProbability,
+                SP: structureProbability,
+                DEC: decision,
+                RR: rr
+            });
+        }
 
         return {
             entryScore,
@@ -208,4 +210,4 @@ export class MultiTimeframeAlignment {
             rr
         };
     }
-}
+}
