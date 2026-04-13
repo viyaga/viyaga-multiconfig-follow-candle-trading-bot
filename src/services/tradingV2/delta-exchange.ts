@@ -112,6 +112,45 @@ export class DeltaExchange {
         return { success: updateRes?.success ?? false, slLimitPrice: limitPrice };
     }
 
+    async updateTakeProfitOrder(
+        id: number | string,
+        lastTpPrice: number,
+        productId: number,
+        productSymbol: string,
+        tp: number,
+        logContext?: any
+    ): Promise<{ success: boolean, tpLimitPrice: string, isTpSame?: boolean }> {
+
+        const logger = getContextualLogger(tradingCronLogger, logContext);
+
+        const tpLimitPrice = String(Utils.clampPrice(tp));
+        const newTp = Number(tpLimitPrice);
+
+        logger.debug("TP price calculation", { newTp, lastTpPrice });
+
+        // TP unchanged
+        if (newTp === lastTpPrice) {
+            logger.debug("TP prices unchanged. Skipping update.");
+            return { success: false, tpLimitPrice: String(tp), isTpSame: true };
+        }
+
+        const payload = {
+            id,
+            product_id: productId,
+            product_symbol: productSymbol,
+            limit_price: tpLimitPrice,
+            stop_price: tpLimitPrice,
+        };
+
+        logger.info("Updating Take Profit Order", { payload });
+
+        const updateRes: any = await this.signedRequest("PUT", "/orders", payload);
+
+        logger.debug("Updated Take Profit Order response", { updateRes });
+
+        return { success: updateRes?.success ?? false, tpLimitPrice };
+    }
+
     async placeEntryOrder(symbol: string, side: OrderSide, qty: number, cid?: string) {
         const c = TradingConfig.getConfig();
         return deltaExchange.signedRequest("POST", "/orders", { product_id: c.PRODUCT_ID, product_symbol: symbol, side, size: Math.floor(qty), order_type: "market_order", time_in_force: "gtc", client_order_id: cid || `viy-${Date.now()}` });

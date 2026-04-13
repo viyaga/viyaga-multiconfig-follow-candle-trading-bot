@@ -158,7 +158,7 @@ export class TradingV2 {
                     symbol,
                     state,
                     orderDetails,
-                    structureTargetCandle,
+                    mtf,
                     currentPrice,
                     scoreMultiplier,
                     { cycleId, configId } // Pass context for logging

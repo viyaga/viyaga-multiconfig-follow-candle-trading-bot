@@ -5,6 +5,7 @@ import { deltaExchange } from "./delta-exchange";
 import { tradingCycleErrorLogger, tradingCronLogger, getContextualLogger } from "./logger";
 import { Candle, OrderDetails, TargetCandle } from "./type";
 import { Utils } from "./utils";
+import { TripleTFResult } from "./market-detector/multi-timeframe";
 
 export class ProcessPendingState {
 
@@ -218,9 +219,10 @@ export class ProcessPendingState {
         return updated as IMartingaleState;
     }
 
-    static async updateStateSl(
+    static async updateStatePrices(
         state: IMartingaleState,
-        sl: number
+        sl: number,
+        tp: number
     ): Promise<IMartingaleState> {
         const updated = await MartingaleState.findOneAndUpdate(
             {
@@ -228,7 +230,7 @@ export class ProcessPendingState {
                 userId: state.userId,
                 symbol: state.symbol,
             },
-            { $set: { lastSlPrice: sl } },
+            { $set: { lastSlPrice: sl, lastTpPrice: tp } },
             { new: true }
         );
 
@@ -243,28 +245,19 @@ export class ProcessPendingState {
         sym: string,
         s: IMartingaleState,
         e: OrderDetails,
-        structureTargetCandle: TargetCandle,
-        currentPrice: number,
+        mtf: TripleTFResult,
         logContext?: any
     ): Promise<IMartingaleState> {
+
+        if (!mtf.isAllowed) return s;
+
         const logger = getContextualLogger(tradingCycleErrorLogger, logContext);
         try {
 
             if (!s.lastStopLossOrderId || !s.lastSlPrice) throw new Error("SL order or price missing in state");
 
-            let slPrice = e.side === "buy" ? structureTargetCandle.low : structureTargetCandle.high;
-
-            let sl =
-                e.side === "buy"
-                    ? Math.min(slPrice, currentPrice)
-                    : Math.max(slPrice, currentPrice);
-
-            if (sl === currentPrice) {
-                const buffer = 0.1;
-                sl = e.side === "buy"
-                    ? sl * (1 - buffer / 100)
-                    : sl * (1 + buffer / 100);
-            }
+            const sl = mtf.sl;
+            const tp = mtf.tp;
 
             const updateRes = await deltaExchange.updateStopLossOrder(
                 s.lastStopLossOrderId,
@@ -272,16 +265,32 @@ export class ProcessPendingState {
                 TradingConfig.getConfig().PRODUCT_ID,
                 sym,
                 e.side,
-                sl
+                sl,
+                logContext
             );
 
-            if (!updateRes.success && updateRes.isSlSame) return s;
+            let tpUpdatedValue = s.lastTpPrice || 0;
+            if (s.lastTakeProfitOrderId && s.lastTpPrice && tp) {
+                const updateTpRes = await deltaExchange.updateTakeProfitOrder(
+                    s.lastTakeProfitOrderId,
+                    s.lastTpPrice,
+                    TradingConfig.getConfig().PRODUCT_ID,
+                    sym,
+                    tp,
+                    logContext
+                );
+                if (updateTpRes.success) {
+                    tpUpdatedValue = Number(updateTpRes.tpLimitPrice);
+                }
+            }
+
+            if (!updateRes.success && updateRes.isSlSame && tpUpdatedValue === s.lastTpPrice) return s;
             if (!updateRes.success && updateRes.isSlReversed) return s;
 
             if (!updateRes.success)
                 return this.placeCancelledBracketOrders(s, e, sl, logContext);
 
-            const updated = await this.updateStateSl(s, Number(updateRes.slLimitPrice));
+            const updated = await this.updateStatePrices(s, Number(updateRes.slLimitPrice), tpUpdatedValue);
 
             if (!updated) throw new Error("Martingale state not found");
 
@@ -297,7 +306,7 @@ export class ProcessPendingState {
         sym: string,
         state: IMartingaleState,
         order: OrderDetails,
-        structureTargetCandle: TargetCandle,
+        mtf: TripleTFResult,
         currentPrice: number,
         multiplier: number,
         logContext?: any
@@ -309,7 +318,7 @@ export class ProcessPendingState {
                 case "CANCELLED":
                     return this.handleCanceledEntryOrder(state);
                 case "CLOSED":
-                    return this.handleClosedEntryOrder(sym, state, order, structureTargetCandle, currentPrice, multiplier, logContext);
+                    return this.handleClosedEntryOrder(sym, state, order, mtf, currentPrice, multiplier, logContext);
                 default:
                     return state;
             }
@@ -324,7 +333,7 @@ export class ProcessPendingState {
         sym: string,
         s: IMartingaleState,
         e: OrderDetails,
-        structureTargetCandle: TargetCandle,
+        mtf: TripleTFResult,
         currentPrice: number,
         multiplier: number,
         logContext?: any
@@ -338,7 +347,7 @@ export class ProcessPendingState {
         getContextualLogger(tradingCronLogger, logContext).debug("Checking for open positions after entry order close", { hasOpenPosition });
 
         return hasOpenPosition
-            ? this.manageOpenPosition(sym, s, e, structureTargetCandle, currentPrice, logContext)
+            ? this.manageOpenPosition(sym, s, e, mtf, logContext)
             : this.processClosedPosition(s, Number(e.paid_commission || 0), currentPrice, multiplier, logContext);
     }
 }
