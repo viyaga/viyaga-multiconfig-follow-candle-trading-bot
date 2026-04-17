@@ -1,4 +1,3 @@
-// Express.js Mongoose Models for Trading Cron Job
 import mongoose, { Schema, Document } from 'mongoose';
 
 // MartingaleState Interface (matches Payload CMS structure)
@@ -42,6 +41,7 @@ const MartingaleStateSchema: Schema = new Schema(
             default: 'pending'
         },
         lastEntryOrderId: { type: String, default: null },
+        lastEntryClientOrderId: { type: String, default: null },
         lastStopLossOrderId: { type: String, default: null },
         lastTakeProfitOrderId: { type: String, default: null },
         lastEntryPrice: { type: Number, default: null },
@@ -58,6 +58,8 @@ const MartingaleStateSchema: Schema = new Schema(
         timestamps: true
     }
 );
+
+MartingaleStateSchema.index({ updatedAt: 1 });
 
 // Export the model with generic type parameter
 export const MartingaleState = mongoose.model<IMartingaleState>(

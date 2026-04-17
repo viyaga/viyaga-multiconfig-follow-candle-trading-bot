@@ -56,4 +56,6 @@ const ExecutedTradeSchema: Schema = new Schema(
     }
 );
 
+ExecutedTradeSchema.index({ updatedAt: 1 });
+
 export const ExecutedTrade = mongoose.model<IExecutedTrade>('ExecutedTrade', ExecutedTradeSchema);
