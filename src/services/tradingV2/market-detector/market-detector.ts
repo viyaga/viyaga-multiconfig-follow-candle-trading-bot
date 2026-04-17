@@ -29,7 +29,7 @@ export class MarketDetector {
         config: ConfigType,
         mode: MarketEvaluationMode = "entry",
         logContext?: any
-    ): { probability: number; isAllowed: boolean; details?: any } {
+    ): { probability: number; isAllowed: boolean; mode: MarketEvaluationMode; details?: any } {
         const internal = getInternalConfig(config);
 
         return this.calculateProbability(
@@ -49,7 +49,7 @@ export class MarketDetector {
         symbol: string,
         mode: MarketEvaluationMode,
         logContext?: any
-    ): { probability: number; isAllowed: boolean; details?: any } {
+    ): { probability: number; isAllowed: boolean; mode: MarketEvaluationMode; details?: any } {
         const logger = getContextualLogger(marketDetectorLogger, logContext);
         const details: any = {
             mode,
@@ -71,7 +71,7 @@ export class MarketDetector {
                 reason: "INSUFFICIENT_CANDLES",
             });
 
-            return { probability, isAllowed, details: { reason: "INSUFFICIENT_CANDLES" } };
+            return { probability, isAllowed, mode, details: { reason: "INSUFFICIENT_CANDLES" } };
         }
 
         let prob = 50;
@@ -236,16 +236,10 @@ export class MarketDetector {
 
         const isAllowed = prob >= cfg.PROBABILITY_THRESHOLD;
 
-        logger.info(`[MarketProbability] ${symbol}`, {
-            probability: prob,
-            isAllowed,
-            mode,
-            details,
-        });
-
         return {
             probability: prob,
             isAllowed,
+            mode,
             details,
         };
     }

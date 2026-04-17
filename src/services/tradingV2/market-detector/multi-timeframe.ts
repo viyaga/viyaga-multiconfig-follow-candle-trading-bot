@@ -93,7 +93,7 @@ export class MultiTimeframeAlignment {
         else if (finalScore >= 65) decision = "GOOD_TRADE";
         else if (finalScore >= 50) decision = "WEAK_TRADE";
 
-        let isAllowed = finalScore >= 50;
+        let isAllowed = finalScore >= 65;
 
         /* ================= EXTRA FILTER (OPTIONAL BUT STRONG) ================= */
 
@@ -163,7 +163,7 @@ export class MultiTimeframeAlignment {
 
                 /* ================= 🔥 RR FILTER ================= */
 
-                if (rr < 1.4) {
+                if (rr < 1.6) {
                     return {
                         entryScore,
                         confirmationProbability,
@@ -182,7 +182,8 @@ export class MultiTimeframeAlignment {
 
         /* ================= LOG ================= */
 
-        if (entryScore > 50 || confirmationProbability > 60 || structureProbability > 60) {
+        if (isAllowed) {
+
             marketDetectorLogger.info(`[MTFDetail] ${symbol}`, {
                 FS: finalScore,
                 isAllowed,
@@ -194,6 +195,20 @@ export class MultiTimeframeAlignment {
                 SP: structureProbability,
                 DEC: decision,
                 RR: rr
+            });
+
+            marketDetectorLogger.info(`[MarketProbability] ${symbol}`, {
+                probability: confirmationResult.probability,
+                isAllowed: confirmationResult.isAllowed,
+                mode: confirmationResult.mode,
+                details: confirmationResult.details,
+            });
+
+            marketDetectorLogger.info(`[MarketProbability] ${symbol}`, {
+                probability: structureResult.probability,
+                isAllowed: structureResult.isAllowed,
+                mode: structureResult.mode,
+                details: structureResult.details,
             });
         }
 
