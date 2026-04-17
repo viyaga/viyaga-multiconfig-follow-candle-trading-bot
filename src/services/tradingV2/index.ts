@@ -306,6 +306,8 @@ export class TradingV2 {
 
             // ───────────────── TRADE RECORD ─────────────────
             await ExecutedTrade.create({
+                userId: c.USER_ID,
+                configId: c.id,
                 symbol: c.SYMBOL,
                 candleTimeframe: c.TIMEFRAME,
                 side,
@@ -313,7 +315,15 @@ export class TradingV2 {
                 entryPrice,
                 slPrice: sl,
                 tpPrice: tp,
-                martingaleState: updatedState
+                orderId: String(entry.result.id),
+                slOrderId: String(tpSlResult.ids.sl),
+                tpOrderId: String(tpSlResult.ids.tp),
+                level: state.currentLevel,
+                leverage: c.LEVERAGE,
+                isSimulated: c.IS_TESTING || c.DRY_RUN,
+                status: 'open',
+                martingaleState: updatedState,
+                marketDataSnapshot: mtf
             });
 
             tradeLogger.info(
