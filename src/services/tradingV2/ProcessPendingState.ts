@@ -346,8 +346,6 @@ export class ProcessPendingState {
 
         getContextualLogger(tradingCronLogger, logContext).debug("Checking for open positions after entry order close", { hasOpenPosition });
 
-        return hasOpenPosition
-            ? this.manageOpenPosition(sym, s, e, mtf, logContext)
-            : this.processClosedPosition(s, Number(e.paid_commission || 0), currentPrice, multiplier, logContext);
+        return hasOpenPosition ? s : this.processClosedPosition(s, Number(e.paid_commission || 0), currentPrice, multiplier, logContext);
     }
 }
