@@ -19,6 +19,8 @@ export interface TripleTFResult {
     tp: number;
     sl: number;
     rr: number;
+    tpPerc: number;
+    slPerc: number;
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -75,7 +77,9 @@ export class MultiTimeframeAlignment {
                 direction: "NONE",
                 tp: 0,
                 sl: 0,
-                rr: 0
+                rr: 0,
+                tpPerc: 0,
+                slPerc: 0,
             };
         }
 
@@ -110,6 +114,9 @@ export class MultiTimeframeAlignment {
         let tp = 0;
         let sl = 0;
         let rr = 0;
+        let tpPerc = 0;
+        let slPerc = 0;
+        const leverage = entryConfig.LEVERAGE;
 
         if (isAllowed) {
 
@@ -149,17 +156,20 @@ export class MultiTimeframeAlignment {
                 /* ================= CALC ================= */
 
                 if (direction === "BUY") {
-                    sl = entryPrice - atr * slATR;
-                    tp = entryPrice + atr * tpATR;
+                    sl = parseFloat((entryPrice - atr * slATR).toFixed(entryConfig.PRICE_DECIMAL_PLACES));
+                    tp = parseFloat((entryPrice + atr * tpATR).toFixed(entryConfig.PRICE_DECIMAL_PLACES));
                 } else {
-                    sl = entryPrice + atr * slATR;
-                    tp = entryPrice - atr * tpATR;
+                    sl = parseFloat((entryPrice + atr * slATR).toFixed(entryConfig.PRICE_DECIMAL_PLACES));
+                    tp = parseFloat((entryPrice - atr * tpATR).toFixed(entryConfig.PRICE_DECIMAL_PLACES));
                 }
 
                 const risk = Math.abs(entryPrice - sl);
                 const reward = Math.abs(tp - entryPrice);
 
                 rr = risk > 0 ? reward / risk : 0;
+
+                tpPerc = entryPrice > 0 ? (reward / entryPrice) * 100 * leverage : 0;
+                slPerc = entryPrice > 0 ? (risk / entryPrice) * 100 * leverage : 0;
 
                 /* ================= 🔥 RR FILTER ================= */
 
@@ -174,7 +184,9 @@ export class MultiTimeframeAlignment {
                         direction: "NONE",
                         tp: 0,
                         sl: 0,
-                        rr: 0
+                        rr: 0,
+                        tpPerc: 0,
+                        slPerc: 0,
                     };
                 }
             }
@@ -186,15 +198,17 @@ export class MultiTimeframeAlignment {
 
             marketDetectorLogger.info(`[MTFDetail] ${symbol}`, {
                 FS: finalScore,
+                RR: rr,
                 isAllowed,
-                tp,
-                sl,
+                tp: tp,
+                sl: sl,
+                TPP: tpPerc.toFixed(2) + "%",
+                SLP: slPerc.toFixed(2) + "%",
                 D: direction,
                 ES: entryScore,
                 CP: confirmationProbability,
                 SP: structureProbability,
                 DEC: decision,
-                RR: rr
             });
 
             marketDetectorLogger.info(`[MarketProbability] ${symbol}`, {
@@ -222,7 +236,9 @@ export class MultiTimeframeAlignment {
             direction,
             tp,
             sl,
-            rr
+            rr,
+            tpPerc,
+            slPerc,
         };
     }
 }
