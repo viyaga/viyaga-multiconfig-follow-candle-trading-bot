@@ -158,9 +158,20 @@ export class MultiTimeframeAlignment {
                 if (direction === "BUY") {
                     sl = parseFloat((entryPrice - atr * slATR).toFixed(entryConfig.PRICE_DECIMAL_PLACES));
                     tp = parseFloat((entryPrice + atr * tpATR).toFixed(entryConfig.PRICE_DECIMAL_PLACES));
+
+                    // 🔥 MAX SL PRICE MOVEMENT (1%)
+                    const maxSlDist = entryPrice * 0.01;
+                    const minSlPrice = parseFloat((entryPrice - maxSlDist).toFixed(entryConfig.PRICE_DECIMAL_PLACES));
+                    sl = Math.max(sl, minSlPrice);
+
                 } else {
                     sl = parseFloat((entryPrice + atr * slATR).toFixed(entryConfig.PRICE_DECIMAL_PLACES));
                     tp = parseFloat((entryPrice - atr * tpATR).toFixed(entryConfig.PRICE_DECIMAL_PLACES));
+
+                    // 🔥 MAX SL PRICE MOVEMENT (1%)
+                    const maxSlDist = entryPrice * 0.01;
+                    const maxSlPrice = parseFloat((entryPrice + maxSlDist).toFixed(entryConfig.PRICE_DECIMAL_PLACES));
+                    sl = Math.min(sl, maxSlPrice);
                 }
 
                 const risk = Math.abs(entryPrice - sl);
