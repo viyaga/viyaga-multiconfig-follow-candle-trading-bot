@@ -3,9 +3,9 @@
 export interface ConfigType {
     id: string,
     USER_ID: string,
-    DELTA_EXCHANGE_API_KEY: string,
-    DELTA_EXCHANGE_SECRET_KEY: string,
-    DELTA_EXCHANGE_BASE_URL_INDIA: string,
+    API_KEY: string,
+    SECRET_KEY: string,
+    BASE_URL: string,
     RUN_MINUTES: number[],
     PRODUCT_ID: number,
     SYMBOL: string,

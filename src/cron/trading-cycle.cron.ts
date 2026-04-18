@@ -29,7 +29,6 @@ const tradingCycleCronJob = (): void => {
 
             while (true) {
                 const configs = await Data.fetchTradingConfigs({
-                    timeframe: "1m",
                     limit: LIMIT,
                     offset: offset
                 });
@@ -45,7 +44,7 @@ const tradingCycleCronJob = (): void => {
                 const results = await Promise.allSettled(
                     configs.map(cfg => {
                         tradingCronLogger.info(`[TradingCron] Starting cycle for config: ${cfg.id} (${cfg.SYMBOL})`);
-                        
+
                         return TradingConfig.configStore.run(cfg, async () => {
                             return TradingV2.runTradingCycle(cfg);
                         });
@@ -70,8 +69,8 @@ const tradingCycleCronJob = (): void => {
                 tradingCronLogger.info(`[TradingCron] Batch summary: ${configs.length} configs, ${totalSucceeded} succeeded, ${totalFailed} failed`);
                 tradingCronLogger.info(`[TradingCron] Total processed so far: ${totalProcessed}`);
 
-                if (process.env.IS_SERVER_TESTING) {
-                    tradingCronLogger.info(`[TradingCron] IS_SERVER_TESTING mode enabled. Breaking loop.`);
+                if (configs.length < LIMIT) {
+                    tradingCronLogger.info(`[TradingCron] All configs processed. Breaking loop.`);
                     break;
                 }
             }

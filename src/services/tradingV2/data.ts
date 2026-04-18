@@ -34,31 +34,35 @@ export class Data {
     }
 
     static async fetchTradingConfigs(
-        params: { timeframe: string; limit: number; offset: number; }
+        params: { limit: number; offset: number }
     ): Promise<ConfigType[]> {
-        if (process.env.IS_SERVER_TESTING) {
-            return TradingConfig.defaultConfig
-        }
+        const { limit, offset } = params;
 
-        const query = new URLSearchParams({
-            timeframe: params.timeframe,
-            limit: String(params.limit),
-            offset: String(params.offset)
-        }).toString();
+        const url = `${env.payloadUrl}/api/trading-bots/active-subscribed/delta?limit=${limit}&offset=${offset}`;
 
-        const res = await fetch(
-            `${env.clientServerUrl}/internal/trading-configs?${query}`
-        );
+        tradingCronLogger.info(`[fetchTradingConfigs] Fetching bots from: ${url}`);
+
+        const res = await fetch(url);
 
         if (!res.ok) {
-            throw new Error(
-                `[fetchTradingConfigs] Failed (${res.status})`
-            );
+            throw new Error(`[fetchTradingConfigs] Failed (${res.status})`);
         }
 
-        const json: any = await res.json()
-        const configs: ConfigType[] = json?.configs
+        const bots: unknown = await res.json();
 
-        return configs
+        if (!Array.isArray(bots)) {
+            tradingCronLogger.error(`[fetchTradingConfigs] Expected array of bots, got:`, { bots });
+            return [];
+        }
+
+        const mergedConfigs: ConfigType[] = bots.map((bot: any) => {
+            return {
+                ...TradingConfig.defaultConfig[0],
+                ...bot,
+                id: bot.id || bot._id
+            };
+        });
+
+        return mergedConfigs;
     }
 }

@@ -22,9 +22,9 @@ export class TradingConfig {
         {
             id: "1",
             USER_ID: "12345",
-            DELTA_EXCHANGE_API_KEY: "jb5K5wanfp4HNz9naTruYTOEjfq8eZ",
-            DELTA_EXCHANGE_SECRET_KEY: "he9E1B0eeJfhJnxlM49EXhKrYOfNln5b4EOLMZotCLWl6gRFip510Z6yxci1",
-            DELTA_EXCHANGE_BASE_URL_INDIA: "https://api.india.delta.exchange/v2",
+            API_KEY: "jb5K5wanfp4HNz9naTruYTOEjfq8eZ",
+            SECRET_KEY: "he9E1B0eeJfhJnxlM49EXhKrYOfNln5b4EOLMZotCLWl6gRFip510Z6yxci1",
+            BASE_URL: "https://api.india.delta.exchange/v2",
 
             RUN_MINUTES: [0, 15, 30, 45],
 

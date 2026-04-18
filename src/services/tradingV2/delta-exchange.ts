@@ -8,11 +8,11 @@ export class DeltaExchange {
 
     private generateSignature(method: string, path: string, ts: number, body = ""): string {
         const c = TradingConfig.getConfig();
-        return crypto.createHmac("sha256", c.DELTA_EXCHANGE_SECRET_KEY).update(`${method}${ts}${path}${body}`).digest("hex");
+        return crypto.createHmac("sha256", c.SECRET_KEY).update(`${method}${ts}${path}${body}`).digest("hex");
     }
 
     private buildSignedHeaders(method: string, sig: string, ts: number): Record<string, string> {
-        const c = TradingConfig.getConfig(), h: Record<string, string> = { Accept: "application/json", "api-key": c.DELTA_EXCHANGE_API_KEY, signature: sig, timestamp: String(ts) };
+        const c = TradingConfig.getConfig(), h: Record<string, string> = { Accept: "application/json", "api-key": c.API_KEY, signature: sig, timestamp: String(ts) };
         if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) h["Content-Type"] = "application/json";
         return h;
     }
@@ -21,7 +21,7 @@ export class DeltaExchange {
         try {
             const c = TradingConfig.getConfig(), qStr = query?.toString() ? `?${query.toString()}` : "", ts = Math.floor(Date.now() / 1000) - 2, body = bodyObj ? Utils.compactJson(bodyObj) : "";
             const sig = this.generateSignature(method, `/v2${endpoint}${qStr}`, ts, body);
-            const r = await fetch(`${c.DELTA_EXCHANGE_BASE_URL_INDIA}${endpoint}${qStr}`, { method, headers: this.buildSignedHeaders(method, sig, ts), body: (body && ["POST", "PUT", "PATCH", "DELETE"].includes(method)) ? body : undefined });
+            const r = await fetch(`${c.BASE_URL}${endpoint}${qStr}`, { method, headers: this.buildSignedHeaders(method, sig, ts), body: (body && ["POST", "PUT", "PATCH", "DELETE"].includes(method)) ? body : undefined });
             const json = Utils.parseJsonSafe(await r.text());
             if (!r.ok) throw new Error(`Delta API error ${r.status}: ${JSON.stringify(json)}`);
             return json;

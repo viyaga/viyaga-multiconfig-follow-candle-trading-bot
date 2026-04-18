@@ -39,9 +39,9 @@ Content-Type: application/json
 |-------|------|-------------|---------|
 | `USER_ID` | string | User identifier | `"12345"` |
 | `DELTAEX_USER_ID` | number | Delta Exchange user ID | `70111043` |
-| `DELTA_EXCHANGE_API_KEY` | string | API key for Delta Exchange | `"your-api-key"` |
-| `DELTA_EXCHANGE_SECRET_KEY` | string | Secret key for Delta Exchange | `"your-secret-key"` |
-| `DELTA_EXCHANGE_BASE_URL_INDIA` | string | Base URL for Delta Exchange India | `"https://api.india.delta.exchange/v2"` |
+| `API_KEY` | string | API key for Delta Exchange | `"your-api-key"` |
+| `SECRET_KEY` | string | Secret key for Delta Exchange | `"your-secret-key"` |
+| `BASE_URL` | string | Base URL for Delta Exchange India | `"https://api.india.delta.exchange/v2"` |
 | `PRODUCT_ID` | number | Product ID to trade | `3136` |
 | `SYMBOL` | string | Trading symbol | `"ETHUSD"` |
 | `LOT_SIZE` | number | Size of each lot | `0.01` |
