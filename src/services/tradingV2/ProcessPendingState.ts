@@ -1,6 +1,6 @@
 import { TradingV2 } from ".";
 import { IMartingaleState, MartingaleState } from "../../models/martingaleState.model";
-import { ExecutedTrade } from "../../models/executedTrade.model";
+
 import { TradingConfig } from "./config";
 import { deltaExchange } from "./delta-exchange";
 import { tradingCycleErrorLogger, tradingCronLogger, getContextualLogger } from "./logger";
@@ -103,10 +103,7 @@ export class ProcessPendingState {
 ========================================================================= */
 
     private static async handleCanceledEntryOrder(s: IMartingaleState): Promise<IMartingaleState> {
-        await ExecutedTrade.findOneAndUpdate(
-            { orderId: s.lastEntryOrderId },
-            { $set: { status: 'cancelled', exitTime: new Date() } }
-        ).catch(err => tradingCycleErrorLogger.error("Failed to update ExecutedTrade status to cancelled", { error: err }));
+
         return this.markCancelled(s);
     }
 
@@ -131,18 +128,7 @@ export class ProcessPendingState {
             const netPnl = s.pnl + incrementalPnl;
             const fees = s.cumulativeFees + incrementalFees;
 
-            // Updated ExecutedTrade
-            await ExecutedTrade.findOneAndUpdate(
-                { orderId: s.lastEntryOrderId },
-                {
-                    $set: {
-                        status: 'closed',
-                        exitPrice: Number(tp.average_fill_price || tp.meta_data?.avg_exit_price || 0),
-                        exitTime: new Date(),
-                        pnl: incrementalPnl
-                    }
-                }
-            ).catch(err => tradingCycleErrorLogger.error("Failed to update ExecutedTrade record on TP settlement", { error: err }));
+
 
             return this.handleWin(s, netPnl, fees, incrementalPnl, incrementalFees, logContext);
         }
@@ -156,18 +142,7 @@ export class ProcessPendingState {
             const fees = s.cumulativeFees + incrementalFees;
             const netDebt = netPnl - fees;
 
-            // Updated ExecutedTrade
-            await ExecutedTrade.findOneAndUpdate(
-                { orderId: s.lastEntryOrderId },
-                {
-                    $set: {
-                        status: 'closed',
-                        exitPrice: Number(sl.average_fill_price || sl.meta_data?.avg_exit_price || 0),
-                        exitTime: new Date(),
-                        pnl: incrementalPnl
-                    }
-                }
-            ).catch(err => tradingCycleErrorLogger.error("Failed to update ExecutedTrade record on SL settlement", { error: err }));
+
 
             return netDebt >= 0
                 ? this.handleWin(s, netPnl, fees, incrementalPnl, incrementalFees, logContext)

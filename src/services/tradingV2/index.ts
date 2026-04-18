@@ -1,11 +1,11 @@
 import { Data } from "./data";
 import { deltaExchange } from "./delta-exchange";
-import { tradingCycleErrorLogger, martingaleTradeLogger, skipTradingLogger, tradingCronLogger, getContextualLogger } from "./logger";
+import { tradingCycleErrorLogger, skipTradingLogger, tradingCronLogger, getContextualLogger } from "./logger";
 import { ConfigType, TargetCandle, Candle } from "./type";
 import { Utils } from "./utils";
 import { ProcessPendingState } from "./ProcessPendingState";
 import { MartingaleState } from "../../models/martingaleState.model";
-import { ExecutedTrade } from "../../models/executedTrade.model";
+
 import { MultiTimeframeAlignment } from "./market-detector/multi-timeframe";
 
 export class TradingV2 {
@@ -82,7 +82,7 @@ export class TradingV2 {
         const cronLogger = getContextualLogger(tradingCronLogger, { cycleId, symbol, tradingBotId });
         const skipLogger = getContextualLogger(skipTradingLogger, { cycleId, symbol, tradingBotId });
         const errorLogger = getContextualLogger(tradingCycleErrorLogger, { cycleId, symbol, tradingBotId });
-        const tradeLogger = getContextualLogger(martingaleTradeLogger, { cycleId, symbol, tradingBotId });
+
 
         try {
             // ───────────────── MARKET DATA ─────────────────
@@ -304,40 +304,7 @@ export class TradingV2 {
                 `Martingale state updated successfully`
             );
 
-            // ───────────────── TRADE RECORD ─────────────────
-            await ExecutedTrade.create({
-                userId: c.USER_ID,
-                tradingBotId: c.id,
-                symbol: c.SYMBOL,
-                candleTimeframe: c.TIMEFRAME,
-                side,
-                quantity: qty,
-                entryPrice,
-                slPrice: sl,
-                tpPrice: tp,
-                orderId: String(entry.result.id),
-                slOrderId: String(tpSlResult.ids.sl),
-                tpOrderId: String(tpSlResult.ids.tp),
-                level: state.currentLevel,
-                leverage: c.LEVERAGE,
-                isSimulated: c.IS_TESTING || c.DRY_RUN,
-                status: 'open',
-                martingaleState: updatedState,
-                marketDataSnapshot: mtf
-            });
 
-            tradeLogger.info(
-                `NEW TRADE RECORDED ${side.toUpperCase()} at ${entryPrice}`,
-                {
-                    candleTimeframe: c.TIMEFRAME,
-                    side,
-                    quantity: qty,
-                    entryPrice,
-                    slPrice: sl,
-                    tpPrice: tp,
-                    martingaleState: updatedState
-                }
-            );
 
             cronLogger.info(
                 `✓ TRADE COMPLETED SUCCESSFULLY\n`

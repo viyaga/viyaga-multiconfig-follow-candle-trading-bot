@@ -1,5 +1,5 @@
 import { SyncStatus } from '../models/syncStatus.model';
-import { ExecutedTrade } from '../models/executedTrade.model';
+
 import { MartingaleState } from '../models/martingaleState.model';
 import { PayloadClient } from './payload.client';
 
@@ -63,11 +63,11 @@ export class BulkSyncService {
      */
     static async runFullSync() {
         try {
-            const tradeCount = await this.syncCollection('executed-trades', 'executed-trades', ExecutedTrade);
+
             const stateCount = await this.syncCollection('martingale-states', 'martingale-states', MartingaleState);
             
-            if (tradeCount > 0 || stateCount > 0) {
-                console.log(`[BulkSync] Completed: ${tradeCount} trades, ${stateCount} states synced.`);
+            if (stateCount > 0) {
+                console.log(`[BulkSync] Completed: ${stateCount} states synced.`);
             }
         } catch (err) {
             console.error('[BulkSync] Error during full sync:', err);

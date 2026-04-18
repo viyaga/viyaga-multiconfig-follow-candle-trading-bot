@@ -65,7 +65,6 @@ const createLogger = (serviceName: string, fileName: string, level: string = 'in
 // Logger instances
 export const tradingCycleErrorLogger = createLogger('trading-error', 'error.log', 'error');
 export const marketDetectorLogger = createLogger('market-detector', 'market-detector.log', 'info', false);
-export const martingaleTradeLogger = createLogger('martingale-trade', 'martingale-executed-trades.log', 'info', false);
 export const skipTradingLogger = createLogger('skip-trading', 'skip-trading.log', 'info');
 export const tradingCronLogger = createLogger('trading-cron', 'trading-cron.log', 'info');
 
