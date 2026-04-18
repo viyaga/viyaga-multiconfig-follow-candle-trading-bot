@@ -50,7 +50,7 @@ export class Utils {
         candle: TargetCandle,
         side: OrderSide,
         currentPrice: number,
-        configId: string,
+        tradingBotId: string,
         userId: string,
         symbol: string,
         candleTimeframe: string
@@ -67,7 +67,7 @@ export class Utils {
 
         if (!isTrendValid) {
             skipTradingLogger.info(`[PriceTrend] SKIP: Price movement not in candle direction for ${symbol}`, {
-                configId,
+                tradingBotId,
                 userId,
                 symbol,
                 candleTimeframe,

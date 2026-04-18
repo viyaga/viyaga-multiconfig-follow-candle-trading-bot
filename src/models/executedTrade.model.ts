@@ -3,7 +3,7 @@ import { IMartingaleState } from './martingaleState.model';
 
 export interface IExecutedTrade extends Document {
     userId: string;
-    configId: string;
+    tradingBotId: string;
     symbol: string;
     candleTimeframe: string;
     side: 'buy' | 'sell';
@@ -29,7 +29,7 @@ export interface IExecutedTrade extends Document {
 const ExecutedTradeSchema: Schema = new Schema(
     {
         userId: { type: String, required: true, index: true },
-        configId: { type: String, required: true, index: true },
+        tradingBotId: { type: String, required: true, index: true },
         symbol: { type: String, required: true, index: true },
         candleTimeframe: { type: String, required: true },
         side: { type: String, enum: ['buy', 'sell'], required: true },

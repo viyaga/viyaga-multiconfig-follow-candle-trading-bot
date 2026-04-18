@@ -76,13 +76,13 @@ export class TradingV2 {
     ========================================================================= */
 
     static async runTradingCycle(c: ConfigType) {
-        const { id: configId, SYMBOL: symbol, USER_ID: userId } = c;
+        const { id: tradingBotId, SYMBOL: symbol, USER_ID: userId } = c;
         const cycleId = `cycle-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
 
-        const cronLogger = getContextualLogger(tradingCronLogger, { cycleId, symbol, configId });
-        const skipLogger = getContextualLogger(skipTradingLogger, { cycleId, symbol, configId });
-        const errorLogger = getContextualLogger(tradingCycleErrorLogger, { cycleId, symbol, configId });
-        const tradeLogger = getContextualLogger(martingaleTradeLogger, { cycleId, symbol, configId });
+        const cronLogger = getContextualLogger(tradingCronLogger, { cycleId, symbol, tradingBotId });
+        const skipLogger = getContextualLogger(skipTradingLogger, { cycleId, symbol, tradingBotId });
+        const errorLogger = getContextualLogger(tradingCycleErrorLogger, { cycleId, symbol, tradingBotId });
+        const tradeLogger = getContextualLogger(martingaleTradeLogger, { cycleId, symbol, tradingBotId });
 
         try {
             // ───────────────── MARKET DATA ─────────────────
@@ -120,7 +120,7 @@ export class TradingV2 {
                 c,
                 configConfirmation,
                 configStructure,
-                { cycleId, configId }
+                { cycleId, tradingBotId }
             );
 
             const scoreMultiplier = mtf.finalScore < 60 ? 0 : mtf.finalScore < 65 ? 1 : mtf.finalScore < 75 ? 1.5 : 2;
@@ -161,7 +161,7 @@ export class TradingV2 {
                     mtf,
                     currentPrice,
                     scoreMultiplier,
-                    { cycleId, configId } // Pass context for logging
+                    { cycleId, tradingBotId } // Pass context for logging
                 );
 
                 cronLogger.info(
@@ -211,7 +211,7 @@ export class TradingV2 {
                 targetCandle,
                 side,
                 currentPrice,
-                configId,
+                tradingBotId,
                 userId,
                 symbol,
                 c.TIMEFRAME
@@ -266,7 +266,7 @@ export class TradingV2 {
             );
 
             // ───────────────── TP / SL ─────────────────
-            const tpSlResult = await deltaExchange.placeTPSLBracketOrder(tp, sl, side, { cycleId, configId });
+            const tpSlResult = await deltaExchange.placeTPSLBracketOrder(tp, sl, side, { cycleId, tradingBotId });
 
             cronLogger.info(
                 `TP/SL orders placed: TP_ID=${tpSlResult.ids.tp}, SL_ID=${tpSlResult.ids.sl}`
@@ -274,7 +274,7 @@ export class TradingV2 {
 
             // ───────────────── UPDATE STATE ─────────────────
             const updatedState = await MartingaleState.findOneAndUpdate(
-                { configId: c.id, userId: c.USER_ID, symbol: c.SYMBOL },
+                { tradingBotId: c.id, userId: c.USER_ID, symbol: c.SYMBOL },
                 {
                     $set: {
                         lastTradeOutcome: "pending",
@@ -307,7 +307,7 @@ export class TradingV2 {
             // ───────────────── TRADE RECORD ─────────────────
             await ExecutedTrade.create({
                 userId: c.USER_ID,
-                configId: c.id,
+                tradingBotId: c.id,
                 symbol: c.SYMBOL,
                 candleTimeframe: c.TIMEFRAME,
                 side,

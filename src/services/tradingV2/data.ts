@@ -7,14 +7,14 @@ import { ConfigType } from "./type";
 
 export class Data {
 
-    static async getOrCreateState(configId: string, userId: string, sym: string, pid: number): Promise<IMartingaleState> {
-        let st = await MartingaleState.findOne({ configId, userId, symbol: sym });
+    static async getOrCreateState(tradingBotId: string, userId: string, sym: string, pid: number): Promise<IMartingaleState> {
+        let st = await MartingaleState.findOne({ tradingBotId, userId, symbol: sym });
 
         if (!st) {
             tradingCronLogger.info(`[Data] Creating new state for ${sym}`);
             st = new MartingaleState({
                 userId,
-                configId,
+                tradingBotId,
                 symbol: sym,
                 productId: pid,
                 currentLevel: 1,

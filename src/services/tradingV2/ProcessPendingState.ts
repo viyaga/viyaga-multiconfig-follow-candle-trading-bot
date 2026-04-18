@@ -229,7 +229,7 @@ export class ProcessPendingState {
 
         const updated = await MartingaleState.findOneAndUpdate(
             {
-                configId: state.configId,
+                tradingBotId: state.tradingBotId,
                 userId: state.userId,
                 symbol: state.symbol,
             },
@@ -258,7 +258,7 @@ export class ProcessPendingState {
     ): Promise<IMartingaleState> {
         const updated = await MartingaleState.findOneAndUpdate(
             {
-                configId: state.configId,
+                tradingBotId: state.tradingBotId,
                 userId: state.userId,
                 symbol: state.symbol,
             },
