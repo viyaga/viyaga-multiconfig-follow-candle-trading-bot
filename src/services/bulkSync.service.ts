@@ -4,11 +4,13 @@ import { MartingaleState } from '../models/martingaleState.model';
 import { PayloadClient } from './payload.client';
 
 export class BulkSyncService {
-    
+
     /**
-     * Synchronizes a specific collection to Payload CMS.
+     * Synchronizes bot PNL to Payload CMS.
      */
-    static async syncCollection(collectionKey: string, payloadCollectionName: string, model: any) {
+    static async syncBotPnl() {
+        const collectionKey = 'trading-bot-pnl';
+
         // 1. Get last sync status
         let status = await SyncStatus.findOne({ collectionName: collectionKey });
         if (!status) {
@@ -16,44 +18,36 @@ export class BulkSyncService {
         }
 
         const lastSync = status.lastSyncedAt;
-        
+
         // 2. Fetch updated records
-        const records = await model.find({ updatedAt: { $gt: lastSync } }).sort({ updatedAt: 1 }).limit(100);
+        const records = await MartingaleState.find({ updatedAt: { $gt: lastSync } })
+            .sort({ updatedAt: 1 })
+            .limit(100);
 
         if (records.length === 0) {
             return 0;
         }
 
-        console.log(`[BulkSync] Syncing ${records.length} records for ${collectionKey}...`);
+        console.log(`[BulkSync] Syncing PNL for ${records.length} bots...`);
 
         // 3. Prepare bulk data
-        const docs = records.map((record: any) => {
-            const data = record.toObject ? record.toObject() : record;
-            const { _id, __v, ...syncData } = data;
-            
-            return {
-                id: String(_id),
-                data: syncData,
-            };
-        });
+        const updates = records.map((record) => ({
+            botId: record.tradingBotId,
+            allTimePnl: record.allTimePnl,
+        }));
 
         try {
             // 4. Send bulk request
-            const result = await PayloadClient.bulkSync(payloadCollectionName, docs);
-            
-            if (result.success) {
-                // 5. Update sync status to the latest updatedAt in this batch
-                const latestRecord = records[records.length - 1];
-                status.lastSyncedAt = latestRecord.updatedAt;
-                await status.save();
-                
-                return records.length;
-            } else {
-                console.error(`[BulkSync] Bulk sync for ${collectionKey} reported failure:`, result.error);
-                return 0;
-            }
+            await PayloadClient.updatePnl(updates);
+
+            // 5. Update sync status to the latest updatedAt in this batch
+            const latestRecord = records[records.length - 1];
+            status.lastSyncedAt = latestRecord.updatedAt;
+            await status.save();
+
+            return records.length;
         } catch (err: any) {
-            console.error(`[BulkSync] Failed to bulk sync ${collectionKey}:`, err.message);
+            console.error(`[BulkSync] Failed to sync bot PNL:`, err.message);
             return 0;
         }
     }
@@ -63,11 +57,10 @@ export class BulkSyncService {
      */
     static async runFullSync() {
         try {
+            const syncCount = await this.syncBotPnl();
 
-            const stateCount = await this.syncCollection('martingale-states', 'martingale-states', MartingaleState);
-            
-            if (stateCount > 0) {
-                console.log(`[BulkSync] Completed: ${stateCount} states synced.`);
+            if (syncCount > 0) {
+                console.log(`[BulkSync] Completed: ${syncCount} bot PNLs synced.`);
             }
         } catch (err) {
             console.error('[BulkSync] Error during full sync:', err);

@@ -22,8 +22,8 @@ export interface IMartingaleState {
     allTimePnl: number;
     allTimeFees: number;
     lastTradeSettledAt?: Date | null;
-    updatedAt: string;
-    createdAt: string;
+    updatedAt: Date;
+    createdAt: Date;
 }
 
 // MartingaleState Schema
