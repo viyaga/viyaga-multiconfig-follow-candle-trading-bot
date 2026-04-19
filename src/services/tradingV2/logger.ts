@@ -67,6 +67,7 @@ export const tradingCycleErrorLogger = createLogger('trading-error', 'error.log'
 export const marketDetectorLogger = createLogger('market-detector', 'market-detector.log', 'info', false);
 export const skipTradingLogger = createLogger('skip-trading', 'skip-trading.log', 'info');
 export const tradingCronLogger = createLogger('trading-cron', 'trading-cron.log', 'info');
+export const configDebugLogger = createLogger('config-debug', 'config-debug.log', 'debug');
 
 /**
  * Contextual Logger Helper

@@ -2,7 +2,7 @@ import { env } from "../../config";
 
 import { IMartingaleState, MartingaleState } from "../../models/martingaleState.model";
 import { TradingConfig } from "./config";
-import { tradingCronLogger } from "./logger";
+import { configDebugLogger, tradingCronLogger } from "./logger";
 import { ConfigType } from "./type";
 
 export class Data {
@@ -116,6 +116,11 @@ export class Data {
                 return config;
             })
         );
+
+        tradingCronLogger.info(`[fetchTradingConfigs] Successfully fetched and merged ${mergedConfigs.length} configs`);
+        mergedConfigs.forEach(cfg => {
+            configDebugLogger.debug(`[fetchTradingConfigs] Final merged config for bot ${cfg.id} (${cfg.SYMBOL})`, { config: cfg });
+        });
 
         return mergedConfigs;
     }
