@@ -66,61 +66,66 @@ export class Data {
 
         const defaultConfig = TradingConfig.defaultConfig;
 
-        const mergedConfigs: ConfigType[] = await Promise.all(
-            bots.map(async (bot: any) => {
-                const rawSymbol = bot.SYMBOL || bot.symbol;
-                const mappedSymbol = this.mapSymbol(rawSymbol);
+        // 1. Identify unique symbols to avoid redundant API calls
+        const uniqueMappedSymbols = [...new Set(
+            bots.map((bot: Partial<ConfigType>) => this.mapSymbol(bot.SYMBOL || "")).filter(Boolean) as string[]
+        )];
 
-                tradingCronLogger.debug(`[fetchTradingConfigs] Merging bot ${bot.id || bot._id} symbol: ${rawSymbol}`);
+        tradingCronLogger.info(`[fetchTradingConfigs] Found ${uniqueMappedSymbols.length} unique symbols across ${bots.length} bots. Fetching product data...`);
 
-                const config: ConfigType = {
-                    ...defaultConfig,
-                    ...bot,
-                    id: bot.id || bot._id
-                };
-
-                if (mappedSymbol) {
-                    try {
-                        const productUrl = `${defaultConfig.BASE_URL}/products/${mappedSymbol}`;
-                        tradingCronLogger.debug(`[fetchTradingConfigs] Fetching product data for ${mappedSymbol} from: ${productUrl}`);
-                        const productRes = await fetch(productUrl);
-                        if (productRes.ok) {
-                            const productData: any = await productRes.json();
-                            if (productData.success && productData.result) {
-                                const p = productData.result;
-                                const tickSize = Number(p.tick_size);
-                                const contractValue = Number(p.contract_value);
-
-                                // Calculate decimals from tick size
-                                const decimals = p.tick_size.includes('.')
-                                    ? p.tick_size.split('.')[1].length
-                                    : 0;
-
-                                config.PRICE_DECIMAL_PLACES = decimals;
-                                config.LOT_SIZE = contractValue;
-                                config.PRODUCT_ID = p.id;
-                                config.SYMBOL = p.symbol;
-
-                                tradingCronLogger.info(`[fetchTradingConfigs] ✓ Merged product data for ${rawSymbol} (ID: ${p.id}, Decimals: ${decimals}, Lot: ${contractValue})`);
-
-                                tradingCronLogger.debug(`[fetchTradingConfigs] Merged product data for ${rawSymbol} (mapped: ${mappedSymbol})`, {
-                                    tickSize,
-                                    contractValue,
-                                    decimals,
-                                    productId: p.id
-                                });
-                            }
-                        } else {
-                            tradingCronLogger.warn(`[fetchTradingConfigs] Failed to fetch product data for ${rawSymbol} (mapped: ${mappedSymbol}): ${productRes.status}`);
+        // 2. Fetch product data for each unique symbol in parallel
+        const productDataMap = new Map<string, any>();
+        await Promise.all(
+            uniqueMappedSymbols.map(async (mappedSymbol) => {
+                try {
+                    const productUrl = `${defaultConfig.BASE_URL}/products/${mappedSymbol}`;
+                    tradingCronLogger.debug(`[fetchTradingConfigs] Fetching product data for unique symbol: ${mappedSymbol} from: ${productUrl}`);
+                    const productRes = await fetch(productUrl);
+                    if (productRes.ok) {
+                        const productData: any = await productRes.json();
+                        if (productData.success && productData.result) {
+                            productDataMap.set(mappedSymbol, productData.result);
+                            tradingCronLogger.info(`[fetchTradingConfigs] ✓ Successfully fetched product data for ${mappedSymbol}`);
                         }
-                    } catch (err) {
-                        tradingCronLogger.error(`[fetchTradingConfigs] Error fetching product data for ${rawSymbol} (mapped: ${mappedSymbol}):`, err);
+                    } else {
+                        tradingCronLogger.warn(`[fetchTradingConfigs] Failed to fetch product data for ${mappedSymbol}: ${productRes.status}`);
                     }
+                } catch (err) {
+                    tradingCronLogger.error(`[fetchTradingConfigs] Error fetching product data for ${mappedSymbol}:`, err);
                 }
-
-                return config;
             })
         );
+
+        // 3. Merge product data into each bot configuration
+        const mergedConfigs: ConfigType[] = bots.map((bot: any) => {
+            const rawSymbol = bot.SYMBOL || bot.symbol;
+            const mappedSymbol = this.mapSymbol(rawSymbol);
+
+            const config: ConfigType = {
+                ...defaultConfig,
+                ...bot,
+                id: bot.id || bot._id
+            };
+
+            const p = productDataMap.get(mappedSymbol);
+            if (p) {
+                // Calculate decimals from tick size
+                const decimals = p.tick_size.includes('.')
+                    ? p.tick_size.split('.')[1].length
+                    : 0;
+
+                config.PRICE_DECIMAL_PLACES = decimals;
+                config.LOT_SIZE = Number(p.contract_value);
+                config.PRODUCT_ID = p.id;
+                config.SYMBOL = p.symbol;
+
+                tradingCronLogger.info(`[fetchTradingConfigs] ✓ Applied product data to bot ${config.id} [${rawSymbol}] (ID: ${p.id}, Decimals: ${decimals}, Lot: ${config.LOT_SIZE})`);
+            } else {
+                tradingCronLogger.warn(`[fetchTradingConfigs] ⚠ No product data available for bot ${config.id} [${rawSymbol}]`);
+            }
+
+            return config;
+        });
 
         tradingCronLogger.info(`[fetchTradingConfigs] Successfully fetched and merged ${mergedConfigs.length} configs`);
         mergedConfigs.forEach(cfg => {
