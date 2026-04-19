@@ -83,6 +83,8 @@ export class TradingV2 {
         const skipLogger = getContextualLogger(skipTradingLogger, { cycleId, symbol, tradingBotId });
         const errorLogger = getContextualLogger(tradingCycleErrorLogger, { cycleId, symbol, tradingBotId });
 
+        cronLogger.info(`[TradingCycle] ========== START PROCESSING BOT: ${symbol} (ID: ${tradingBotId}) ==========`);
+
 
         try {
             // ───────────────── MARKET DATA ─────────────────
@@ -92,19 +94,24 @@ export class TradingV2 {
             const targetDataStructure = await TradingV2.getTargetCandle(c, 'STRUCTURE');
 
             if (!targetDataEntry || !targetDataConfirmation || !targetDataStructure) {
-                skipLogger.info(`[MarketData] SKIP: Missing candle data for ${symbol}`, {
-                    hasEntry: !!targetDataEntry,
-                    hasConf: !!targetDataConfirmation,
-                    hasStruct: !!targetDataStructure
-                });
+                const missing = [];
+                if (!targetDataEntry) missing.push('ENTRY');
+                if (!targetDataConfirmation) missing.push('CONFIRMATION');
+                if (!targetDataStructure) missing.push('STRUCTURE');
+
+                skipLogger.info(`[MarketData] SKIP: Missing closed candles for ${symbol} on: ${missing.join(', ')}`);
                 return;
             }
+
+            cronLogger.debug(`[MarketData] Fetched candles: ENTRY(${targetDataEntry.candles.length}), CONF(${targetDataConfirmation.candles.length}), STRUCT(${targetDataStructure.candles.length})`);
 
             const { target: targetCandle, candles: entryCandles } = targetDataEntry;
             const { target: confirmationTargetCandle, candles: confirmationCandles } = targetDataConfirmation;
             const { target: structureTargetCandle, candles: structureCandles } = targetDataStructure;
 
+            cronLogger.debug(`[MarketPrice] Fetching latest price for ${symbol}...`);
             const currentPrice = await TradingV2.getCurrentPrice(symbol);
+            cronLogger.info(`[MarketPrice] Current Mark Price: ${currentPrice}`);
 
             // ───────────────── MULTI TIMEFRAME ALIGNMENT ─────────────────
             const configConfirmation: ConfigType = { ...c, TIMEFRAME: c.CONFIRMATION_TIMEFRAME };
@@ -123,7 +130,12 @@ export class TradingV2 {
                 { cycleId, tradingBotId }
             );
 
-            const scoreMultiplier = mtf.finalScore < 60 ? 0 : mtf.finalScore < 65 ? 1 : mtf.finalScore < 75 ? 1.5 : 2;
+            cronLogger.info(`[MTF] Result: Score=${mtf.finalScore}, Direction=${mtf.direction}, Decision=${mtf.decision}, Allowed=${mtf.isAllowed}`);
+            if (mtf.isAllowed) {
+                cronLogger.info(`[MTF] Price Levels target: TP=${mtf.tp}, SL=${mtf.sl}, RR=${mtf.rr.toFixed(2)}`);
+            }
+
+            const scoreMultiplier = mtf.finalScore < 70 ? 0 : mtf.finalScore < 80 ? 1 : mtf.finalScore < 85 ? 1.5 : mtf.finalScore < 90 ? 2 : 0;
 
             // ───────────────── STATE ─────────────────
             let state = await Data.getOrCreateState(
@@ -182,17 +194,13 @@ export class TradingV2 {
 
             if (!c.RUN_MINUTES.includes(istMinutes)) {
                 skipLogger.info(
-                    `Skipping config: ${c.id} (${c.SYMBOL}) because it is not in the RUN_MINUTES list.`
+                    `[SKIP] ${symbol}: Not in RUN_MINUTES (Current: ${istMinutes}, Target List: ${c.RUN_MINUTES.join(',')})`
                 );
                 return;
             }
 
             if (mtf.finalScore < 55) {
-                skipLogger.info(`[MarketRegime] SKIP: MTF Final Score too low`, {
-                    timeframe: c.TIMEFRAME,
-                    finalScore: mtf.finalScore,
-                    mtf
-                });
+                skipLogger.info(`[SKIP] ${symbol}: MTF Final Score too low (Score: ${mtf.finalScore} < Threshold: 55)`);
                 return;
             }
 

@@ -50,7 +50,6 @@ export class Data {
         const url = `${env.payloadUrl}/api/trading-bots/active-subscribed/delta?limit=${limit}&offset=${offset}`;
 
         tradingCronLogger.info(`[fetchTradingConfigs] Fetching bots from: ${url}`);
-
         const res = await fetch(url);
 
         if (!res.ok) {
@@ -58,6 +57,7 @@ export class Data {
         }
 
         const bots: any = await res.json();
+        tradingCronLogger.info(`[fetchTradingConfigs] API returned ${Array.isArray(bots) ? bots.length : 'non-array'} bots`);
 
         if (!Array.isArray(bots)) {
             tradingCronLogger.error(`[fetchTradingConfigs] Expected array of bots, got:`, { bots });
@@ -71,6 +71,8 @@ export class Data {
                 const rawSymbol = bot.SYMBOL || bot.symbol;
                 const mappedSymbol = this.mapSymbol(rawSymbol);
 
+                tradingCronLogger.debug(`[fetchTradingConfigs] Merging bot ${bot.id || bot._id} symbol: ${rawSymbol}`);
+
                 const config: ConfigType = {
                     ...defaultConfig,
                     ...bot,
@@ -80,6 +82,7 @@ export class Data {
                 if (mappedSymbol) {
                     try {
                         const productUrl = `${defaultConfig.BASE_URL}/products/${mappedSymbol}`;
+                        tradingCronLogger.debug(`[fetchTradingConfigs] Fetching product data for ${mappedSymbol} from: ${productUrl}`);
                         const productRes = await fetch(productUrl);
                         if (productRes.ok) {
                             const productData: any = await productRes.json();
@@ -97,6 +100,8 @@ export class Data {
                                 config.LOT_SIZE = contractValue;
                                 config.PRODUCT_ID = p.id;
                                 config.SYMBOL = p.symbol;
+
+                                tradingCronLogger.info(`[fetchTradingConfigs] ✓ Merged product data for ${rawSymbol} (ID: ${p.id}, Decimals: ${decimals}, Lot: ${contractValue})`);
 
                                 tradingCronLogger.debug(`[fetchTradingConfigs] Merged product data for ${rawSymbol} (mapped: ${mappedSymbol})`, {
                                     tickSize,

@@ -205,36 +205,26 @@ export class MultiTimeframeAlignment {
 
         /* ================= LOG ================= */
 
+        /* ================= LOG ================= */
+        const mtfLogPrefix = isAllowed ? '[MTF-Allowed]' : '[MTF-Skip]';
+        marketDetectorLogger.info(`${mtfLogPrefix} ${symbol} | FS: ${finalScore} | Dir: ${direction} | Dec: ${decision} | RR: ${rr.toFixed(2)} | TP: ${tp} | SL: ${sl}`);
+
         if (isAllowed) {
-
-            marketDetectorLogger.info(`[MTFDetail] ${symbol}`, {
-                FS: finalScore,
-                RR: rr,
-                isAllowed,
-                tp: tp,
-                sl: sl,
-                TPP: tpPerc.toFixed(2) + "%",
-                SLP: slPerc.toFixed(2) + "%",
-                D: direction,
-                ES: entryScore,
-                CP: confirmationProbability,
-                SP: structureProbability,
-                DEC: decision,
-            });
-
-            marketDetectorLogger.info(`[MarketProbability] ${symbol}`, {
+            marketDetectorLogger.debug(`[MarketProbability] ${symbol} Confirmation`, {
                 probability: confirmationResult.probability,
                 isAllowed: confirmationResult.isAllowed,
                 mode: confirmationResult.mode,
                 details: confirmationResult.details,
             });
 
-            marketDetectorLogger.info(`[MarketProbability] ${symbol}`, {
+            marketDetectorLogger.debug(`[MarketProbability] ${symbol} Structure`, {
                 probability: structureResult.probability,
                 isAllowed: structureResult.isAllowed,
                 mode: structureResult.mode,
                 details: structureResult.details,
             });
+        } else if (rr < 1.6 && direction !== "NONE") {
+            marketDetectorLogger.info(`[MTF-Skip] ${symbol} | Reward/Risk ratio too low: ${rr.toFixed(2)} < 1.60`);
         }
 
         return {

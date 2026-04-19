@@ -19,8 +19,6 @@ export class TradingConfig {
        BASE DEFAULT CONFIG
     ------------------------------------------------------------------------- */
     static readonly defaultConfig: Partial<ConfigType> = {
-        // API_KEY: "jb5K5wanfp4HNz9naTruYTOEjfq8eZ",
-        // SECRET_KEY: "he9E1B0eeJfhJnxlM49EXhKrYOfNln5b4EOLMZotCLWl6gRFip510Z6yxci1",
         BASE_URL: "https://api.india.delta.exchange/v2",
 
         RUN_MINUTES: [0, 15, 30, 45],

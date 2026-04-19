@@ -43,7 +43,9 @@ export class ProcessPendingState {
         logContext?: any
     ): IMartingaleState {
         const logger = getContextualLogger(tradingCronLogger, logContext);
-        logger.info(`Outcome: WIN | Final PnL: ${winPnl} | Total Fees: ${tempFees} | Incremental PnL: ${incrementalPnl} | Incremental Fees: ${incrementalFees}`);
+        logger.info(`[StateTransition] Outcome: WIN | Symbol: ${s.symbol} | Net PnL (Session): ${winPnl.toFixed(2)} | Total Fees (Session): ${tempFees.toFixed(2)}`);
+        logger.info(`[StateTransition] WIN Details: Incremental PnL: ${incrementalPnl.toFixed(2)}, Incremental Fees: ${incrementalFees.toFixed(2)}`);
+        
         const currentState = this.resetState(s);
         return {
             ...currentState,
@@ -76,7 +78,8 @@ export class ProcessPendingState {
         );
         const nextLevel = s.currentLevel + 1;
 
-        logger.info(`Outcome: LOSS | Net Debt: ${netDebt} | Next Level: ${nextLevel} | Calculated Lots: ${lots}`);
+        logger.info(`[StateTransition] Outcome: LOSS | Symbol: ${s.symbol} | Net Debt: ${netDebt.toFixed(2)} | Next Level: ${nextLevel} | Calculated Lots: ${lots}`);
+        logger.info(`[StateTransition] LOSS Details: Incremental PnL: ${incrementalPnl.toFixed(2)}, Incremental Fees: ${incrementalFees.toFixed(2)}`);
 
         const currentState = this.resetState(s);
         return {
@@ -128,7 +131,7 @@ export class ProcessPendingState {
             const netPnl = s.pnl + incrementalPnl;
             const fees = s.cumulativeFees + incrementalFees;
 
-
+            getContextualLogger(tradingCronLogger, logContext).info(`[PositionOutcome] TAKE PROFIT reached for ${s.symbol}`);
 
             return this.handleWin(s, netPnl, fees, incrementalPnl, incrementalFees, logContext);
         }
@@ -142,7 +145,7 @@ export class ProcessPendingState {
             const fees = s.cumulativeFees + incrementalFees;
             const netDebt = netPnl - fees;
 
-
+            getContextualLogger(tradingCronLogger, logContext).info(`[PositionOutcome] STOP LOSS hit for ${s.symbol}`);
 
             return netDebt >= 0
                 ? this.handleWin(s, netPnl, fees, incrementalPnl, incrementalFees, logContext)
