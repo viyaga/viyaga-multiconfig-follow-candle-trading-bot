@@ -33,6 +33,15 @@ export class Data {
         return st;
     }
 
+    private static mapSymbol(symbol: string): string {
+        if (!symbol) return symbol;
+        // Delta India perpetuals typically use USD suffix instead of USDT
+        if (symbol.endsWith("USDT")) {
+            return symbol.replace("USDT", "USD");
+        }
+        return symbol;
+    }
+
     static async fetchTradingConfigs(
         params: { limit: number; offset: number }
     ): Promise<ConfigType[]> {
@@ -48,20 +57,65 @@ export class Data {
             throw new Error(`[fetchTradingConfigs] Failed (${res.status})`);
         }
 
-        const bots: unknown = await res.json();
+        const bots: any = await res.json();
 
         if (!Array.isArray(bots)) {
             tradingCronLogger.error(`[fetchTradingConfigs] Expected array of bots, got:`, { bots });
             return [];
         }
 
-        const mergedConfigs: ConfigType[] = bots.map((bot: any) => {
-            return {
-                ...TradingConfig.defaultConfig[0],
-                ...bot,
-                id: bot.id || bot._id
-            };
-        });
+        const defaultConfig = TradingConfig.defaultConfig[0];
+
+        const mergedConfigs: ConfigType[] = await Promise.all(
+            bots.map(async (bot: any) => {
+                const rawSymbol = bot.SYMBOL || bot.symbol;
+                const mappedSymbol = this.mapSymbol(rawSymbol);
+
+                const config: ConfigType = {
+                    ...defaultConfig,
+                    ...bot,
+                    id: bot.id || bot._id
+                };
+
+                if (mappedSymbol) {
+                    try {
+                        const productUrl = `${defaultConfig.BASE_URL}/products/${mappedSymbol}`;
+                        const productRes = await fetch(productUrl);
+                        if (productRes.ok) {
+                            const productData: any = await productRes.json();
+                            if (productData.success && productData.result) {
+                                const p = productData.result;
+                                const tickSize = Number(p.tick_size);
+                                const contractValue = Number(p.contract_value);
+
+                                // Calculate decimals from tick size
+                                const decimals = p.tick_size.includes('.')
+                                    ? p.tick_size.split('.')[1].length
+                                    : 0;
+
+                                config.PRICE_DECIMAL_PLACES = decimals;
+                                config.LOT_SIZE = contractValue;
+                                config.PRODUCT_ID = p.id;
+                                config.SYMBOL = p.symbol;
+
+                                tradingCronLogger.debug(`[fetchTradingConfigs] Merged product data for ${rawSymbol} (mapped: ${mappedSymbol})`, {
+                                    tickSize,
+                                    contractValue,
+                                    decimals,
+                                    productId: p.id
+                                });
+                            }
+                        } else {
+                            tradingCronLogger.warn(`[fetchTradingConfigs] Failed to fetch product data for ${rawSymbol} (mapped: ${mappedSymbol}): ${productRes.status}`);
+                        }
+                    } catch (err) {
+                        tradingCronLogger.error(`[fetchTradingConfigs] Error fetching product data for ${rawSymbol} (mapped: ${mappedSymbol}):`, err);
+                    }
+                }
+
+                return config;
+            })
+        );
 
         return mergedConfigs;
     }
