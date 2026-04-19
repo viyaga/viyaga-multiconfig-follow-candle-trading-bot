@@ -4,9 +4,9 @@ async function testFetch() {
     try {
         console.log("Starting test fetch...");
         const configs = await Data.fetchTradingConfigs({ limit: 10, offset: 0 });
-        
+
         console.log(`Fetched ${configs.length} configs.`);
-        
+
         configs.forEach(c => {
             console.log(`--- Config for ${c.SYMBOL} ---`);
             console.log(`ID: ${c.id}`);

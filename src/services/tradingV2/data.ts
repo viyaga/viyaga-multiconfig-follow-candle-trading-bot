@@ -64,7 +64,7 @@ export class Data {
             return [];
         }
 
-        const defaultConfig = TradingConfig.defaultConfig[0];
+        const defaultConfig = TradingConfig.defaultConfig;
 
         const mergedConfigs: ConfigType[] = await Promise.all(
             bots.map(async (bot: any) => {

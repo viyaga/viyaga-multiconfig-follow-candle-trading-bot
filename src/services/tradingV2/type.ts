@@ -14,7 +14,6 @@ export interface ConfigType {
     TIMEFRAME: string,
     CONFIRMATION_TIMEFRAME: string,
     STRUCTURE_TIMEFRAME: string,
-    LOWER_TIMEFRAME: string,
     LEVERAGE: number,
     INITIAL_BASE_QUANTITY: number,
     MAX_QUANTITY: number,

@@ -18,47 +18,31 @@ export class TradingConfig {
     /* -------------------------------------------------------------------------
        BASE DEFAULT CONFIG
     ------------------------------------------------------------------------- */
-    static readonly defaultConfig: ConfigType[] = [
-        {
-            id: "1",
-            USER_ID: "12345",
-            API_KEY: "jb5K5wanfp4HNz9naTruYTOEjfq8eZ",
-            SECRET_KEY: "he9E1B0eeJfhJnxlM49EXhKrYOfNln5b4EOLMZotCLWl6gRFip510Z6yxci1",
-            BASE_URL: "https://api.india.delta.exchange/v2",
+    static readonly defaultConfig: Partial<ConfigType> = {
+        // API_KEY: "jb5K5wanfp4HNz9naTruYTOEjfq8eZ",
+        // SECRET_KEY: "he9E1B0eeJfhJnxlM49EXhKrYOfNln5b4EOLMZotCLWl6gRFip510Z6yxci1",
+        BASE_URL: "https://api.india.delta.exchange/v2",
 
-            RUN_MINUTES: [0, 15, 30, 45],
+        RUN_MINUTES: [0, 15, 30, 45],
 
-            PRODUCT_ID: 3136,
-            SYMBOL: "ETHUSD",
+        // ENTRY TIMEFRAME
+        TIMEFRAME: "15m",
 
-            LOT_SIZE: 0.01,
-            PRICE_DECIMAL_PLACES: 2,
+        // TREND CONFIRMATION
+        CONFIRMATION_TIMEFRAME: "1h",
 
-            // ENTRY TIMEFRAME
-            TIMEFRAME: "15m",
+        // MARKET STRUCTURE
+        STRUCTURE_TIMEFRAME: "4h",
 
-            // TREND CONFIRMATION
-            CONFIRMATION_TIMEFRAME: "1h",
+        TRADING_MODE: "balanced",
 
-            // MARKET STRUCTURE
-            STRUCTURE_TIMEFRAME: "4h",
+        SL_TRIGGER_BUFFER_PERCENT: 0.1,
+        SL_LIMIT_BUFFER_PERCENT: 0.3,
 
-            LOWER_TIMEFRAME: "15m",
+        DRY_RUN: false,
+        IS_TESTING: false,
+    }
 
-            LEVERAGE: 20,
-
-            INITIAL_BASE_QUANTITY: 1,
-            MAX_QUANTITY: 10,
-
-            TRADING_MODE: "balanced",
-
-            SL_TRIGGER_BUFFER_PERCENT: 0.1,
-            SL_LIMIT_BUFFER_PERCENT: 0.3,
-
-            DRY_RUN: false,
-            IS_TESTING: true,
-        }
-    ];
 
     /* -------------------------------------------------------------------------
        CONFIG RESOLVER
