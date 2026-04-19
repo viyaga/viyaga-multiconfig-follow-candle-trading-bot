@@ -23,10 +23,6 @@ export interface TripleTFResult {
     slPerc: number;
 }
 
-function clamp(value: number, min: number, max: number): number {
-    return Math.max(min, Math.min(max, value));
-}
-
 export class MultiTimeframeAlignment {
     static evaluate(
         entryTarget: TargetCandle,
@@ -159,8 +155,8 @@ export class MultiTimeframeAlignment {
                     sl = parseFloat((entryPrice - atr * slATR).toFixed(entryConfig.PRICE_DECIMAL_PLACES));
                     tp = parseFloat((entryPrice + atr * tpATR).toFixed(entryConfig.PRICE_DECIMAL_PLACES));
 
-                    // 🔥 MAX SL PRICE MOVEMENT (1%)
-                    const maxSlDist = entryPrice * 0.01;
+                    // 🔥 MAX SL PRICE MOVEMENT (2%)
+                    const maxSlDist = entryPrice * 0.02;
                     const minSlPrice = parseFloat((entryPrice - maxSlDist).toFixed(entryConfig.PRICE_DECIMAL_PLACES));
                     sl = Math.max(sl, minSlPrice);
 
@@ -223,7 +219,7 @@ export class MultiTimeframeAlignment {
                 mode: structureResult.mode,
                 details: structureResult.details,
             });
-        } else if (rr < 1.6 && direction !== "NONE") {
+        } else if (rr < 1.6) {
             marketDetectorLogger.info(`[MTF-Skip] ${symbol} | Reward/Risk ratio too low: ${rr.toFixed(2)} < 1.60`);
         }
 
