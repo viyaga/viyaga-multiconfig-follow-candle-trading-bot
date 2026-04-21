@@ -25,7 +25,10 @@ export class DeltaExchange {
             const json = Utils.parseJsonSafe(await r.text());
             if (!r.ok) throw new Error(`Delta API error ${r.status}: ${JSON.stringify(json)}`);
             return json;
-        } catch (err) { tradingCycleErrorLogger.error(`[delta] Failed request: ${method} ${endpoint}`, err); return { error: err }; }
+        } catch (err) {
+            tradingCycleErrorLogger.error(`[delta] Failed request: ${method} ${endpoint}`, err);
+            throw err;
+        }
     }
 
     async getCandlestickData(s: string, r: string, start: number, end: number) {

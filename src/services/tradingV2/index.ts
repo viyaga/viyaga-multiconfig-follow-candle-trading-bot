@@ -322,7 +322,7 @@ export class TradingV2 {
         } catch (err) {
             errorLogger.error(
                 `✗ ERROR in trading cycle:`,
-                { error: err }
+                err as any
             );
             throw err;
         }

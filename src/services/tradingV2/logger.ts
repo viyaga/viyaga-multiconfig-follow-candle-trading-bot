@@ -2,6 +2,17 @@ import winston from "winston";
 import { getIstTime } from "../../utils/timeUtils";
 
 // Standard format for all loggers
+const serializeError = (err: any) => {
+    if (err instanceof Error) {
+        return {
+            message: err.message,
+            stack: err.stack,
+            ...err
+        };
+    }
+    return err;
+};
+
 const standardFormat = winston.format.combine(
     winston.format.timestamp({ format: getIstTime }),
     winston.format.errors({ stack: true }),
@@ -17,7 +28,10 @@ const consoleFormat = winston.format.combine(
         let msg = `${timestamp} ${level}: ${serviceTag} ${message}`;
         if (stack) msg += `\n${stack}`;
         if (Object.keys(meta).length > 0) {
-            msg += ` ${JSON.stringify(meta, null, 2)}`;
+            const sanitizedMeta = Object.fromEntries(
+                Object.entries(meta).map(([k, v]) => [k, serializeError(v)])
+            );
+            msg += ` ${JSON.stringify(sanitizedMeta, null, 2)}`;
         }
         return msg;
     })
@@ -25,11 +39,17 @@ const consoleFormat = winston.format.combine(
 
 const fileFormat = winston.format.combine(
     winston.format.timestamp({ format: getIstTime }),
+    winston.format.errors({ stack: true }),
     winston.format.printf(({ timestamp, level, message, stack, service, ...meta }) => {
         const serviceTag = service ? `[${service}]` : '';
         let msg = `${timestamp} [${level.toUpperCase()}]: ${serviceTag} ${message}`;
         if (stack) msg += `\n${stack}`;
-        if (Object.keys(meta).length > 0) msg += ` ${JSON.stringify(meta)}`;
+        if (Object.keys(meta).length > 0) {
+            const sanitizedMeta = Object.fromEntries(
+                Object.entries(meta).map(([k, v]) => [k, serializeError(v)])
+            );
+            msg += ` ${JSON.stringify(sanitizedMeta)}`;
+        }
         return msg;
     })
 );
@@ -74,11 +94,18 @@ export const configDebugLogger = createLogger('config-debug', 'config-debug.log'
  * Attaches common metadata to every log call for a specific trading cycle
  */
 export const getContextualLogger = (logger: winston.Logger, context: { cycleId?: string, symbol?: string, tradingBotId?: string } = {}) => {
+    const wrap = (fn: Function) => (message: string, meta?: any) => {
+        if (meta instanceof Error) {
+            return fn(message, { ...context, error: meta });
+        }
+        return fn(message, { ...context, ...meta });
+    };
+
     return {
-        debug: (message: string, meta?: any) => logger.debug(message, { ...context, ...meta }),
-        info: (message: string, meta?: any) => logger.info(message, { ...context, ...meta }),
-        warn: (message: string, meta?: any) => logger.warn(message, { ...context, ...meta }),
-        error: (message: string, meta?: any) => logger.error(message, { ...context, ...meta }),
+        debug: wrap(logger.debug.bind(logger)),
+        info: wrap(logger.info.bind(logger)),
+        warn: wrap(logger.warn.bind(logger)),
+        error: wrap(logger.error.bind(logger)),
     };
 };
 
