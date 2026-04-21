@@ -5,9 +5,9 @@ import { getIstTime } from "../../utils/timeUtils";
 const serializeError = (err: any) => {
     if (err instanceof Error) {
         return {
+            ...err,
             message: err.message,
-            stack: err.stack,
-            ...err
+            stack: err.stack
         };
     }
     return err;
