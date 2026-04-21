@@ -1,7 +1,7 @@
 import { Data } from "./data";
 import { deltaExchange } from "./delta-exchange";
 import { tradingCycleErrorLogger, skipTradingLogger, tradingCronLogger, getContextualLogger } from "./logger";
-import { ConfigType, TargetCandle, Candle } from "./type";
+import { ConfigType, TargetCandle, Candle, OrderSide } from "./type";
 import { Utils } from "./utils";
 import { ProcessPendingState } from "./ProcessPendingState";
 import { MartingaleState } from "../../models/martingaleState.model";
@@ -210,18 +210,21 @@ export class TradingV2 {
             }
 
             // ───────────────── TRADE SIDE ─────────────────
-            let side = mtf.direction.toLowerCase() as "buy" | "sell" | "none";
+            let sideRaw = mtf.direction.toLowerCase() as "buy" | "sell" | "none";
 
-            if (side === "none" && !c.IS_TESTING) {
-                skipLogger.info(`[MarketRegime] SKIP: No breakout direction`, {
-                    timeframe: c.TIMEFRAME
-                });
-                return;
+            if (sideRaw === "none") {
+                if (c.IS_TESTING) {
+                    cronLogger.info(`[TESTING] Forcing side to BUY since direction was NONE`);
+                    sideRaw = "buy";
+                } else {
+                    skipLogger.info(`[MarketRegime] SKIP: No breakout direction`, {
+                        timeframe: c.TIMEFRAME
+                    });
+                    return;
+                }
             }
 
-            if (c.IS_TESTING && side === "none") {
-                side = "buy";
-            }
+            const side: OrderSide = sideRaw;
 
             // ───────────────── PRICE VALIDATION ─────────────────
             if (!await Utils.isPriceMovingInOrderSideDirection(
