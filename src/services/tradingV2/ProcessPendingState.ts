@@ -121,8 +121,21 @@ export class ProcessPendingState {
         multiplier: number,
         logContext?: any
     ): Promise<IMartingaleState> {
+        const logger = getContextualLogger(tradingCronLogger, logContext);
 
-        if (!s.lastStopLossOrderId || !s.lastTakeProfitOrderId) throw new Error("[checkTPSL] Missing TP/SL order IDs in state.");
+        if (!s.lastStopLossOrderId || !s.lastTakeProfitOrderId) {
+            logger.warn(`[PositionOutcome] Missing TP/SL order IDs for ${s.symbol} in state. Entry was CLOSED but bracket orders are unknown. Recovering status while PRESERVING martingale metrics (Level, PnL, Fees).`);
+
+            return {
+                ...s,
+                lastEntryOrderId: null,
+                lastStopLossOrderId: null,
+                lastTakeProfitOrderId: null,
+                lastTradeOutcome: "none",
+                cumulativeFees: s.cumulativeFees + entryCommission,
+                allTimeFees: (s.allTimeFees || 0) + entryCommission,
+            };
+        }
 
         const tp = await deltaExchange.getOrderDetails(s.lastTakeProfitOrderId);
         if (tp && tp.status === "CLOSED") {
