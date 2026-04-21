@@ -176,20 +176,44 @@ export class DeltaExchange {
             return { success: false, ids: { tp: "", sl: "" } };
 
         logger.info("Placing TP/SL orders", { tp, sl, payload });
-        try {
-            const raw = await this.signedRequest("POST", "/orders/bracket", payload);
-            return raw?.result
-                ? {
-                    success: true,
-                    ids: {
-                        tp: raw.result.take_profit_order?.id?.toString(),
-                        sl: raw.result.stop_loss_order?.id?.toString(),
-                    },
+
+        const maxRetries = 3;
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                const raw = await this.signedRequest("POST", "/orders/bracket", payload);
+                if (raw?.result) {
+                    return {
+                        success: true,
+                        ids: {
+                            tp: raw.result.take_profit_order?.id?.toString(),
+                            sl: raw.result.stop_loss_order?.id?.toString(),
+                        },
+                    };
                 }
-                : { success: false, ids: { tp: "", sl: "" } };
-        } catch (err: any) {
-            throw new Error(`Failed to place TPSL bracket order: ${err}`);
+
+                logger.warn(`Bracket order attempt ${attempt} failed: Empty result (raw: ${JSON.stringify(raw)})`);
+            } catch (err: any) {
+                const errorStr = String(err);
+                const isNoPosition = errorStr.toLowerCase().includes("no_open_position") || 
+                                   errorStr.toLowerCase().includes("insufficient_position");
+                
+                if (isNoPosition && attempt < maxRetries) {
+                    logger.warn(`Bracket order attempt ${attempt} failed due to no open position. Retrying in 1s...`);
+                    await Utils.sleep(1000);
+                    continue;
+                }
+                
+                logger.error(`Bracket order attempt ${attempt} failed with error:`, err);
+                if (attempt === maxRetries) throw new Error(`Failed to place TPSL bracket order after ${maxRetries} attempts: ${err}`);
+            }
+
+            if (attempt < maxRetries) {
+                logger.info(`Retrying bracket order (attempt ${attempt + 1}/${maxRetries})...`);
+                await Utils.sleep(1000);
+            }
         }
+
+        return { success: false, ids: { tp: "", sl: "" } };
     }
 }
 

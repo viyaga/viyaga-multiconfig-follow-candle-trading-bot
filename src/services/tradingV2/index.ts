@@ -277,6 +277,10 @@ export class TradingV2 {
             // ───────────────── TP / SL ─────────────────
             const tpSlResult = await deltaExchange.placeTPSLBracketOrder(tp, sl, side, { cycleId, tradingBotId });
 
+            if (!tpSlResult.success || !tpSlResult.ids.tp || !tpSlResult.ids.sl) {
+                throw new Error(`[Trade] Failed to place TP/SL bracket orders after retries. TP_ID=${tpSlResult.ids.tp}, SL_ID=${tpSlResult.ids.sl}`);
+            }
+
             cronLogger.info(
                 `TP/SL orders placed: TP_ID=${tpSlResult.ids.tp}, SL_ID=${tpSlResult.ids.sl}`
             );

@@ -6,6 +6,7 @@ import { skipTradingLogger } from "./logger";
 export class Utils {
     static parseJsonSafe(t: string): unknown { try { return JSON.parse(t); } catch { return t; } }
     static compactJson(o: unknown): string { return o ? JSON.stringify(o) : ""; }
+    static sleep(ms: number): Promise<void> { return new Promise(resolve => setTimeout(resolve, ms)); }
 
     static getTimeframeDurationMs(tf: string): number {
         const v = parseInt(tf.slice(0, -1));
