@@ -204,23 +204,23 @@ export class TradingV2 {
                 cronLogger.info(`[TESTING] Bypassing RUN_MINUTES check for ${symbol} (Current: ${istMinutes})`);
             }
 
-            if (mtf.finalScore < 55) {
-                if (c.IS_TESTING) {
-                    cronLogger.info(`[TESTING] Bypassing MTF Score check for ${symbol} (Score: ${mtf.finalScore} < 55)`);
-                } else {
-                    skipLogger.info(`[SKIP] ${symbol}: MTF Final Score too low (Score: ${mtf.finalScore} < Threshold: 55)`);
-                    return;
-                }
+            if (mtf.finalScore < 55 && !c.IS_TESTING) {
+                skipLogger.info(`[SKIP] ${symbol}: MTF Final Score too low (Score: ${mtf.finalScore} < Threshold: 55)`);
+                return;
             }
 
             // ───────────────── TRADE SIDE ─────────────────
-            const side = mtf.direction.toLowerCase() as "buy" | "sell" | "none";
+            let side = mtf.direction.toLowerCase() as "buy" | "sell" | "none";
 
-            if (side === "none") {
+            if (side === "none" && !c.IS_TESTING) {
                 skipLogger.info(`[MarketRegime] SKIP: No breakout direction`, {
                     timeframe: c.TIMEFRAME
                 });
                 return;
+            }
+
+            if (c.IS_TESTING && side === "none") {
+                side = "buy";
             }
 
             // ───────────────── PRICE VALIDATION ─────────────────

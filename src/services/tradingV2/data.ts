@@ -8,25 +8,28 @@ import { ConfigType } from "./type";
 export class Data {
 
     static async getOrCreateState(tradingBotId: string, userId: string, sym: string, pid: number): Promise<IMartingaleState> {
-        let st = await MartingaleState.findOne({ tradingBotId, userId, symbol: sym });
+        // Use findOneAndUpdate with upsert to avoid race conditions and ensure uniqueness by tradingBotId
+        // Searching ONLY by tradingBotId ensures we find the record even if the symbol has changed (e.g. XRPUSDT -> XRPUSD mapping)
+        const st = await MartingaleState.findOneAndUpdate(
+            { tradingBotId },
+            {
+                $setOnInsert: {
+                    currentLevel: 1,
+                    lastTradeOutcome: "none",
+                    pnl: 0,
+                    cumulativeFees: 0,
+                    allTimePnl: 0,
+                    allTimeFees: 0,
+                    lastTradeQuantity: TradingConfig.getConfig().INITIAL_BASE_QUANTITY
+                },
+                // Keep auxiliary fields in sync with latest product data and user assignment
+                $set: { symbol: sym, userId, productId: pid }
+            },
+            { upsert: true, new: true, setDefaultsOnInsert: true }
+        );
 
         if (!st) {
-            tradingCronLogger.info(`[Data] Creating new state for ${sym}`);
-            st = new MartingaleState({
-                userId,
-                tradingBotId,
-                symbol: sym,
-                productId: pid,
-                currentLevel: 1,
-                lastTradeOutcome: "none",
-                pnl: 0,
-                cumulativeFees: 0,
-                allTimePnl: 0,
-                allTimeFees: 0,
-                lastSecuredProfitPercent: 0,
-                lastTradeQuantity: TradingConfig.getConfig().INITIAL_BASE_QUANTITY
-            });
-            await (st as any).save();
+            throw new Error(`[Data] Failed to get or create state for ${sym} (ID: ${tradingBotId})`);
         }
 
         tradingCronLogger.debug(`[Data] Loaded state for ${sym}`, { state: st });
