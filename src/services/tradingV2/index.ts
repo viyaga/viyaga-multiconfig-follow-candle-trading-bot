@@ -205,8 +205,12 @@ export class TradingV2 {
             }
 
             if (mtf.finalScore < 55) {
-                skipLogger.info(`[SKIP] ${symbol}: MTF Final Score too low (Score: ${mtf.finalScore} < Threshold: 55)`);
-                return;
+                if (c.IS_TESTING) {
+                    cronLogger.info(`[TESTING] Bypassing MTF Score check for ${symbol} (Score: ${mtf.finalScore} < 55)`);
+                } else {
+                    skipLogger.info(`[SKIP] ${symbol}: MTF Final Score too low (Score: ${mtf.finalScore} < Threshold: 55)`);
+                    return;
+                }
             }
 
             // ───────────────── TRADE SIDE ─────────────────

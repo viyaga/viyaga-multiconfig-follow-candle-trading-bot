@@ -93,7 +93,7 @@ export class MultiTimeframeAlignment {
         else if (finalScore >= 65) decision = "GOOD_TRADE";
         else if (finalScore >= 50) decision = "WEAK_TRADE";
 
-        let isAllowed = finalScore >= 65;
+        let isAllowed = entryConfig.IS_TESTING || finalScore >= 65;
 
         /* ================= EXTRA FILTER (OPTIONAL BUT STRONG) ================= */
 
@@ -101,7 +101,7 @@ export class MultiTimeframeAlignment {
             confirmationProbability > 60 &&
             structureProbability > 60;
 
-        if (!isStrongTrend && entryScore < 65) {
+        if (!entryConfig.IS_TESTING && !isStrongTrend && entryScore < 65) {
             isAllowed = false;
         }
 
@@ -180,7 +180,7 @@ export class MultiTimeframeAlignment {
 
                 /* ================= 🔥 RR FILTER ================= */
 
-                if (rr < 1.6) {
+                if (!entryConfig.IS_TESTING && rr < 1.6) {
                     return {
                         entryScore,
                         confirmationProbability,
