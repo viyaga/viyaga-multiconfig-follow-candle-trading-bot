@@ -193,11 +193,15 @@ export class TradingV2 {
             )
             cronLogger.debug(`Current time check for run minutes`, { istMinutes, now });
 
-            if (!c.RUN_MINUTES.includes(istMinutes)) {
+            if (!c.IS_TESTING && !c.RUN_MINUTES.includes(istMinutes)) {
                 skipLogger.info(
                     `[SKIP] ${symbol}: Not in RUN_MINUTES (Current: ${istMinutes}, Target List: ${c.RUN_MINUTES.join(',')})`
                 );
                 return;
+            }
+
+            if (c.IS_TESTING && !c.RUN_MINUTES.includes(istMinutes)) {
+                cronLogger.info(`[TESTING] Bypassing RUN_MINUTES check for ${symbol} (Current: ${istMinutes})`);
             }
 
             if (mtf.finalScore < 55) {
