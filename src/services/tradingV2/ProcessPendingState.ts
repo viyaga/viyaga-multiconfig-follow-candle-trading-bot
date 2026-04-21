@@ -312,6 +312,49 @@ export class ProcessPendingState {
         }
     }
 
+    static async recoverMissingBracketOrders(
+        s: IMartingaleState,
+        e: OrderDetails,
+        mtf: TripleTFResult,
+        logContext?: any
+    ): Promise<IMartingaleState> {
+        const logger = getContextualLogger(tradingCronLogger, logContext);
+        logger.info(`[Recovery] Detected open position for ${s.symbol} but missing TP/SL IDs in state. Re-placing bracket orders...`);
+
+        // Use existing prices from state if available, otherwise fallback to MTF
+        const tp = s.lastTpPrice || mtf.tp;
+        const sl = s.lastSlPrice || mtf.sl;
+
+        if (!tp || !sl) {
+            throw new Error(`[Recovery] Invalid TP/SL during recovery: TP=${tp}, SL=${sl}`);
+        }
+
+        const tpSlResult = await deltaExchange.placeTPSLBracketOrder(tp, sl, e.side, logContext);
+
+        if (!tpSlResult.success || !tpSlResult.ids.tp || !tpSlResult.ids.sl) {
+            throw new Error(`[Recovery] Failed to re-place TP/SL bracket orders during recovery. TP_ID=${tpSlResult.ids.tp}, SL_ID=${tpSlResult.ids.sl}`);
+        }
+
+        const updated = await MartingaleState.findOneAndUpdate(
+            { tradingBotId: s.tradingBotId, userId: s.userId, symbol: s.symbol },
+            {
+                $set: {
+                    lastStopLossOrderId: tpSlResult.ids.sl,
+                    lastTakeProfitOrderId: tpSlResult.ids.tp,
+                    lastSlPrice: sl,
+                    lastTpPrice: tp
+                }
+            },
+            { new: true }
+        );
+
+        if (!updated) throw new Error("[Recovery] Failed to update state after bracket recovery");
+
+        logger.info(`[Recovery] Successfully re-placed TP/SL bracket orders: TP_ID=${tpSlResult.ids.tp}, SL_ID=${tpSlResult.ids.sl}`);
+
+        return updated as IMartingaleState;
+    }
+
     static async processStateOfPendingTrade(
         sym: string,
         state: IMartingaleState,
@@ -356,6 +399,14 @@ export class ProcessPendingState {
 
         getContextualLogger(tradingCronLogger, logContext).debug("Checking for open positions after entry order close", { hasOpenPosition });
 
-        return hasOpenPosition ? s : this.processClosedPosition(s, Number(e.paid_commission || 0), currentPrice, multiplier, logContext);
+        if (hasOpenPosition) {
+            // Safety Check: If position is open but TP/SL IDs are missing, re-place them
+            if (!s.lastStopLossOrderId || !s.lastTakeProfitOrderId) {
+                return this.recoverMissingBracketOrders(s, e, mtf, logContext);
+            }
+            return s;
+        }
+
+        return this.processClosedPosition(s, Number(e.paid_commission || 0), currentPrice, multiplier, logContext);
     }
 }

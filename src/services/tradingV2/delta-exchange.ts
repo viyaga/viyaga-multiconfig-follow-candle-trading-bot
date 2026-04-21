@@ -172,8 +172,7 @@ export class DeltaExchange {
     async placeTPSLBracketOrder(tp: number, sl: number, positionSide: OrderSide, logContext?: any): Promise<{ success: boolean; ids: { tp: string; sl: string } }> {
         const payload = Utils.constructBracketOrderPayload(tp, sl, positionSide);
         const logger = getContextualLogger(tradingCronLogger, logContext);
-        if (!payload.stop_loss_order && !payload.take_profit_order)
-            return { success: false, ids: { tp: "", sl: "" } };
+        if (!payload.stop_loss_order && !payload.take_profit_order) return { success: false, ids: { tp: "", sl: "" } };
 
         logger.info("Placing TP/SL orders", { tp, sl, payload });
 
@@ -194,15 +193,15 @@ export class DeltaExchange {
                 logger.warn(`Bracket order attempt ${attempt} failed: Empty result (raw: ${JSON.stringify(raw)})`);
             } catch (err: any) {
                 const errorStr = String(err);
-                const isNoPosition = errorStr.toLowerCase().includes("no_open_position") || 
-                                   errorStr.toLowerCase().includes("insufficient_position");
-                
+                const isNoPosition = errorStr.toLowerCase().includes("no_open_position") ||
+                    errorStr.toLowerCase().includes("insufficient_position");
+
                 if (isNoPosition && attempt < maxRetries) {
                     logger.warn(`Bracket order attempt ${attempt} failed due to no open position. Retrying in 1s...`);
                     await Utils.sleep(1000);
                     continue;
                 }
-                
+
                 logger.error(`Bracket order attempt ${attempt} failed with error:`, err);
                 if (attempt === maxRetries) throw new Error(`Failed to place TPSL bracket order after ${maxRetries} attempts: ${err}`);
             }
