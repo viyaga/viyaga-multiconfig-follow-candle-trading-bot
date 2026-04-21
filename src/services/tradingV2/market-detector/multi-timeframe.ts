@@ -57,10 +57,16 @@ export class MultiTimeframeAlignment {
         const structureProbability = structureResult.probability;
 
         const breakout = evaluateBreakoutTrade(entryCandles, entryTarget, entryConfig);
-        const direction = breakout.direction;
+        let direction = breakout.direction;
         const entryScore = breakout.score;
 
         const symbol = entryConfig.SYMBOL;
+
+        // 🔥 TESTING OVERRIDE: If testing and no breakout, force BUY
+        if (direction === "NONE" && entryConfig.IS_TESTING) {
+            marketDetectorLogger.info(`[TESTING] ${symbol}: Forcing BUY direction since entry search was NONE`);
+            direction = "BUY";
+        }
 
         if (direction === "NONE") {
             return {
@@ -196,6 +202,21 @@ export class MultiTimeframeAlignment {
                         slPerc: 0,
                     };
                 }
+            } else if (entryConfig.IS_TESTING && entryPrice > 0) {
+                // 🔥 TESTING FALLBACK: If ATR is 0, use 0.5% fixed move
+                const fallbackAtr = entryPrice * 0.005; 
+                marketDetectorLogger.info(`[TESTING] ${symbol}: ATR is 0, using fallback TP/SL (0.5% price movement)`);
+
+                if (direction === "BUY") {
+                    sl = parseFloat((entryPrice - fallbackAtr * 1.5).toFixed(entryConfig.PRICE_DECIMAL_PLACES));
+                    tp = parseFloat((entryPrice + fallbackAtr * 3.0).toFixed(entryConfig.PRICE_DECIMAL_PLACES));
+                } else {
+                    sl = parseFloat((entryPrice + fallbackAtr * 1.5).toFixed(entryConfig.PRICE_DECIMAL_PLACES));
+                    tp = parseFloat((entryPrice - fallbackAtr * 3.0).toFixed(entryConfig.PRICE_DECIMAL_PLACES));
+                }
+                rr = 2.0;
+                tpPerc = 0.5 * leverage;
+                slPerc = 0.25 * leverage;
             }
         }
 

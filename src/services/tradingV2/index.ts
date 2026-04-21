@@ -210,18 +210,13 @@ export class TradingV2 {
             }
 
             // ───────────────── TRADE SIDE ─────────────────
-            let sideRaw = mtf.direction.toLowerCase() as "buy" | "sell" | "none";
+            const sideRaw = mtf.direction.toLowerCase() as "buy" | "sell" | "none";
 
             if (sideRaw === "none") {
-                if (c.IS_TESTING) {
-                    cronLogger.info(`[TESTING] Forcing side to BUY since direction was NONE`);
-                    sideRaw = "buy";
-                } else {
-                    skipLogger.info(`[MarketRegime] SKIP: No breakout direction`, {
-                        timeframe: c.TIMEFRAME
-                    });
-                    return;
-                }
+                skipLogger.info(`[MarketRegime] SKIP: No breakout direction`, {
+                    timeframe: c.TIMEFRAME
+                });
+                return;
             }
 
             const side: OrderSide = sideRaw;
