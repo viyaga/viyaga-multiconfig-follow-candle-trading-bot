@@ -8,31 +8,46 @@ import { ConfigType } from "./type";
 export class Data {
 
     static async getOrCreateState(tradingBotId: string, userId: string, sym: string, pid: number): Promise<IMartingaleState> {
-        // Use findOneAndUpdate with upsert to avoid race conditions and ensure uniqueness by tradingBotId
-        // Searching ONLY by tradingBotId ensures we find the record even if the symbol has changed (e.g. XRPUSDT -> XRPUSD mapping)
-        const st = await MartingaleState.findOneAndUpdate(
-            { tradingBotId },
+        // 1. Try to find and update existing active (open) state
+        // We look for status 'open' or null (for legacy records)
+        let st = await MartingaleState.findOneAndUpdate(
             {
-                $setOnInsert: {
-                    currentLevel: 1,
-                    lastTradeOutcome: "none",
-                    pnl: 0,
-                    cumulativeFees: 0,
-                    allTimePnl: 0,
-                    allTimeFees: 0,
-                    lastTradeQuantity: TradingConfig.getConfig().INITIAL_BASE_QUANTITY
-                },
-                // Keep auxiliary fields in sync with latest product data and user assignment
-                $set: { symbol: sym, userId, productId: pid }
+                tradingBotId,
+                status: 'open'
             },
-            { upsert: true, new: true, setDefaultsOnInsert: true }
+            { $set: { symbol: sym, userId, productId: pid, status: 'open' } },
+            { new: true }
         );
 
-        if (!st) {
-            throw new Error(`[Data] Failed to get or create state for ${sym} (ID: ${tradingBotId})`);
+        if (st) {
+            tradingCronLogger.debug(`[Data] Loaded active state for ${sym}`, { state: st });
+            return st;
         }
 
-        tradingCronLogger.debug(`[Data] Loaded state for ${sym}`, { state: st });
+        // 2. No active state found. Look for the latest closed state to inherit lifetime stats.
+        const lastClosed = await MartingaleState.findOne({ tradingBotId, status: 'closed' })
+            .sort({ updatedAt: -1 });
+
+        const allTimePnl = lastClosed?.allTimePnl || 0;
+        const allTimeFees = lastClosed?.allTimeFees || 0;
+
+        // 3. Create a new open state
+        st = await MartingaleState.create({
+            tradingBotId,
+            userId,
+            symbol: sym,
+            productId: pid,
+            status: 'open',
+            currentLevel: 1,
+            lastTradeOutcome: "none",
+            pnl: 0,
+            cumulativeFees: 0,
+            allTimePnl,
+            allTimeFees,
+            lastTradeQuantity: TradingConfig.getConfig().INITIAL_BASE_QUANTITY
+        });
+
+        tradingCronLogger.info(`[Data] Created new active state for ${sym} (Inherited PnL: ${allTimePnl})`, { id: st._id });
         return st;
     }
 

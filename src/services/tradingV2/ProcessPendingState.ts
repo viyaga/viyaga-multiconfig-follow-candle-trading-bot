@@ -34,29 +34,35 @@ export class ProcessPendingState {
         };
     }
 
-    static handleWin(
+    static async handleWin(
         s: IMartingaleState,
         winPnl: number,
         tempFees: number,
         incrementalPnl: number,
         incrementalFees: number,
         logContext?: any
-    ): IMartingaleState {
+    ): Promise<IMartingaleState> {
         const logger = getContextualLogger(tradingCronLogger, logContext);
         logger.info(`[StateTransition] Outcome: WIN | Symbol: ${s.symbol} | Net PnL (Session): ${winPnl.toFixed(2)} | Total Fees (Session): ${tempFees.toFixed(2)}`);
         logger.info(`[StateTransition] WIN Details: Incremental PnL: ${incrementalPnl.toFixed(2)}, Incremental Fees: ${incrementalFees.toFixed(2)}`);
         
-        const currentState = this.resetState(s);
-        return {
-            ...currentState,
-            currentLevel: 1,
-            lastTradeOutcome: "win",
-            allTimePnl: (s.allTimePnl || 0) + incrementalPnl,
-            allTimeFees: (s.allTimeFees || 0) + incrementalFees,
-        };
+        const updated = await MartingaleState.findByIdAndUpdate(s.id || (s as any)._id, {
+            $set: {
+                status: 'closed',
+                lastTradeOutcome: "win",
+                pnl: winPnl,
+                cumulativeFees: tempFees,
+                allTimePnl: (s.allTimePnl || 0) + incrementalPnl,
+                allTimeFees: (s.allTimeFees || 0) + incrementalFees,
+                lastTradeSettledAt: new Date()
+            }
+        }, { new: true });
+
+        if (!updated) throw new Error("Failed to close martingale state on win");
+        return updated as IMartingaleState;
     }
 
-    static handleLoss(
+    static async handleLoss(
         s: IMartingaleState,
         netDebt: number,
         pnl: number,
@@ -66,7 +72,7 @@ export class ProcessPendingState {
         incrementalFees: number,
         multiplier: number,
         logContext?: any
-    ): IMartingaleState {
+    ): Promise<IMartingaleState> {
         const logger = getContextualLogger(tradingCronLogger, logContext);
 
         const c = TradingConfig.getConfig();
@@ -81,24 +87,36 @@ export class ProcessPendingState {
         logger.info(`[StateTransition] Outcome: LOSS | Symbol: ${s.symbol} | Net Debt: ${netDebt.toFixed(2)} | Next Level: ${nextLevel} | Calculated Lots: ${lots}`);
         logger.info(`[StateTransition] LOSS Details: Incremental PnL: ${incrementalPnl.toFixed(2)}, Incremental Fees: ${incrementalFees.toFixed(2)}`);
 
-        const currentState = this.resetState(s);
-        return {
-            ...currentState,
-            currentLevel: nextLevel,
-            lastTradeOutcome: "loss",
-            lastTradeQuantity: lots,
-            pnl,
-            cumulativeFees: fees,
-            allTimePnl: (s.allTimePnl || 0) + incrementalPnl,
-            allTimeFees: (s.allTimeFees || 0) + incrementalFees,
-        };
+        const updated = await MartingaleState.findByIdAndUpdate(s.id || (s as any)._id, {
+            $set: {
+                currentLevel: nextLevel,
+                lastTradeOutcome: "loss",
+                lastTradeQuantity: lots,
+                lastEntryOrderId: null,
+                lastStopLossOrderId: null,
+                lastTakeProfitOrderId: null,
+                lastEntryPrice: null,
+                lastSlPrice: null,
+                lastTpPrice: null,
+                pnl,
+                cumulativeFees: fees,
+                allTimePnl: (s.allTimePnl || 0) + incrementalPnl,
+                allTimeFees: (s.allTimeFees || 0) + incrementalFees,
+                lastTradeSettledAt: new Date()
+            }
+        }, { new: true });
+
+        if (!updated) throw new Error("Failed to update martingale state on loss");
+        return updated as IMartingaleState;
     }
 
-    static markCancelled(s: IMartingaleState): IMartingaleState {
-        return {
-            ...s,
-            lastTradeOutcome: "cancelled",
-        };
+    static async markCancelled(s: IMartingaleState): Promise<IMartingaleState> {
+        const updated = await MartingaleState.findByIdAndUpdate(s.id || (s as any)._id, {
+            $set: { lastTradeOutcome: "cancelled" }
+        }, { new: true });
+
+        if (!updated) throw new Error("Failed to update martingale state to cancelled");
+        return updated as IMartingaleState;
     }
 
     /* =========================================================================
@@ -146,7 +164,7 @@ export class ProcessPendingState {
 
             getContextualLogger(tradingCronLogger, logContext).info(`[PositionOutcome] TAKE PROFIT reached for ${s.symbol}`);
 
-            return this.handleWin(s, netPnl, fees, incrementalPnl, incrementalFees, logContext);
+            return await this.handleWin(s, netPnl, fees, incrementalPnl, incrementalFees, logContext);
         }
 
         const sl = await deltaExchange.getOrderDetails(s.lastStopLossOrderId);
@@ -161,8 +179,8 @@ export class ProcessPendingState {
             getContextualLogger(tradingCronLogger, logContext).info(`[PositionOutcome] STOP LOSS hit for ${s.symbol}`);
 
             return netDebt >= 0
-                ? this.handleWin(s, netPnl, fees, incrementalPnl, incrementalFees, logContext)
-                : this.handleLoss(s, netDebt, netPnl, fees, currentPrice, incrementalPnl, incrementalFees, multiplier, logContext);
+                ? await this.handleWin(s, netPnl, fees, incrementalPnl, incrementalFees, logContext)
+                : await this.handleLoss(s, netDebt, netPnl, fees, currentPrice, incrementalPnl, incrementalFees, multiplier, logContext);
         }
 
         if (tp?.status === "CANCELLED" && sl?.status === "CANCELLED") {
@@ -174,7 +192,7 @@ export class ProcessPendingState {
             const netPnl = s.pnl;
             const fees = s.cumulativeFees + incrementalFees;
             const netDebt = netPnl - fees;
-            return this.handleLoss(s, netDebt, netPnl, fees, currentPrice, incrementalPnl, incrementalFees, multiplier, logContext);
+            return await this.handleLoss(s, netDebt, netPnl, fees, currentPrice, incrementalPnl, incrementalFees, multiplier, logContext);
         }
 
         throw new Error("[processClosedPosition] Neither TP nor SL orders are filled/closed.");
@@ -384,7 +402,7 @@ export class ProcessPendingState {
                 case "CANCELLED":
                     return await this.handleCanceledEntryOrder(state);
                 case "CLOSED":
-                    return this.handleClosedEntryOrder(sym, state, order, mtf, currentPrice, multiplier, logContext);
+                    return await this.handleClosedEntryOrder(sym, state, order, mtf, currentPrice, multiplier, logContext);
                 default:
                     return state;
             }

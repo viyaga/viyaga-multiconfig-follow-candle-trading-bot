@@ -22,6 +22,7 @@ export interface IMartingaleState {
     allTimePnl: number;
     allTimeFees: number;
     lastTradeSettledAt?: Date | null;
+    status: 'open' | 'closed';
     updatedAt: Date;
     createdAt: Date;
 }
@@ -30,7 +31,8 @@ export interface IMartingaleState {
 const MartingaleStateSchema: Schema = new Schema(
     {
         userId: { type: String, required: true, index: true },
-        tradingBotId: { type: String, required: true, index: true, unique: true },
+        tradingBotId: { type: String, required: true, index: true },
+        status: { type: String, enum: ['open', 'closed'], required: true, default: 'open', index: true },
         symbol: { type: String, required: true, index: true },
         productId: { type: Number },
         currentLevel: { type: Number, required: true, default: 1 },
@@ -60,6 +62,7 @@ const MartingaleStateSchema: Schema = new Schema(
 );
 
 MartingaleStateSchema.index({ updatedAt: 1 });
+MartingaleStateSchema.index({ tradingBotId: 1, status: 1 });
 
 // Export the model with generic type parameter
 export const MartingaleState = mongoose.model<IMartingaleState>(

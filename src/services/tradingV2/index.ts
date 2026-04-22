@@ -182,6 +182,11 @@ export class TradingV2 {
                 );
 
                 if (Utils.isTradePending(state)) return;
+
+                if (state.status === 'closed') {
+                    cronLogger.info(`State was closed. Fetching/Creating new active state...`);
+                    state = await Data.getOrCreateState(c.id, c.USER_ID, c.SYMBOL, c.PRODUCT_ID);
+                }
             }
 
             const now = new Date();
@@ -293,7 +298,7 @@ export class TradingV2 {
 
             // ───────────────── UPDATE STATE ─────────────────
             const updatedState = await MartingaleState.findOneAndUpdate(
-                { tradingBotId: c.id, userId: c.USER_ID, symbol: c.SYMBOL },
+                { tradingBotId: c.id, status: 'open' },
                 {
                     $set: {
                         lastTradeOutcome: "pending",
