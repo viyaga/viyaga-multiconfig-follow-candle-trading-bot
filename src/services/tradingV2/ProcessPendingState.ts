@@ -51,6 +51,11 @@ export class ProcessPendingState {
             tpPercentage: null,
             slPercentage: null,
             exitPrice: null,
+            finalScore: null,
+            entryScore: null,
+            confirmationProbability: null,
+            structureProbability: null,
+            tradingMode: null,
         };
     }
 
@@ -484,6 +489,11 @@ export class ProcessPendingState {
                 leverage: cfg.LEVERAGE,
                 entryPrice,
                 tradeAmountInUse,
+                finalScore: mtf.finalScore,
+                entryScore: mtf.entryScore,
+                confirmationProbability: mtf.confirmationProbability,
+                structureProbability: mtf.structureProbability,
+                tradingMode: cfg.TRADING_MODE,
                 ...metrics
             };
 

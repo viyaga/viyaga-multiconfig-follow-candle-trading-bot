@@ -29,6 +29,11 @@ export interface ITradeState {
     tpPercentage?: number | null;
     slPercentage?: number | null;
     exitPrice?: number | null;
+    finalScore?: number | null;
+    entryScore?: number | null;
+    confirmationProbability?: number | null;
+    structureProbability?: number | null;
+    tradingMode?: string | null;
     lastTradeSettledAt?: Date | null;
     status: 'open' | 'closed';
     updatedAt: Date;
@@ -71,6 +76,11 @@ const TradeStateSchema: Schema = new Schema(
         tpPercentage: { type: Number, default: null },
         slPercentage: { type: Number, default: null },
         exitPrice: { type: Number, default: null },
+        finalScore: { type: Number, default: null },
+        entryScore: { type: Number, default: null },
+        confirmationProbability: { type: Number, default: null },
+        structureProbability: { type: Number, default: null },
+        tradingMode: { type: String, default: null },
     },
     {
         timestamps: true
