@@ -209,8 +209,8 @@ export class TradingV2 {
                 cronLogger.info(`[TESTING] Bypassing RUN_MINUTES check for ${symbol} (Current: ${istMinutes})`);
             }
 
-            if (mtf.finalScore < 55 && !c.IS_TESTING) {
-                skipLogger.info(`[SKIP] ${symbol}: MTF Final Score too low (Score: ${mtf.finalScore} < Threshold: 55)`);
+            if (!mtf.isAllowed) {
+                skipLogger.info(`[SKIP] ${symbol}: MTF evaluation result is not allowed (Score: ${mtf.finalScore}, Decision: ${mtf.decision})`);
                 return;
             }
 

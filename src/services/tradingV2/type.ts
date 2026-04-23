@@ -23,6 +23,7 @@ export interface ConfigType {
     DRY_RUN: boolean;
     IS_TESTING: boolean;
     LOOKBACK?: number;
+    MIN_RR: number;
 }
 
 export type MarketEvaluationMode = "structure" | "confirmation" | "entry";

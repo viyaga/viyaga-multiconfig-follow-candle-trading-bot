@@ -163,7 +163,6 @@ export function evaluateBreakoutTrade(
     if (ratio > 2.2) score += 12;
     else if (ratio > 1.8) score += 8;
     else if (ratio > 1.5) score += 5;
-    else if (ratio > 1.2) score += 2;
     else score -= 15; // 🔥 heavy penalty for low volume ratio
 
     // ✅ pre-breakout contraction
@@ -175,7 +174,7 @@ export function evaluateBreakoutTrade(
     if (isVolumeContracting(candles)) score -= 4;
 
     score += getVolumeExpansionPoints(candles);
-    
+
     const spikePoints = getTargetCandleVolumeSpike(target, candles);
     score += spikePoints;
 

@@ -28,6 +28,7 @@ export class TradingConfig {
         SL_LIMIT_BUFFER_PERCENT: 0.3,
         DRY_RUN: false,
         IS_TESTING: process.env.IS_TESTING === "true",
+        MIN_RR: 1.6,
     }
 
 
