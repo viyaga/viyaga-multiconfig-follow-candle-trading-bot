@@ -1,7 +1,7 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
-// MartingaleState Interface (matches Payload CMS structure)
-export interface IMartingaleState {
+// TradeState Interface (matches Payload CMS structure)
+export interface ITradeState {
     id: string;
     userId: string;
     tradingBotId: string;
@@ -27,8 +27,8 @@ export interface IMartingaleState {
     createdAt: Date;
 }
 
-// MartingaleState Schema
-const MartingaleStateSchema: Schema = new Schema(
+// TradeState Schema
+const TradeStateSchema: Schema = new Schema(
     {
         userId: { type: String, required: true, index: true },
         tradingBotId: { type: String, required: true, index: true },
@@ -61,11 +61,11 @@ const MartingaleStateSchema: Schema = new Schema(
     }
 );
 
-MartingaleStateSchema.index({ updatedAt: 1, tradingBotId: 1 });
-MartingaleStateSchema.index({ tradingBotId: 1, status: 1 });
+TradeStateSchema.index({ updatedAt: 1, tradingBotId: 1 });
+TradeStateSchema.index({ tradingBotId: 1, status: 1 });
 
 // Export the model with generic type parameter
-export const MartingaleState = mongoose.model<IMartingaleState>(
-    'MartingaleState',
-    MartingaleStateSchema
+export const TradeState = mongoose.model<ITradeState>(
+    'TradeState',
+    TradeStateSchema
 );

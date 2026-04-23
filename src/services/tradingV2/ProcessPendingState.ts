@@ -1,5 +1,5 @@
 import { TradingV2 } from ".";
-import { IMartingaleState, MartingaleState } from "../../models/martingaleState.model";
+import { ITradeState, TradeState } from "../../models/tradeState.model";
 
 import { TradingConfig } from "./config";
 import { deltaExchange } from "./delta-exchange";
@@ -14,7 +14,7 @@ export class ProcessPendingState {
        CANDLE ANALYSIS UTILITIES
     ========================================================================= */
 
-    static resetState(s: IMartingaleState): IMartingaleState {
+    static resetState(s: ITradeState): ITradeState {
         const c = TradingConfig.getConfig();
         return {
             ...s,
@@ -35,18 +35,18 @@ export class ProcessPendingState {
     }
 
     static async handleWin(
-        s: IMartingaleState,
+        s: ITradeState,
         winPnl: number,
         tempFees: number,
         incrementalPnl: number,
         incrementalFees: number,
         logContext?: any
-    ): Promise<IMartingaleState> {
+    ): Promise<ITradeState> {
         const logger = getContextualLogger(tradingCronLogger, logContext);
         logger.info(`[StateTransition] Outcome: WIN | Symbol: ${s.symbol} | Net PnL (Session): ${winPnl.toFixed(2)} | Total Fees (Session): ${tempFees.toFixed(2)}`);
         logger.info(`[StateTransition] WIN Details: Incremental PnL: ${incrementalPnl.toFixed(2)}, Incremental Fees: ${incrementalFees.toFixed(2)}`);
 
-        const updated = await MartingaleState.findByIdAndUpdate(s.id || (s as any)._id, {
+        const updated = await TradeState.findByIdAndUpdate(s.id || (s as any)._id, {
             $set: {
                 status: 'closed',
                 tradeOutcome: "win",
@@ -58,12 +58,12 @@ export class ProcessPendingState {
             }
         }, { new: true });
 
-        if (!updated) throw new Error("Failed to close martingale state on win");
-        return updated as IMartingaleState;
+        if (!updated) throw new Error("Failed to close trade state on win");
+        return updated as ITradeState;
     }
 
     static async handleLoss(
-        s: IMartingaleState,
+        s: ITradeState,
         netDebt: number,
         pnl: number,
         fees: number,
@@ -72,7 +72,7 @@ export class ProcessPendingState {
         incrementalFees: number,
         multiplier: number,
         logContext?: any
-    ): Promise<IMartingaleState> {
+    ): Promise<ITradeState> {
         const logger = getContextualLogger(tradingCronLogger, logContext);
 
         const c = TradingConfig.getConfig();
@@ -87,7 +87,7 @@ export class ProcessPendingState {
         logger.info(`[StateTransition] Outcome: LOSS | Symbol: ${s.symbol} | Net Debt: ${netDebt.toFixed(2)} | Next Level: ${nextLevel} | Calculated Lots: ${lots}`);
         logger.info(`[StateTransition] LOSS Details: Incremental PnL: ${incrementalPnl.toFixed(2)}, Incremental Fees: ${incrementalFees.toFixed(2)}`);
 
-        const updated = await MartingaleState.findByIdAndUpdate(s.id || (s as any)._id, {
+        const updated = await TradeState.findByIdAndUpdate(s.id || (s as any)._id, {
             $set: {
                 status: 'closed',
                 currentLevel: nextLevel,
@@ -107,24 +107,24 @@ export class ProcessPendingState {
             }
         }, { new: true });
 
-        if (!updated) throw new Error("Failed to update martingale state on loss");
-        return updated as IMartingaleState;
+        if (!updated) throw new Error("Failed to update trade state on loss");
+        return updated as ITradeState;
     }
 
-    static async markCancelled(s: IMartingaleState): Promise<IMartingaleState> {
-        const updated = await MartingaleState.findByIdAndUpdate(s.id || (s as any)._id, {
+    static async markCancelled(s: ITradeState): Promise<ITradeState> {
+        const updated = await TradeState.findByIdAndUpdate(s.id || (s as any)._id, {
             $set: { tradeOutcome: "cancelled" }
         }, { new: true });
 
-        if (!updated) throw new Error("Failed to update martingale state to cancelled");
-        return updated as IMartingaleState;
+        if (!updated) throw new Error("Failed to update trade state to cancelled");
+        return updated as ITradeState;
     }
 
     /* =========================================================================
    PENDING ORDER HANDLING
 ========================================================================= */
 
-    private static async handleCanceledEntryOrder(s: IMartingaleState): Promise<IMartingaleState> {
+    private static async handleCanceledEntryOrder(s: ITradeState): Promise<ITradeState> {
 
         return this.markCancelled(s);
     }
@@ -134,16 +134,16 @@ export class ProcessPendingState {
 ========================================================================= */
 
     static async processClosedPosition(
-        s: IMartingaleState,
+        s: ITradeState,
         entryCommission: number,
         currentPrice: number,
         multiplier: number,
         logContext?: any
-    ): Promise<IMartingaleState> {
+    ): Promise<ITradeState> {
         const logger = getContextualLogger(tradingCronLogger, logContext);
 
         if (!s.stopLossOrderId || !s.takeProfitOrderId) {
-            logger.warn(`[PositionOutcome] Missing TP/SL order IDs for ${s.symbol} in state. Entry was CLOSED but bracket orders are unknown. Recovering status while PRESERVING martingale metrics (Level, PnL, Fees).`);
+            logger.warn(`[PositionOutcome] Missing TP/SL order IDs for ${s.symbol} in state. Entry was CLOSED but bracket orders are unknown. Recovering status while PRESERVING trade metrics (Level, PnL, Fees).`);
 
             return {
                 ...s,
@@ -200,11 +200,11 @@ export class ProcessPendingState {
     }
 
     static async placeCancelledBracketOrders(
-        state: IMartingaleState,
+        state: ITradeState,
         e: OrderDetails,
         sl: number,
         logContext?: any
-    ): Promise<IMartingaleState> {
+    ): Promise<ITradeState> {
         const slOrder = await deltaExchange.getOrderDetails(
             state.stopLossOrderId!
         );
@@ -237,7 +237,7 @@ export class ProcessPendingState {
             throw new Error("TP/SL placement failed");
         }
 
-        const updated = await MartingaleState.findOneAndUpdate(
+        const updated = await TradeState.findOneAndUpdate(
             {
                 tradingBotId: state.tradingBotId,
                 userId: state.userId,
@@ -255,18 +255,18 @@ export class ProcessPendingState {
         );
 
         if (!updated) {
-            throw new Error("Martingale state not found");
+            throw new Error("Trade state not found");
         }
 
-        return updated as IMartingaleState;
+        return updated as ITradeState;
     }
 
     static async updateStatePrices(
-        state: IMartingaleState,
+        state: ITradeState,
         sl: number,
         tp: number
-    ): Promise<IMartingaleState> {
-        const updated = await MartingaleState.findOneAndUpdate(
+    ): Promise<ITradeState> {
+        const updated = await TradeState.findOneAndUpdate(
             {
                 tradingBotId: state.tradingBotId,
                 userId: state.userId,
@@ -277,19 +277,19 @@ export class ProcessPendingState {
         );
 
         if (!updated) {
-            throw new Error("Martingale state not found");
+            throw new Error("Trade state not found");
         }
 
-        return updated as IMartingaleState;
+        return updated as ITradeState;
     }
 
     static async manageOpenPosition(
         sym: string,
-        s: IMartingaleState,
+        s: ITradeState,
         e: OrderDetails,
         mtf: TripleTFResult,
         logContext?: any
-    ): Promise<IMartingaleState> {
+    ): Promise<ITradeState> {
 
         if (!mtf.isAllowed) return s;
 
@@ -334,9 +334,9 @@ export class ProcessPendingState {
 
             const updated = await this.updateStatePrices(s, Number(updateRes.slLimitPrice), tpUpdatedValue);
 
-            if (!updated) throw new Error("Martingale state not found");
+            if (!updated) throw new Error("Trade state not found");
 
-            return updated as IMartingaleState;
+            return updated as ITradeState;
 
         } catch (err) {
             logger.error("Error in manageOpenPosition", { error: err });
@@ -345,11 +345,11 @@ export class ProcessPendingState {
     }
 
     static async recoverMissingBracketOrders(
-        s: IMartingaleState,
+        s: ITradeState,
         e: OrderDetails,
         mtf: TripleTFResult,
         logContext?: any
-    ): Promise<IMartingaleState> {
+    ): Promise<ITradeState> {
         const logger = getContextualLogger(tradingCronLogger, logContext);
         logger.info(`[Recovery] Detected open position for ${s.symbol} but missing TP/SL IDs in state. Re-placing bracket orders...`);
 
@@ -367,7 +367,7 @@ export class ProcessPendingState {
             throw new Error(`[Recovery] Failed to re-place TP/SL bracket orders during recovery. TP_ID=${tpSlResult.ids.tp}, SL_ID=${tpSlResult.ids.sl}`);
         }
 
-        const updated = await MartingaleState.findOneAndUpdate(
+        const updated = await TradeState.findOneAndUpdate(
             { tradingBotId: s.tradingBotId, userId: s.userId, symbol: s.symbol },
             {
                 $set: {
@@ -384,18 +384,18 @@ export class ProcessPendingState {
 
         logger.info(`[Recovery] Successfully re-placed TP/SL bracket orders: TP_ID=${tpSlResult.ids.tp}, SL_ID=${tpSlResult.ids.sl}`);
 
-        return updated as IMartingaleState;
+        return updated as ITradeState;
     }
 
     static async processStateOfPendingTrade(
         sym: string,
-        state: IMartingaleState,
+        state: ITradeState,
         order: OrderDetails,
         mtf: TripleTFResult,
         currentPrice: number,
         multiplier: number,
         logContext?: any
-    ): Promise<IMartingaleState> {
+    ): Promise<ITradeState> {
         const logger = getContextualLogger(tradingCycleErrorLogger, logContext);
         try {
 
@@ -416,13 +416,13 @@ export class ProcessPendingState {
 
     static async handleClosedEntryOrder(
         sym: string,
-        s: IMartingaleState,
+        s: ITradeState,
         e: OrderDetails,
         mtf: TripleTFResult,
         currentPrice: number,
         multiplier: number,
         logContext?: any
-    ): Promise<IMartingaleState> {
+    ): Promise<ITradeState> {
         const cfg = TradingConfig.getConfig();
         const positions = await deltaExchange.getPositions(cfg.PRODUCT_ID);
         const hasOpenPosition = Array.isArray(positions)

@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,10 +11,14 @@
             --card-bg: #1e293b;
             --text-main: #e2e8f0;
             --text-muted: #94a3b8;
-            --accent-check: #f59e0b; /* Amber - Condition */
-            --accent-action: #3b82f6; /* Blue - Action */
-            --accent-stop: #ef4444;   /* Red - Stop */
-            --accent-go: #10b981;     /* Emerald - Start/Success */
+            --accent-check: #f59e0b;
+            /* Amber - Condition */
+            --accent-action: #3b82f6;
+            /* Blue - Action */
+            --accent-stop: #ef4444;
+            /* Red - Stop */
+            --accent-go: #10b981;
+            /* Emerald - Start/Success */
             --line-color: #334155;
         }
 
@@ -124,10 +129,21 @@
             border-bottom-left-radius: 12px;
         }
 
-        .card.start { border-left: 6px solid var(--accent-go); }
-        .card.condition { border-left: 6px solid var(--accent-check); }
-        .card.action { border-left: 6px solid var(--accent-action); }
-        .card.stop { border-left: 6px solid var(--accent-stop); }
+        .card.start {
+            border-left: 6px solid var(--accent-go);
+        }
+
+        .card.condition {
+            border-left: 6px solid var(--accent-check);
+        }
+
+        .card.action {
+            border-left: 6px solid var(--accent-action);
+        }
+
+        .card.stop {
+            border-left: 6px solid var(--accent-stop);
+        }
 
         .card-header {
             font-weight: 700;
@@ -153,7 +169,7 @@
         }
 
         .detail-item {
-            background: rgba(255,255,255,0.03);
+            background: rgba(255, 255, 255, 0.03);
             padding: 0.5rem;
             border-radius: 6px;
             font-size: 0.85rem;
@@ -174,7 +190,7 @@
             justify-content: center;
             margin-top: 2rem;
         }
-        
+
         .branch {
             flex: 1;
             display: flex;
@@ -193,9 +209,9 @@
             color: var(--text-muted);
             z-index: 10;
         }
-
     </style>
 </head>
+
 <body>
 
     <div class="container">
@@ -205,16 +221,25 @@
         </div>
 
         <div class="legend">
-            <div class="legend-item"><div class="dot" style="background:var(--accent-go)"></div> Start/Success</div>
-            <div class="legend-item"><div class="dot" style="background:var(--accent-action)"></div> Action/Process</div>
-            <div class="legend-item"><div class="dot" style="background:var(--accent-check)"></div> Condition Check</div>
-            <div class="legend-item"><div class="dot" style="background:var(--accent-stop)"></div> Stop/Exit</div>
+            <div class="legend-item">
+                <div class="dot" style="background:var(--accent-go)"></div> Start/Success
+            </div>
+            <div class="legend-item">
+                <div class="dot" style="background:var(--accent-action)"></div> Action/Process
+            </div>
+            <div class="legend-item">
+                <div class="dot" style="background:var(--accent-check)"></div> Condition Check
+            </div>
+            <div class="legend-item">
+                <div class="dot" style="background:var(--accent-stop)"></div> Stop/Exit
+            </div>
         </div>
 
         <!-- Step 1: Cron -->
         <div class="flow-step">
             <div class="card start">
-                <div class="card-header">Cron Trigger <span style="font-size:0.8em; opacity:0.7">1 min interval</span></div>
+                <div class="card-header">Cron Trigger <span style="font-size:0.8em; opacity:0.7">1 min interval</span>
+                </div>
                 <div class="card-body">
                     The system heartbeat triggers the trading cycle.
                 </div>
@@ -229,7 +254,7 @@
                     Prevents overlapping trading cycles (concurrency control).
                 </div>
             </div>
-            
+
             <div class="branch-container">
                 <div class="branch">
                     <div class="branch-label">Yes</div>
@@ -253,7 +278,7 @@
                     Checks <code>entryOrderId</code> with Delta Exchange.
                 </div>
             </div>
-             <div class="branch-container">
+            <div class="branch-container">
                 <div class="branch">
                     <div class="branch-label">Open / Pending</div>
                     <div class="card stop" style="max-width: 100%">
@@ -263,9 +288,9 @@
                 </div>
                 <div class="branch">
                     <div class="branch-label">Closed / None</div>
-                     <div class="card action" style="max-width: 100%">
+                    <div class="card action" style="max-width: 100%">
                         <div class="card-header">Update PnL State</div>
-                        <div class="card-body">Update Martingale level based on result.</div>
+                        <div class="card-body">Update Trade level based on result.</div>
                     </div>
                 </div>
             </div>
@@ -291,110 +316,109 @@
                 <div class="card-details">
                     <div class="detail-item">
                         <span class="detail-label">Spread Check</span>
-                        Must be < 0.1% (Configurable)
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">Volatility</span>
-                        Candle body size within safe limits
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">Market State</span>
-                        Not Choppy (Red-Green-Red patterns)
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">Volume</span>
-                        Must not be significantly below average
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">Price Action</span>
-                        No "Indecision" candles (Dojis)
-                    </div>
-                </div>
-            </div>
-            
-             <div class="branch-container">
-                <div class="branch">
-                    <div class="branch-label">Any Failed</div>
-                    <div class="card stop" style="max-width: 100%">
-                        <div class="card-header">Stop: Filter Triggered</div>
-                        <div class="card-body">Log specific reason (e.g., "Spread too high")</div>
+                        Must be < 0.1% (Configurable) </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Volatility</span>
+                                Candle body size within safe limits
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Market State</span>
+                                Not Choppy (Red-Green-Red patterns)
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Volume</span>
+                                Must not be significantly below average
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">Price Action</span>
+                                No "Indecision" candles (Dojis)
+                            </div>
                     </div>
                 </div>
-                <div class="branch">
-                    <div class="branch-label">All Passed</div>
-                     <!-- Continue -->
-                </div>
-            </div>
-        </div>
 
-        <!-- Step 6: Strategy Signal -->
-        <div class="flow-step">
-            <div class="card condition">
-                <div class="card-header">Generate Signal (AI + Tech)</div>
-                <div class="card-body">
-                    Combines EMA Trends, RSI, and optionally Gemini AI analysis.
-                </div>
-                 <div class="card-details">
-                    <div class="detail-item">
-                        <span class="detail-label">Buy Signal</span>
-                        Price > EMA21 + RSI Bullish + AI Bullish
+                <div class="branch-container">
+                    <div class="branch">
+                        <div class="branch-label">Any Failed</div>
+                        <div class="card stop" style="max-width: 100%">
+                            <div class="card-header">Stop: Filter Triggered</div>
+                            <div class="card-body">Log specific reason (e.g., "Spread too high")</div>
+                        </div>
                     </div>
-                    <div class="detail-item">
-                        <span class="detail-label">Sell Signal</span>
-                        Price < EMA21 + RSI Bearish + AI Bearish
+                    <div class="branch">
+                        <div class="branch-label">All Passed</div>
+                        <!-- Continue -->
                     </div>
                 </div>
             </div>
 
-            <div class="branch-container">
-                <div class="branch">
-                    <div class="branch-label">None / Weak</div>
-                    <div class="card stop" style="max-width: 100%">
-                        <div class="card-header">Stop: No Signal</div>
-                        <div class="card-body">Wait for clearer trend.</div>
+            <!-- Step 6: Strategy Signal -->
+            <div class="flow-step">
+                <div class="card condition">
+                    <div class="card-header">Generate Signal (AI + Tech)</div>
+                    <div class="card-body">
+                        Combines EMA Trends, RSI, and optionally Gemini AI analysis.
                     </div>
-                </div>
-                <div class="branch">
-                    <div class="branch-label">Strong Buy/Sell</div>
-                     <!-- Continue -->
-                </div>
-            </div>
-        </div>
+                    <div class="card-details">
+                        <div class="detail-item">
+                            <span class="detail-label">Buy Signal</span>
+                            Price > EMA21 + RSI Bullish + AI Bullish
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Sell Signal</span>
+                            Price < EMA21 + RSI Bearish + AI Bearish </div>
+                        </div>
+                    </div>
 
-        <!-- Step 7: Execution -->
-        <div class="flow-step">
-            <div class="card action">
-                <div class="card-header">Execute Trade</div>
-                <div class="card-body">
-                    Calculates position size (Martingale) and places orders.
-                </div>
-                <div class="card-details">
-                    <div class="detail-item">
-                        <span class="detail-label">1. Quantity</span>
-                        Base * (2 ^ Martingale Level)
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">2. Entry Order</span>
-                        Limit Order at Bid/Ask
-                    </div>
-                     <div class="detail-item">
-                        <span class="detail-label">3. Bracket</span>
-                        Places TP and SL orders once Entry fills
+                    <div class="branch-container">
+                        <div class="branch">
+                            <div class="branch-label">None / Weak</div>
+                            <div class="card stop" style="max-width: 100%">
+                                <div class="card-header">Stop: No Signal</div>
+                                <div class="card-body">Wait for clearer trend.</div>
+                            </div>
+                        </div>
+                        <div class="branch">
+                            <div class="branch-label">Strong Buy/Sell</div>
+                            <!-- Continue -->
+                        </div>
                     </div>
                 </div>
-            </div>
-        </div>
-        
-         <div class="flow-step">
-            <div class="card start">
-                <div class="card-header">Cycle Complete</div>
-                <div class="card-body">
-                    State saved. Monitors for Bracket Order fill.
-                </div>
-            </div>
-        </div>
 
-    </div>
+                <!-- Step 7: Execution -->
+                <div class="flow-step">
+                    <div class="card action">
+                        <div class="card-header">Execute Trade</div>
+                        <div class="card-body">
+                            Calculates position size (Trade) and places orders.
+                        </div>
+                        <div class="card-details">
+                            <div class="detail-item">
+                                <span class="detail-label">1. Quantity</span>
+                                Base * (2 ^ Trade Level)
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">2. Entry Order</span>
+                                Limit Order at Bid/Ask
+                            </div>
+                            <div class="detail-item">
+                                <span class="detail-label">3. Bracket</span>
+                                Places TP and SL orders once Entry fills
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flow-step">
+                    <div class="card start">
+                        <div class="card-header">Cycle Complete</div>
+                        <div class="card-body">
+                            State saved. Monitors for Bracket Order fill.
+                        </div>
+                    </div>
+                </div>
+
+            </div>
 
 </body>
+
 </html>

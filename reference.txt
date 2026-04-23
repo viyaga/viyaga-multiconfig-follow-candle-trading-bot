@@ -178,7 +178,7 @@ server log -> [analysis] Starting local analysis for 1m with 50 candles.
 }
 [state] Updating state for ADAUSD. New State Diff: {"currentLevel":1,"entryOrderId":1063196694,"stopLossOrderId":"1063196932","takeProfitOrderId":"1063196933","quantity":1,"tradeOutcome":"pending","lastTradeTimestamp":"2025-12-01T03:00:17.748Z","pnl":0}
 [state] State updated successfully.
-[workflow] Martingale state updated after trade: {
+[workflow] Trade state updated after trade: {
   "_id": "69281b44f0f7637ee175ae51",
   "symbol": "ADAUSD",
   "productId": 16614,
@@ -289,11 +289,11 @@ server log -> [analysis] Starting local analysis for 1m with 50 candles.
   }
 }
 [Trading Cron] Cycle result status: executed
-[Trading Cron] Trade executed. Logging to martingale logger.
+[Trading Cron] Trade executed. Logging to trade logger.
 2025-12-01T03:00:18.071Z [info]: TRADE_EXECUTED {
-  "service": "martingale-tracker",
+  "service": "trade-tracker",
   "symbol": "ADAUSD",
-  "martingaleState": {
+  "tradeState": {
     "currentLevel": 1,
     "tradeOutcome": "pending",
     "quantity": 1,

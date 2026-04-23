@@ -1,4 +1,4 @@
-import { IMartingaleState } from "../../models/martingaleState.model";
+import { ITradeState } from "../../models/tradeState.model";
 import { TradingConfig } from "./config";
 import { Candle, OrderSide, TargetCandle } from "./type";
 import { skipTradingLogger } from "./logger";
@@ -28,8 +28,8 @@ export class Utils {
      INTERNAL HELPERS
   ========================================================================= */
 
-    static isTradePending(s: IMartingaleState) { return s.tradeOutcome === "pending"; }
-    static isTradeResolved(s: IMartingaleState) { return s.tradeOutcome !== "pending"; }
+    static isTradePending(s: ITradeState) { return s.tradeOutcome === "pending"; }
+    static isTradeResolved(s: ITradeState) { return s.tradeOutcome !== "pending"; }
 
     static resolveEntryPrice(e?: any): number {
         const price =

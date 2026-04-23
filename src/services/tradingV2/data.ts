@@ -1,16 +1,16 @@
 import { env } from "../../config";
 
-import { IMartingaleState, MartingaleState } from "../../models/martingaleState.model";
+import { ITradeState, TradeState } from "../../models/tradeState.model";
 import { TradingConfig } from "./config";
 import { configDebugLogger, tradingCronLogger } from "./logger";
 import { ConfigType } from "./type";
 
 export class Data {
 
-    static async getOrCreateState(tradingBotId: string, userId: string, sym: string, pid: number): Promise<IMartingaleState> {
+    static async getOrCreateState(tradingBotId: string, userId: string, sym: string, pid: number): Promise<ITradeState> {
         // 1. Try to find and update existing active (open) state
         // We look for status 'open' or null (for legacy records)
-        let st = await MartingaleState.findOneAndUpdate(
+        let st = await TradeState.findOneAndUpdate(
             {
                 tradingBotId,
                 status: 'open'
@@ -25,13 +25,13 @@ export class Data {
         }
 
         // 2. No active state found. Look for the latest closed state to inherit lifetime stats.
-        const lastClosed = await MartingaleState.findOne({ tradingBotId, status: 'closed' })
+        const lastClosed = await TradeState.findOne({ tradingBotId, status: 'closed' })
             .sort({ updatedAt: -1 });
 
         const allTimePnl = lastClosed?.allTimePnl || 0;
         const allTimeFees = lastClosed?.allTimeFees || 0;
 
-        // If the last session was a loss, we inherit its level and debt to continue Martingale cycle
+        // If the last session was a loss, we inherit its level and debt to continue Trade cycle
         const isLoss = lastClosed?.tradeOutcome === 'loss';
         const currentLevel = isLoss ? (lastClosed?.currentLevel || 1) : 1;
         const sessionPnl = isLoss ? (lastClosed?.pnl || 0) : 0;
@@ -39,7 +39,7 @@ export class Data {
         const nextQuantity = isLoss ? (lastClosed?.quantity || 0) : TradingConfig.getConfig().INITIAL_BASE_QUANTITY;
 
         // 3. Create a new open state
-        st = await MartingaleState.create({
+        st = await TradeState.create({
             tradingBotId,
             userId,
             symbol: sym,

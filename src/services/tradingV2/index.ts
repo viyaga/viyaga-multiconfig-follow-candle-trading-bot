@@ -4,7 +4,7 @@ import { tradingCycleErrorLogger, skipTradingLogger, tradingCronLogger, getConte
 import { ConfigType, TargetCandle, Candle, OrderSide } from "./type";
 import { Utils } from "./utils";
 import { ProcessPendingState } from "./ProcessPendingState";
-import { MartingaleState } from "../../models/martingaleState.model";
+import { TradeState } from "../../models/tradeState.model";
 
 import { MultiTimeframeAlignment } from "./market-detector/multi-timeframe";
 
@@ -297,7 +297,7 @@ export class TradingV2 {
             );
 
             // ───────────────── UPDATE STATE ─────────────────
-            const updatedState = await MartingaleState.findOneAndUpdate(
+            const updatedState = await TradeState.findOneAndUpdate(
                 { tradingBotId: c.id, status: 'open' },
                 {
                     $set: {
@@ -321,11 +321,11 @@ export class TradingV2 {
             );
 
             if (!updatedState) {
-                throw new Error("Failed to update martingale state");
+                throw new Error("Failed to update trade state");
             }
 
             cronLogger.info(
-                `Martingale state updated successfully`
+                `Trade state updated successfully`
             );
 
 
