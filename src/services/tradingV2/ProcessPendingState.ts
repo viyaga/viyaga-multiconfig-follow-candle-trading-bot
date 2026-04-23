@@ -10,6 +10,15 @@ import { TripleTFResult } from "./market-detector/multi-timeframe";
 
 export class ProcessPendingState {
 
+    static calculateMartingaleLots(netDebt: number, currentPrice: number, multiplier: number): number {
+        const c = TradingConfig.getConfig();
+        const targetAmount = Math.abs(netDebt) * multiplier; // Dynamic multiplier based on MTF score
+        const marginRequiredPerLot = (currentPrice * c.LOT_SIZE) / c.LEVERAGE;
+        return c.INITIAL_BASE_QUANTITY + Math.ceil(
+            targetAmount / marginRequiredPerLot
+        );
+    }
+
     static calculateMetrics(entryPrice: number, tpPrice: number, slPrice: number, leverage: number) {
         if (!entryPrice || !tpPrice || !slPrice) return {};
         const tpDist = Math.abs(tpPrice - entryPrice);
@@ -110,14 +119,8 @@ export class ProcessPendingState {
 
         const pnlPercentage = s.tradeAmountInUse ? (incrementalPnl / s.tradeAmountInUse) * 100 : 0;
 
-        const targetAmount = Math.abs(netDebt) * multiplier; // Dynamic multiplier based on MTF score
-        const marginRequiredPerLot = currentPrice * c.LOT_SIZE / c.LEVERAGE
-        const lots = c.INITIAL_BASE_QUANTITY + Math.ceil(
-            targetAmount / marginRequiredPerLot
-        );
         const nextLevel = s.currentLevel + 1;
-
-        logger.info(`[StateTransition] Outcome: LOSS | Symbol: ${s.symbol} | Net Debt: ${netDebt.toFixed(2)} | Next Level: ${nextLevel} | Calculated Lots: ${lots}`);
+        logger.info(`[StateTransition] Outcome: LOSS | Symbol: ${s.symbol} | Net Debt: ${netDebt.toFixed(2)} | Next Level: ${nextLevel}`);
         logger.info(`[StateTransition] LOSS Details: Incremental PnL: ${incrementalPnl.toFixed(2)}, Incremental Fees: ${incrementalFees.toFixed(2)}`);
 
         const updated = await TradeState.findByIdAndUpdate(s.id || (s as any)._id, {
@@ -125,13 +128,6 @@ export class ProcessPendingState {
                 status: 'closed',
                 currentLevel: nextLevel,
                 tradeOutcome: "loss",
-                quantity: lots,
-                entryOrderId: null,
-                stopLossOrderId: null,
-                takeProfitOrderId: null,
-                entryPrice: null,
-                slPrice: null,
-                tpPrice: null,
                 pnl,
                 cumulativeFees: fees,
                 allTimePnl: (s.allTimePnl || 0) + incrementalPnl,
@@ -313,8 +309,7 @@ export class ProcessPendingState {
         const updated = await TradeState.findOneAndUpdate(
             {
                 tradingBotId: state.tradingBotId,
-                userId: state.userId,
-                symbol: state.symbol,
+                status: 'open',
             },
             { $set: { slPrice: sl, tpPrice: tp, ...metrics } },
             { new: true }
@@ -366,19 +361,21 @@ export class ProcessPendingState {
                     logContext
                 );
                 if (updateTpRes.success) {
-                    tpUpdatedValue = Number(updateTpRes.tpLimitPrice);
+                    tpUpdatedValue = updateTpRes.tpPrice;
                 }
             }
 
             if (!updateRes.success && updateRes.isSlSame && tpUpdatedValue === s.tpPrice) return s;
             if (!updateRes.success && updateRes.isSlReversed) return s;
 
-            if (!updateRes.success)
+            if (!updateRes.success && !updateRes.isSlSame && !updateRes.isSlReversed)
                 return this.placeCancelledBracketOrders(s, e, sl, logContext);
 
-            const updated = await this.updateStatePrices(s, Number(updateRes.slLimitPrice), tpUpdatedValue);
+            const updated = await this.updateStatePrices(s, updateRes.slPrice, tpUpdatedValue || s.tpPrice || 0);
 
             if (!updated) throw new Error("Trade state not found");
+
+            logger.info(`[PriceTrailing] Successfully updated SL/TP for ${sym}: SL=${updateRes.slPrice}, TP=${tpUpdatedValue}`);
 
             return updated as ITradeState;
 
@@ -497,6 +494,19 @@ export class ProcessPendingState {
                 ...metrics
             };
 
+            // Optimization: Only update if anything meaningful changed
+            const isUnchanged = 
+                s.entryPrice === entryPrice &&
+                s.tradeAmountInUse === tradeAmountInUse &&
+                s.finalScore === mtf.finalScore &&
+                s.tpPrice === tpPrice &&
+                s.slPrice === slPrice;
+
+            if (isUnchanged && (s.stopLossOrderId && s.takeProfitOrderId)) {
+                // If core data is unchanged, still attempt price trailing
+                return this.manageOpenPosition(sym, s, e, mtf, logContext);
+            }
+
             // Safety Check: If position is open but TP/SL IDs are missing, re-place them
             if (!s.stopLossOrderId || !s.takeProfitOrderId) {
                 const recovered = await this.recoverMissingBracketOrders(s, e, mtf, logContext);
@@ -506,7 +516,10 @@ export class ProcessPendingState {
 
             // Normal update
             const updated = await TradeState.findByIdAndUpdate(s.id || (s as any)._id, { $set: updateData }, { new: true });
-            return (updated as ITradeState) || s;
+            const finalState = (updated as ITradeState) || s;
+
+            // Chain to trailing logic
+            return this.manageOpenPosition(sym, finalState, e, mtf, logContext);
         }
 
         return this.processClosedPosition(s, Number(e.paid_commission || 0), currentPrice, multiplier, logContext);

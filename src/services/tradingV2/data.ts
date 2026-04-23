@@ -4,10 +4,18 @@ import { ITradeState, TradeState } from "../../models/tradeState.model";
 import { TradingConfig } from "./config";
 import { configDebugLogger, tradingCronLogger } from "./logger";
 import { ConfigType } from "./type";
+import { ProcessPendingState } from "./ProcessPendingState";
 
 export class Data {
 
-    static async getOrCreateState(tradingBotId: string, userId: string, sym: string, pid: number): Promise<ITradeState> {
+    static async getOrCreateState(
+        tradingBotId: string, 
+        userId: string, 
+        sym: string, 
+        pid: number, 
+        multiplier: number = 0, 
+        currentPrice: number = 0
+    ): Promise<ITradeState> {
         // 1. Try to find existing active (open) state
         let st = await TradeState.findOne({
             tradingBotId,
@@ -38,12 +46,22 @@ export class Data {
         const allTimePnl = lastClosed?.allTimePnl || 0;
         const allTimeFees = lastClosed?.allTimeFees || 0;
 
-        // If the last session was a loss, we inherit its level and debt to continue Trade cycle
+        // If the last session was a loss, we inherit its level and calculate next recovery quantity
         const isLoss = lastClosed?.tradeOutcome === 'loss';
         const currentLevel = isLoss ? (lastClosed?.currentLevel || 1) : 1;
         const sessionPnl = isLoss ? (lastClosed?.pnl || 0) : 0;
         const sessionFees = isLoss ? (lastClosed?.cumulativeFees || 0) : 0;
-        const nextQuantity = isLoss ? (lastClosed?.quantity || 0) : TradingConfig.getConfig().INITIAL_BASE_QUANTITY;
+
+        let quantity = TradingConfig.getConfig().INITIAL_BASE_QUANTITY;
+        if (isLoss && currentPrice > 0) {
+            const netDebt = sessionPnl - sessionFees;
+            quantity = ProcessPendingState.calculateMartingaleLots(netDebt, currentPrice, multiplier);
+            tradingCronLogger.info(`[Data] Calculated recovery quantity for ${sym}: ${quantity} (Level: ${currentLevel}, NetDebt: ${netDebt.toFixed(2)}, Multiplier: ${multiplier})`);
+        } else if (isLoss) {
+            // Fallback to previous quantity if currentPrice is not available (safety)
+            quantity = lastClosed?.quantity || quantity;
+            tradingCronLogger.warn(`[Data] Falling back to previous quantity for ${sym} due to missing price: ${quantity}`);
+        }
 
         // 3. Create a new open state
         st = await TradeState.create({
@@ -58,10 +76,10 @@ export class Data {
             cumulativeFees: sessionFees,
             allTimePnl,
             allTimeFees,
-            quantity: nextQuantity || TradingConfig.getConfig().INITIAL_BASE_QUANTITY
+            quantity
         });
 
-        tradingCronLogger.info(`[Data] Created new active state for ${sym} (Inherited PnL: ${allTimePnl})`, { id: st._id });
+        tradingCronLogger.info(`[Data] Created new active state for ${sym} (Inherited PnL: ${allTimePnl}, Quantity: ${quantity})`, { id: st._id });
         return st;
     }
 

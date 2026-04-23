@@ -110,7 +110,6 @@ export class TradingV2 {
 
         try {
             // ───────────────── MARKET DATA ─────────────────
-            // ───────────────── MARKET DATA ─────────────────
             const targetDataEntry = await TradingV2.getTargetCandle(c, 'ENTRY');
             const targetDataConfirmation = await TradingV2.getTargetCandle(c, 'CONFIRMATION');
             const targetDataStructure = await TradingV2.getTargetCandle(c, 'STRUCTURE');
@@ -165,7 +164,9 @@ export class TradingV2 {
                 c.id,
                 c.USER_ID,
                 c.SYMBOL,
-                c.PRODUCT_ID
+                c.PRODUCT_ID,
+                scoreMultiplier,
+                currentPrice
             );
 
             // ───────────────── HANDLE PENDING TRADE ─────────────────

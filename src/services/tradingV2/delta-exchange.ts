@@ -61,7 +61,7 @@ export class DeltaExchange {
         orderSide: OrderSide,
         sl: number,
         logContext?: any
-    ): Promise<{ success: boolean, slLimitPrice: string, isSlSame?: boolean, isSlReversed?: boolean }> {
+    ): Promise<{ success: boolean, slPrice: number, isSlSame?: boolean, isSlReversed?: boolean }> {
 
         const logger = getContextualLogger(tradingCronLogger, logContext);
 
@@ -78,24 +78,25 @@ export class DeltaExchange {
         const stopPrice = String(Utils.clampPrice(slTriggerPrice));
         const limitPrice = String(Utils.clampPrice(slLimitPrice));
 
-        const newSl = Number(limitPrice);
+        const oldSlLimit = Utils.clampPrice(slPrice * (orderSide === "buy" ? (1 - c.SL_LIMIT_BUFFER_PERCENT / 100) : (1 + c.SL_LIMIT_BUFFER_PERCENT / 100)));
+        const newSlLimit = Number(limitPrice);
 
-        logger.debug("SL price calculation", { newSl, slPrice });
+        logger.debug("SL price calculation", { newSlLimit, oldSlLimit, sl, slPrice });
 
         // SL unchanged
-        if (newSl === slPrice) {
+        if (newSlLimit === oldSlLimit) {
             logger.debug("SL prices unchanged. Skipping update.");
-            return { success: false, slLimitPrice: String(sl), isSlSame: true };
+            return { success: false, slPrice: sl, isSlSame: true };
         }
 
         // Check wrong direction movement
         const isSlReversed =
-            (orderSide === "buy" && newSl < slPrice) ||
-            (orderSide === "sell" && newSl > slPrice);
+            (orderSide === "buy" && newSlLimit < oldSlLimit) ||
+            (orderSide === "sell" && newSlLimit > oldSlLimit);
 
         if (isSlReversed) {
             logger.warn("SL moved in wrong direction. Skipping update.");
-            return { success: false, slLimitPrice: limitPrice, isSlReversed: true };
+            return { success: false, slPrice: sl, isSlReversed: true };
         }
 
         const payload = {
@@ -112,7 +113,7 @@ export class DeltaExchange {
 
         logger.debug("Updated Stop Loss Order response", { updateRes });
 
-        return { success: updateRes?.success ?? false, slLimitPrice: limitPrice };
+        return { success: updateRes?.success ?? false, slPrice: sl };
     }
 
     async updateTakeProfitOrder(
@@ -122,19 +123,19 @@ export class DeltaExchange {
         productSymbol: string,
         tp: number,
         logContext?: any
-    ): Promise<{ success: boolean, tpLimitPrice: string, isTpSame?: boolean }> {
+    ): Promise<{ success: boolean, tpPrice: number, isTpSame?: boolean }> {
 
         const logger = getContextualLogger(tradingCronLogger, logContext);
 
         const tpLimitPrice = String(Utils.clampPrice(tp));
-        const newTp = Number(tpLimitPrice);
+        const oldTpLimit = String(Utils.clampPrice(tpPrice));
 
-        logger.debug("TP price calculation", { newTp, tpPrice });
+        logger.debug("TP price calculation", { tpLimitPrice, oldTpLimit, tp, tpPrice });
 
         // TP unchanged
-        if (newTp === tpPrice) {
+        if (tpLimitPrice === oldTpLimit) {
             logger.debug("TP prices unchanged. Skipping update.");
-            return { success: false, tpLimitPrice: String(tp), isTpSame: true };
+            return { success: false, tpPrice: tp, isTpSame: true };
         }
 
         const payload = {
@@ -151,7 +152,7 @@ export class DeltaExchange {
 
         logger.debug("Updated Take Profit Order response", { updateRes });
 
-        return { success: updateRes?.success ?? false, tpLimitPrice };
+        return { success: updateRes?.success ?? false, tpPrice: tp };
     }
 
     async placeEntryOrder(symbol: string, side: OrderSide, qty: number, cid?: string) {
