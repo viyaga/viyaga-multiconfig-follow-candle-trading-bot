@@ -21,6 +21,14 @@ export interface ITradeState {
     cumulativeFees: number;
     allTimePnl: number;
     allTimeFees: number;
+    side?: 'buy' | 'sell' | null;
+    leverage?: number | null;
+    tradeAmountInUse?: number | null;
+    pnlPercentage?: number | null;
+    riskRewardRatio?: number | null;
+    tpPercentage?: number | null;
+    slPercentage?: number | null;
+    exitPrice?: number | null;
     lastTradeSettledAt?: Date | null;
     status: 'open' | 'closed';
     updatedAt: Date;
@@ -55,6 +63,14 @@ const TradeStateSchema: Schema = new Schema(
         allTimePnl: { type: Number, required: true, default: 0 },
         allTimeFees: { type: Number, required: true, default: 0 },
         lastTradeSettledAt: { type: Date, default: null },
+        side: { type: String, enum: ['buy', 'sell'], default: null },
+        leverage: { type: Number, default: null },
+        tradeAmountInUse: { type: Number, default: null },
+        pnlPercentage: { type: Number, default: null },
+        riskRewardRatio: { type: Number, default: null },
+        tpPercentage: { type: Number, default: null },
+        slPercentage: { type: Number, default: null },
+        exitPrice: { type: Number, default: null },
     },
     {
         timestamps: true

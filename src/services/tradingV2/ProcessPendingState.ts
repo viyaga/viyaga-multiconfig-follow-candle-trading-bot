@@ -10,6 +10,18 @@ import { TripleTFResult } from "./market-detector/multi-timeframe";
 
 export class ProcessPendingState {
 
+    static calculateMetrics(entryPrice: number, tpPrice: number, slPrice: number, leverage: number) {
+        if (!entryPrice || !tpPrice || !slPrice) return {};
+        const tpDist = Math.abs(tpPrice - entryPrice);
+        const slDist = Math.abs(entryPrice - slPrice);
+
+        return {
+            tpPercentage: (tpDist / entryPrice) * 100 * leverage,
+            slPercentage: (slDist / entryPrice) * 100 * leverage,
+            riskRewardRatio: slDist > 0 ? tpDist / slDist : 0
+        };
+    }
+
     /* =========================================================================
        CANDLE ANALYSIS UTILITIES
     ========================================================================= */
@@ -31,6 +43,14 @@ export class ProcessPendingState {
             cumulativeFees: 0,
             allTimePnl: s.allTimePnl || 0,
             allTimeFees: s.allTimeFees || 0,
+            side: null,
+            leverage: null,
+            tradeAmountInUse: null,
+            pnlPercentage: null,
+            riskRewardRatio: null,
+            tpPercentage: null,
+            slPercentage: null,
+            exitPrice: null,
         };
     }
 
@@ -40,11 +60,14 @@ export class ProcessPendingState {
         tempFees: number,
         incrementalPnl: number,
         incrementalFees: number,
+        exitPrice: number,
         logContext?: any
     ): Promise<ITradeState> {
         const logger = getContextualLogger(tradingCronLogger, logContext);
         logger.info(`[StateTransition] Outcome: WIN | Symbol: ${s.symbol} | Net PnL (Session): ${winPnl.toFixed(2)} | Total Fees (Session): ${tempFees.toFixed(2)}`);
         logger.info(`[StateTransition] WIN Details: Incremental PnL: ${incrementalPnl.toFixed(2)}, Incremental Fees: ${incrementalFees.toFixed(2)}`);
+
+        const pnlPercentage = s.tradeAmountInUse ? (incrementalPnl / s.tradeAmountInUse) * 100 : 0;
 
         const updated = await TradeState.findByIdAndUpdate(s.id || (s as any)._id, {
             $set: {
@@ -54,7 +77,9 @@ export class ProcessPendingState {
                 cumulativeFees: tempFees,
                 allTimePnl: (s.allTimePnl || 0) + incrementalPnl,
                 allTimeFees: (s.allTimeFees || 0) + incrementalFees,
-                lastTradeSettledAt: new Date()
+                lastTradeSettledAt: new Date(),
+                exitPrice,
+                pnlPercentage
             }
         }, { new: true });
 
@@ -71,11 +96,14 @@ export class ProcessPendingState {
         incrementalPnl: number,
         incrementalFees: number,
         multiplier: number,
+        exitPrice: number,
         logContext?: any
     ): Promise<ITradeState> {
         const logger = getContextualLogger(tradingCronLogger, logContext);
 
         const c = TradingConfig.getConfig();
+
+        const pnlPercentage = s.tradeAmountInUse ? (incrementalPnl / s.tradeAmountInUse) * 100 : 0;
 
         const targetAmount = Math.abs(netDebt) * multiplier; // Dynamic multiplier based on MTF score
         const marginRequiredPerLot = currentPrice * c.LOT_SIZE / c.LEVERAGE
@@ -103,7 +131,9 @@ export class ProcessPendingState {
                 cumulativeFees: fees,
                 allTimePnl: (s.allTimePnl || 0) + incrementalPnl,
                 allTimeFees: (s.allTimeFees || 0) + incrementalFees,
-                lastTradeSettledAt: new Date()
+                lastTradeSettledAt: new Date(),
+                exitPrice,
+                pnlPercentage
             }
         }, { new: true });
 
@@ -162,10 +192,11 @@ export class ProcessPendingState {
             const incrementalFees = Number(tp.paid_commission || 0) + entryCommission;
             const netPnl = s.pnl + incrementalPnl;
             const fees = s.cumulativeFees + incrementalFees;
+            const exitPrice = Number(tp.average_fill_price || tp.limit_price || 0);
 
             getContextualLogger(tradingCronLogger, logContext).info(`[PositionOutcome] TAKE PROFIT reached for ${s.symbol}`);
 
-            return await this.handleWin(s, netPnl, fees, incrementalPnl, incrementalFees, logContext);
+            return await this.handleWin(s, netPnl, fees, incrementalPnl, incrementalFees, exitPrice, logContext);
         }
 
         const sl = await deltaExchange.getOrderDetails(s.stopLossOrderId);
@@ -176,12 +207,13 @@ export class ProcessPendingState {
             const netPnl = s.pnl + incrementalPnl;
             const fees = s.cumulativeFees + incrementalFees;
             const netDebt = netPnl - fees;
+            const exitPrice = Number(sl.average_fill_price || sl.limit_price || 0);
 
             getContextualLogger(tradingCronLogger, logContext).info(`[PositionOutcome] STOP LOSS hit for ${s.symbol}`);
 
             return netDebt >= 0
-                ? await this.handleWin(s, netPnl, fees, incrementalPnl, incrementalFees, logContext)
-                : await this.handleLoss(s, netDebt, netPnl, fees, currentPrice, incrementalPnl, incrementalFees, multiplier, logContext);
+                ? await this.handleWin(s, netPnl, fees, incrementalPnl, incrementalFees, exitPrice, logContext)
+                : await this.handleLoss(s, netDebt, netPnl, fees, currentPrice, incrementalPnl, incrementalFees, multiplier, exitPrice, logContext);
         }
 
         if (tp?.status === "CANCELLED" && sl?.status === "CANCELLED") {
@@ -193,7 +225,8 @@ export class ProcessPendingState {
             const netPnl = s.pnl;
             const fees = s.cumulativeFees + incrementalFees;
             const netDebt = netPnl - fees;
-            return await this.handleLoss(s, netDebt, netPnl, fees, currentPrice, incrementalPnl, incrementalFees, multiplier, logContext);
+            const exitPrice = currentPrice;
+            return await this.handleLoss(s, netDebt, netPnl, fees, currentPrice, incrementalPnl, incrementalFees, multiplier, exitPrice, logContext);
         }
 
         throw new Error("[processClosedPosition] Neither TP nor SL orders are filled/closed.");
@@ -218,14 +251,13 @@ export class ProcessPendingState {
         });
         getContextualLogger(tradingCronLogger, logContext).debug("Cancelled existing stop orders during bracket replacement", { cancelRes });
 
-        const entryPrice =
-            e.average_fill_price ?? e.meta_data?.entry_price;
+        const entryPriceValue = Number(e.average_fill_price ?? e.meta_data?.entry_price ?? 0);
 
-        if (!entryPrice) {
+        if (!entryPriceValue) {
             throw new Error("Entry price not found");
         }
 
-        const tp = state.tpPrice;
+            const tp = state.tpPrice;
         if (!tp) {
             throw new Error("[placeCancelledBracketOrders] TP price not found in state");
         }
@@ -236,6 +268,8 @@ export class ProcessPendingState {
         if (!bracketRes.success) {
             throw new Error("TP/SL placement failed");
         }
+
+        const metrics = this.calculateMetrics(entryPriceValue, tp, sl, TradingConfig.getConfig().LEVERAGE);
 
         const updated = await TradeState.findOneAndUpdate(
             {
@@ -249,6 +283,7 @@ export class ProcessPendingState {
                     tpPrice: tp,
                     stopLossOrderId: bracketRes.ids.sl,
                     takeProfitOrderId: bracketRes.ids.tp,
+                    ...metrics
                 },
             },
             { new: true }
@@ -266,13 +301,17 @@ export class ProcessPendingState {
         sl: number,
         tp: number
     ): Promise<ITradeState> {
+        const metrics = state.entryPrice 
+            ? this.calculateMetrics(state.entryPrice, tp, sl, state.leverage || TradingConfig.getConfig().LEVERAGE)
+            : {};
+
         const updated = await TradeState.findOneAndUpdate(
             {
                 tradingBotId: state.tradingBotId,
                 userId: state.userId,
                 symbol: state.symbol,
             },
-            { $set: { slPrice: sl, tpPrice: tp } },
+            { $set: { slPrice: sl, tpPrice: tp, ...metrics } },
             { new: true }
         );
 
@@ -432,11 +471,32 @@ export class ProcessPendingState {
         getContextualLogger(tradingCronLogger, logContext).debug("Checking for open positions after entry order close", { hasOpenPosition });
 
         if (hasOpenPosition) {
+            const entryPrice = Number(e.average_fill_price || e.limit_price || 0);
+            const tradeAmountInUse = (Number(s.quantity || 0) * cfg.LOT_SIZE * entryPrice) / cfg.LEVERAGE;
+
+            const tpPrice = s.tpPrice || mtf.tp;
+            const slPrice = s.slPrice || mtf.sl;
+
+            const metrics = this.calculateMetrics(entryPrice, tpPrice!, slPrice!, cfg.LEVERAGE);
+
+            const updateData: any = {
+                side: e.side,
+                leverage: cfg.LEVERAGE,
+                entryPrice,
+                tradeAmountInUse,
+                ...metrics
+            };
+
             // Safety Check: If position is open but TP/SL IDs are missing, re-place them
             if (!s.stopLossOrderId || !s.takeProfitOrderId) {
-                return this.recoverMissingBracketOrders(s, e, mtf, logContext);
+                const recovered = await this.recoverMissingBracketOrders(s, e, mtf, logContext);
+                await TradeState.findByIdAndUpdate(s.id || (s as any)._id, { $set: updateData });
+                return { ...recovered, ...updateData };
             }
-            return s;
+
+            // Normal update
+            const updated = await TradeState.findByIdAndUpdate(s.id || (s as any)._id, { $set: updateData }, { new: true });
+            return (updated as ITradeState) || s;
         }
 
         return this.processClosedPosition(s, Number(e.paid_commission || 0), currentPrice, multiplier, logContext);
