@@ -8,19 +8,26 @@ import { ConfigType } from "./type";
 export class Data {
 
     static async getOrCreateState(tradingBotId: string, userId: string, sym: string, pid: number): Promise<ITradeState> {
-        // 1. Try to find and update existing active (open) state
-        // We look for status 'open' or null (for legacy records)
-        let st = await TradeState.findOneAndUpdate(
-            {
-                tradingBotId,
-                status: 'open'
-            },
-            { $set: { symbol: sym, userId, productId: pid, status: 'open' } },
-            { new: true }
-        );
+        // 1. Try to find existing active (open) state
+        let st = await TradeState.findOne({
+            tradingBotId,
+            status: 'open'
+        });
 
         if (st) {
-            tradingCronLogger.debug(`[Data] Loaded active state for ${sym}`, { state: st });
+            // Only update if fields actually differ (migration/sync safety)
+            if (st.symbol !== sym || Number(st.productId) !== Number(pid) || st.userId !== userId) {
+                tradingCronLogger.info(`[Data] Updating active state metadata for ${sym}`, { 
+                    old: { symbol: st.symbol, pid: st.productId, userId: st.userId },
+                    new: { symbol: sym, pid, userId }
+                });
+                st.symbol = sym;
+                st.productId = pid;
+                st.userId = userId;
+                await st.save();
+            }
+            
+            tradingCronLogger.debug(`[Data] Loaded active state for ${sym}`, { id: st._id });
             return st;
         }
 
