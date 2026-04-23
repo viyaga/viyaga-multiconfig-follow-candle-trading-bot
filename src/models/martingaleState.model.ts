@@ -8,15 +8,15 @@ export interface IMartingaleState {
     symbol: string;
     productId: number;
     currentLevel: number;
-    lastEntryOrderId?: string | null;
-    lastEntryClientOrderId?: string | null;
-    lastStopLossOrderId?: string | null;
-    lastTakeProfitOrderId?: string | null;
-    lastEntryPrice?: number | null;
-    lastSlPrice?: number | null;
-    lastTpPrice?: number | null;
-    lastTradeQuantity?: number | null;
-    lastTradeOutcome: 'win' | 'loss' | 'pending' | 'cancelled' | 'partialWin' | 'none';
+    entryOrderId?: string | null;
+    entryClientOrderId?: string | null;
+    stopLossOrderId?: string | null;
+    takeProfitOrderId?: string | null;
+    entryPrice?: number | null;
+    slPrice?: number | null;
+    tpPrice?: number | null;
+    quantity?: number | null;
+    tradeOutcome: 'win' | 'loss' | 'pending' | 'cancelled' | 'partialWin' | 'none';
     pnl: number;
     cumulativeFees: number;
     allTimePnl: number;
@@ -36,20 +36,20 @@ const MartingaleStateSchema: Schema = new Schema(
         symbol: { type: String, required: true, index: true },
         productId: { type: Number },
         currentLevel: { type: Number, required: true, default: 1 },
-        lastTradeOutcome: {
+        tradeOutcome: {
             type: String,
             enum: ['win', 'loss', 'pending', 'cancelled', 'none', 'partialWin'],
             required: true,
             default: 'pending'
         },
-        lastEntryOrderId: { type: String, default: null },
-        lastEntryClientOrderId: { type: String, default: null },
-        lastStopLossOrderId: { type: String, default: null },
-        lastTakeProfitOrderId: { type: String, default: null },
-        lastEntryPrice: { type: Number, default: null },
-        lastSlPrice: { type: Number, default: null },
-        lastTpPrice: { type: Number, default: null },
-        lastTradeQuantity: { type: Number, default: null },
+        entryOrderId: { type: String, default: null },
+        entryClientOrderId: { type: String, default: null },
+        stopLossOrderId: { type: String, default: null },
+        takeProfitOrderId: { type: String, default: null },
+        entryPrice: { type: Number, default: null },
+        slPrice: { type: Number, default: null },
+        tpPrice: { type: Number, default: null },
+        quantity: { type: Number, default: null },
         pnl: { type: Number, required: true, default: 0 },
         cumulativeFees: { type: Number, required: true, default: 0 },
         allTimePnl: { type: Number, required: true, default: 0 },

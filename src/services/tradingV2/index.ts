@@ -147,13 +147,13 @@ export class TradingV2 {
             );
 
             // ───────────────── HANDLE PENDING TRADE ─────────────────
-            if (state.lastEntryOrderId && Utils.isTradePending(state)) {
+            if (state.entryOrderId && Utils.isTradePending(state)) {
 
                 cronLogger.info(
-                    `Found pending trade with order ID: ${state.lastEntryOrderId}. Fetching order details...`
+                    `Found pending trade with order ID: ${state.entryOrderId}. Fetching order details...`
                 );
 
-                const orderDetails = await deltaExchange.getOrderDetails(state.lastEntryOrderId);
+                const orderDetails = await deltaExchange.getOrderDetails(state.entryOrderId);
 
                 if (!orderDetails) {
                     throw new Error("Failed to fetch order details for pending trade.");
@@ -178,7 +178,7 @@ export class TradingV2 {
                 );
 
                 cronLogger.info(
-                    `Pending state processed: NewOutcome=${state.lastTradeOutcome}`
+                    `Pending state processed: NewOutcome=${state.tradeOutcome}`
                 );
 
                 if (Utils.isTradePending(state)) return;
@@ -246,7 +246,7 @@ export class TradingV2 {
             }
 
             // ───────────────── QUANTITY ─────────────────
-            const qty = c.IS_TESTING ? 1 : state.lastTradeQuantity;
+            const qty = c.IS_TESTING ? 1 : state.quantity;
             if (!qty) throw new Error("Quantity not found");
 
             if (qty && qty > c.MAX_QUANTITY) {
@@ -301,14 +301,14 @@ export class TradingV2 {
                 { tradingBotId: c.id, status: 'open' },
                 {
                     $set: {
-                        lastTradeOutcome: "pending",
-                        lastEntryOrderId: String(entry.result.id),
-                        lastStopLossOrderId: String(tpSlResult.ids.sl),
-                        lastTakeProfitOrderId: String(tpSlResult.ids.tp),
-                        lastEntryPrice: entryPrice,
-                        lastSlPrice: sl,
-                        lastTpPrice: tp,
-                        lastTradeQuantity: qty,
+                        tradeOutcome: "pending",
+                        entryOrderId: String(entry.result.id),
+                        stopLossOrderId: String(tpSlResult.ids.sl),
+                        takeProfitOrderId: String(tpSlResult.ids.tp),
+                        entryPrice: entryPrice,
+                        slPrice: sl,
+                        tpPrice: tp,
+                        quantity: qty,
                         currentLevel: state.currentLevel,
                         pnl: state.pnl,
                         cumulativeFees: state.cumulativeFees,

@@ -185,7 +185,7 @@ export class MultiTimeframeAlignment {
 
         } else if (entryConfig.IS_TESTING && entryPrice > 0) {
             // 🔥 TESTING FALLBACK: If ATR is 0, use 0.5% fixed move
-            const fallbackAtr = entryPrice * 0.005; 
+            const fallbackAtr = entryPrice * 0.005;
             marketDetectorLogger.info(`[TESTING] ${symbol}: ATR is 0, using fallback TP/SL (0.5% price movement)`);
 
             if (direction === "BUY") {

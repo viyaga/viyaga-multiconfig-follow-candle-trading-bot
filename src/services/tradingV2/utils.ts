@@ -28,8 +28,8 @@ export class Utils {
      INTERNAL HELPERS
   ========================================================================= */
 
-    static isTradePending(s: IMartingaleState) { return s.lastTradeOutcome === "pending"; }
-    static isTradeResolved(s: IMartingaleState) { return s.lastTradeOutcome !== "pending"; }
+    static isTradePending(s: IMartingaleState) { return s.tradeOutcome === "pending"; }
+    static isTradeResolved(s: IMartingaleState) { return s.tradeOutcome !== "pending"; }
 
     static resolveEntryPrice(e?: any): number {
         const price =

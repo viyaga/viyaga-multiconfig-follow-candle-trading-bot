@@ -55,7 +55,7 @@ export class DeltaExchange {
 
     async updateStopLossOrder(
         id: number | string,
-        lastSlPrice: number,
+        slPrice: number,
         productId: number,
         productSymbol: string,
         orderSide: OrderSide,
@@ -80,18 +80,18 @@ export class DeltaExchange {
 
         const newSl = Number(limitPrice);
 
-        logger.debug("SL price calculation", { newSl, lastSlPrice });
+        logger.debug("SL price calculation", { newSl, slPrice });
 
         // SL unchanged
-        if (newSl === lastSlPrice) {
+        if (newSl === slPrice) {
             logger.debug("SL prices unchanged. Skipping update.");
             return { success: false, slLimitPrice: String(sl), isSlSame: true };
         }
 
         // Check wrong direction movement
         const isSlReversed =
-            (orderSide === "buy" && newSl < lastSlPrice) ||
-            (orderSide === "sell" && newSl > lastSlPrice);
+            (orderSide === "buy" && newSl < slPrice) ||
+            (orderSide === "sell" && newSl > slPrice);
 
         if (isSlReversed) {
             logger.warn("SL moved in wrong direction. Skipping update.");
@@ -117,7 +117,7 @@ export class DeltaExchange {
 
     async updateTakeProfitOrder(
         id: number | string,
-        lastTpPrice: number,
+        tpPrice: number,
         productId: number,
         productSymbol: string,
         tp: number,
@@ -129,10 +129,10 @@ export class DeltaExchange {
         const tpLimitPrice = String(Utils.clampPrice(tp));
         const newTp = Number(tpLimitPrice);
 
-        logger.debug("TP price calculation", { newTp, lastTpPrice });
+        logger.debug("TP price calculation", { newTp, tpPrice });
 
         // TP unchanged
-        if (newTp === lastTpPrice) {
+        if (newTp === tpPrice) {
             logger.debug("TP prices unchanged. Skipping update.");
             return { success: false, tpLimitPrice: String(tp), isTpSame: true };
         }

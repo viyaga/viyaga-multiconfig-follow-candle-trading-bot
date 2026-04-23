@@ -39,12 +39,12 @@ export class Data {
             productId: pid,
             status: 'open',
             currentLevel: 1,
-            lastTradeOutcome: "none",
+            tradeOutcome: "none",
             pnl: 0,
             cumulativeFees: 0,
             allTimePnl,
             allTimeFees,
-            lastTradeQuantity: TradingConfig.getConfig().INITIAL_BASE_QUANTITY
+            quantity: TradingConfig.getConfig().INITIAL_BASE_QUANTITY
         });
 
         tradingCronLogger.info(`[Data] Created new active state for ${sym} (Inherited PnL: ${allTimePnl})`, { id: st._id });

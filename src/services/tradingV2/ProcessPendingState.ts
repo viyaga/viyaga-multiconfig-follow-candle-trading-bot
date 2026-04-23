@@ -19,14 +19,14 @@ export class ProcessPendingState {
         return {
             ...s,
             currentLevel: 1,
-            lastTradeOutcome: "none",
-            lastEntryOrderId: null,
-            lastStopLossOrderId: null,
-            lastTakeProfitOrderId: null,
-            lastEntryPrice: null,
-            lastSlPrice: null,
-            lastTpPrice: null,
-            lastTradeQuantity: c.INITIAL_BASE_QUANTITY,
+            tradeOutcome: "none",
+            entryOrderId: null,
+            stopLossOrderId: null,
+            takeProfitOrderId: null,
+            entryPrice: null,
+            slPrice: null,
+            tpPrice: null,
+            quantity: c.INITIAL_BASE_QUANTITY,
             pnl: 0,
             cumulativeFees: 0,
             allTimePnl: s.allTimePnl || 0,
@@ -45,11 +45,11 @@ export class ProcessPendingState {
         const logger = getContextualLogger(tradingCronLogger, logContext);
         logger.info(`[StateTransition] Outcome: WIN | Symbol: ${s.symbol} | Net PnL (Session): ${winPnl.toFixed(2)} | Total Fees (Session): ${tempFees.toFixed(2)}`);
         logger.info(`[StateTransition] WIN Details: Incremental PnL: ${incrementalPnl.toFixed(2)}, Incremental Fees: ${incrementalFees.toFixed(2)}`);
-        
+
         const updated = await MartingaleState.findByIdAndUpdate(s.id || (s as any)._id, {
             $set: {
                 status: 'closed',
-                lastTradeOutcome: "win",
+                tradeOutcome: "win",
                 pnl: winPnl,
                 cumulativeFees: tempFees,
                 allTimePnl: (s.allTimePnl || 0) + incrementalPnl,
@@ -90,14 +90,14 @@ export class ProcessPendingState {
         const updated = await MartingaleState.findByIdAndUpdate(s.id || (s as any)._id, {
             $set: {
                 currentLevel: nextLevel,
-                lastTradeOutcome: "loss",
-                lastTradeQuantity: lots,
-                lastEntryOrderId: null,
-                lastStopLossOrderId: null,
-                lastTakeProfitOrderId: null,
-                lastEntryPrice: null,
-                lastSlPrice: null,
-                lastTpPrice: null,
+                tradeOutcome: "loss",
+                quantity: lots,
+                entryOrderId: null,
+                stopLossOrderId: null,
+                takeProfitOrderId: null,
+                entryPrice: null,
+                slPrice: null,
+                tpPrice: null,
                 pnl,
                 cumulativeFees: fees,
                 allTimePnl: (s.allTimePnl || 0) + incrementalPnl,
@@ -112,7 +112,7 @@ export class ProcessPendingState {
 
     static async markCancelled(s: IMartingaleState): Promise<IMartingaleState> {
         const updated = await MartingaleState.findByIdAndUpdate(s.id || (s as any)._id, {
-            $set: { lastTradeOutcome: "cancelled" }
+            $set: { tradeOutcome: "cancelled" }
         }, { new: true });
 
         if (!updated) throw new Error("Failed to update martingale state to cancelled");
@@ -141,21 +141,21 @@ export class ProcessPendingState {
     ): Promise<IMartingaleState> {
         const logger = getContextualLogger(tradingCronLogger, logContext);
 
-        if (!s.lastStopLossOrderId || !s.lastTakeProfitOrderId) {
+        if (!s.stopLossOrderId || !s.takeProfitOrderId) {
             logger.warn(`[PositionOutcome] Missing TP/SL order IDs for ${s.symbol} in state. Entry was CLOSED but bracket orders are unknown. Recovering status while PRESERVING martingale metrics (Level, PnL, Fees).`);
 
             return {
                 ...s,
-                lastEntryOrderId: null,
-                lastStopLossOrderId: null,
-                lastTakeProfitOrderId: null,
-                lastTradeOutcome: "none",
+                entryOrderId: null,
+                stopLossOrderId: null,
+                takeProfitOrderId: null,
+                tradeOutcome: "none",
                 cumulativeFees: s.cumulativeFees + entryCommission,
                 allTimeFees: (s.allTimeFees || 0) + entryCommission,
             };
         }
 
-        const tp = await deltaExchange.getOrderDetails(s.lastTakeProfitOrderId);
+        const tp = await deltaExchange.getOrderDetails(s.takeProfitOrderId);
         if (tp && tp.status === "CLOSED") {
             const incrementalPnl = Number(tp.meta_data?.pnl || 0);
             const incrementalFees = Number(tp.paid_commission || 0) + entryCommission;
@@ -167,7 +167,7 @@ export class ProcessPendingState {
             return await this.handleWin(s, netPnl, fees, incrementalPnl, incrementalFees, logContext);
         }
 
-        const sl = await deltaExchange.getOrderDetails(s.lastStopLossOrderId);
+        const sl = await deltaExchange.getOrderDetails(s.stopLossOrderId);
         if (sl && sl.status === "CLOSED") {
 
             const incrementalPnl = Number(sl?.meta_data?.pnl || 0);
@@ -205,7 +205,7 @@ export class ProcessPendingState {
         logContext?: any
     ): Promise<IMartingaleState> {
         const slOrder = await deltaExchange.getOrderDetails(
-            state.lastStopLossOrderId!
+            state.stopLossOrderId!
         );
 
         if (slOrder?.status !== "CANCELLED") {
@@ -224,7 +224,7 @@ export class ProcessPendingState {
             throw new Error("Entry price not found");
         }
 
-        const tp = state.lastTpPrice;
+        const tp = state.tpPrice;
         if (!tp) {
             throw new Error("[placeCancelledBracketOrders] TP price not found in state");
         }
@@ -244,10 +244,10 @@ export class ProcessPendingState {
             },
             {
                 $set: {
-                    lastSlPrice: sl,
-                    lastTpPrice: tp,
-                    lastStopLossOrderId: bracketRes.ids.sl,
-                    lastTakeProfitOrderId: bracketRes.ids.tp,
+                    slPrice: sl,
+                    tpPrice: tp,
+                    stopLossOrderId: bracketRes.ids.sl,
+                    takeProfitOrderId: bracketRes.ids.tp,
                 },
             },
             { new: true }
@@ -271,7 +271,7 @@ export class ProcessPendingState {
                 userId: state.userId,
                 symbol: state.symbol,
             },
-            { $set: { lastSlPrice: sl, lastTpPrice: tp } },
+            { $set: { slPrice: sl, tpPrice: tp } },
             { new: true }
         );
 
@@ -295,14 +295,14 @@ export class ProcessPendingState {
         const logger = getContextualLogger(tradingCycleErrorLogger, logContext);
         try {
 
-            if (!s.lastStopLossOrderId || !s.lastSlPrice) throw new Error("SL order or price missing in state");
+            if (!s.stopLossOrderId || !s.slPrice) throw new Error("SL order or price missing in state");
 
             const sl = mtf.sl;
             const tp = mtf.tp;
 
             const updateRes = await deltaExchange.updateStopLossOrder(
-                s.lastStopLossOrderId,
-                s.lastSlPrice,
+                s.stopLossOrderId,
+                s.slPrice,
                 TradingConfig.getConfig().PRODUCT_ID,
                 sym,
                 e.side,
@@ -310,11 +310,11 @@ export class ProcessPendingState {
                 logContext
             );
 
-            let tpUpdatedValue = s.lastTpPrice || 0;
-            if (s.lastTakeProfitOrderId && s.lastTpPrice && tp) {
+            let tpUpdatedValue = s.tpPrice || 0;
+            if (s.takeProfitOrderId && s.tpPrice && tp) {
                 const updateTpRes = await deltaExchange.updateTakeProfitOrder(
-                    s.lastTakeProfitOrderId,
-                    s.lastTpPrice,
+                    s.takeProfitOrderId,
+                    s.tpPrice,
                     TradingConfig.getConfig().PRODUCT_ID,
                     sym,
                     tp,
@@ -325,7 +325,7 @@ export class ProcessPendingState {
                 }
             }
 
-            if (!updateRes.success && updateRes.isSlSame && tpUpdatedValue === s.lastTpPrice) return s;
+            if (!updateRes.success && updateRes.isSlSame && tpUpdatedValue === s.tpPrice) return s;
             if (!updateRes.success && updateRes.isSlReversed) return s;
 
             if (!updateRes.success)
@@ -353,8 +353,8 @@ export class ProcessPendingState {
         logger.info(`[Recovery] Detected open position for ${s.symbol} but missing TP/SL IDs in state. Re-placing bracket orders...`);
 
         // Use existing prices from state if available, otherwise fallback to MTF
-        const tp = s.lastTpPrice || mtf.tp;
-        const sl = s.lastSlPrice || mtf.sl;
+        const tp = s.tpPrice || mtf.tp;
+        const sl = s.slPrice || mtf.sl;
 
         if (!tp || !sl) {
             throw new Error(`[Recovery] Invalid TP/SL during recovery: TP=${tp}, SL=${sl}`);
@@ -370,10 +370,10 @@ export class ProcessPendingState {
             { tradingBotId: s.tradingBotId, userId: s.userId, symbol: s.symbol },
             {
                 $set: {
-                    lastStopLossOrderId: tpSlResult.ids.sl,
-                    lastTakeProfitOrderId: tpSlResult.ids.tp,
-                    lastSlPrice: sl,
-                    lastTpPrice: tp
+                    stopLossOrderId: tpSlResult.ids.sl,
+                    takeProfitOrderId: tpSlResult.ids.tp,
+                    slPrice: sl,
+                    tpPrice: tp
                 }
             },
             { new: true }
@@ -432,7 +432,7 @@ export class ProcessPendingState {
 
         if (hasOpenPosition) {
             // Safety Check: If position is open but TP/SL IDs are missing, re-place them
-            if (!s.lastStopLossOrderId || !s.lastTakeProfitOrderId) {
+            if (!s.stopLossOrderId || !s.takeProfitOrderId) {
                 return this.recoverMissingBracketOrders(s, e, mtf, logContext);
             }
             return s;
