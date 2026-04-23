@@ -89,6 +89,7 @@ export class ProcessPendingState {
 
         const updated = await MartingaleState.findByIdAndUpdate(s.id || (s as any)._id, {
             $set: {
+                status: 'closed',
                 currentLevel: nextLevel,
                 tradeOutcome: "loss",
                 quantity: lots,

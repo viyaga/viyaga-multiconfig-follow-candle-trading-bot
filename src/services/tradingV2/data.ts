@@ -31,6 +31,13 @@ export class Data {
         const allTimePnl = lastClosed?.allTimePnl || 0;
         const allTimeFees = lastClosed?.allTimeFees || 0;
 
+        // If the last session was a loss, we inherit its level and debt to continue Martingale cycle
+        const isLoss = lastClosed?.tradeOutcome === 'loss';
+        const currentLevel = isLoss ? (lastClosed?.currentLevel || 1) : 1;
+        const sessionPnl = isLoss ? (lastClosed?.pnl || 0) : 0;
+        const sessionFees = isLoss ? (lastClosed?.cumulativeFees || 0) : 0;
+        const nextQuantity = isLoss ? (lastClosed?.quantity || 0) : TradingConfig.getConfig().INITIAL_BASE_QUANTITY;
+
         // 3. Create a new open state
         st = await MartingaleState.create({
             tradingBotId,
@@ -38,13 +45,13 @@ export class Data {
             symbol: sym,
             productId: pid,
             status: 'open',
-            currentLevel: 1,
+            currentLevel,
             tradeOutcome: "none",
-            pnl: 0,
-            cumulativeFees: 0,
+            pnl: sessionPnl,
+            cumulativeFees: sessionFees,
             allTimePnl,
             allTimeFees,
-            quantity: TradingConfig.getConfig().INITIAL_BASE_QUANTITY
+            quantity: nextQuantity || TradingConfig.getConfig().INITIAL_BASE_QUANTITY
         });
 
         tradingCronLogger.info(`[Data] Created new active state for ${sym} (Inherited PnL: ${allTimePnl})`, { id: st._id });

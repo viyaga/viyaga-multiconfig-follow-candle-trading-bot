@@ -61,7 +61,7 @@ const MartingaleStateSchema: Schema = new Schema(
     }
 );
 
-MartingaleStateSchema.index({ updatedAt: 1 });
+MartingaleStateSchema.index({ updatedAt: 1, tradingBotId: 1 });
 MartingaleStateSchema.index({ tradingBotId: 1, status: 1 });
 
 // Export the model with generic type parameter
