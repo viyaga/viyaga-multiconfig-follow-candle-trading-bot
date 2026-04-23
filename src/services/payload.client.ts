@@ -23,4 +23,23 @@ export class PayloadClient {
             throw error;
         }
     }
+
+    static async bulkUpsertTradeStates(data: any[]) {
+        try {
+            const url = `${this.baseUrl}/api/trade-states/bulk`;
+            const headers = this.apiKey ? { 'Authorization': `users API-Key ${this.apiKey}` } : {};
+            
+            const response = await axios.post(url, data, { 
+                headers: {
+                    ...headers,
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            return response.data;
+        } catch (error: any) {
+            console.error(`[PayloadClient] Trade states bulk sync failed:`, error.response?.data || error.message);
+            throw error;
+        }
+    }
 }
