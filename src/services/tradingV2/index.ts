@@ -9,6 +9,14 @@ import { TradeState } from "../../models/tradeState.model";
 import { MultiTimeframeAlignment } from "./market-detector/multi-timeframe";
 
 export class TradingV2 {
+    private static candleCache = new Map<string, Promise<{ target: TargetCandle; candles: Candle[] } | null>>();
+    private static priceCache = new Map<string, Promise<number>>();
+
+    static clearCaches() {
+        this.candleCache.clear();
+        this.priceCache.clear();
+        tradingCronLogger.debug(`[TradingV2] Market data caches cleared`);
+    }
 
     /* =========================================================================
        TARGET CANDLE
@@ -23,52 +31,66 @@ export class TradingV2 {
         }, timeframeType: 'ENTRY' | 'CONFIRMATION' | 'STRUCTURE'): Promise<{ target: TargetCandle; candles: Candle[] } | null> {
 
         const timeframe = timeframeType === 'ENTRY' ? c.TIMEFRAME : timeframeType === 'CONFIRMATION' ? c.CONFIRMATION_TIMEFRAME : c.STRUCTURE_TIMEFRAME;
-        const dur = Utils.getTimeframeDurationMs(timeframe);
-        const now = Date.now();
+        const cacheKey = `${c.SYMBOL}:${timeframe}`;
 
-        const currentCandleStart = Math.floor(now / dur) * dur;
-
-        const cd = await deltaExchange.getCandlestickData(
-            c.SYMBOL,
-            timeframe,
-            currentCandleStart - 80 * dur,
-            now
-        );
-
-        const candles = Utils.parseCandleResponse(cd);
-
-        if (!candles.length) return null;
-
-        // Ensure ascending order
-        candles.sort((a, b) => a.timestamp - b.timestamp);
-
-        // Filter only fully closed candles
-        const closedCandles = candles.filter(
-            candle => candle.timestamp < currentCandleStart
-        );
-
-        if (!closedCandles.length) {
-            tradingCycleErrorLogger.error(`[getTargetCandle:${c.SYMBOL}] No closed candles found`);
-            return null;
+        if (this.candleCache.has(cacheKey)) {
+            return this.candleCache.get(cacheKey)!;
         }
 
-        const target = closedCandles[closedCandles.length - 1];
+        const fetchPromise = (async () => {
+            const dur = Utils.getTimeframeDurationMs(timeframe);
+            const now = Date.now();
+            const currentCandleStart = Math.floor(now / dur) * dur;
 
-        return {
-            target: {
-                ...target,
-                color: Utils.getCandleColor(target)
-            },
-            candles: closedCandles
-        };
+            const cd = await deltaExchange.getCandlestickData(
+                c.SYMBOL,
+                timeframe,
+                currentCandleStart - 80 * dur,
+                now
+            );
+
+            const candles = Utils.parseCandleResponse(cd);
+            if (!candles.length) return null;
+
+            candles.sort((a, b) => a.timestamp - b.timestamp);
+            const closedCandles = candles.filter(
+                candle => candle.timestamp < currentCandleStart
+            );
+
+            if (!closedCandles.length) {
+                tradingCycleErrorLogger.error(`[getTargetCandle:${c.SYMBOL}] No closed candles found`);
+                return null;
+            }
+
+            const target = closedCandles[closedCandles.length - 1];
+            return {
+                target: {
+                    ...target,
+                    color: Utils.getCandleColor(target)
+                },
+                candles: closedCandles
+            };
+        })();
+
+        this.candleCache.set(cacheKey, fetchPromise);
+        return fetchPromise;
     }
 
     private static async getCurrentPrice(sym: string): Promise<number> {
-        const ticker = await deltaExchange.getTickerData(sym);
-        if (!ticker) {
-            throw new Error(`[workflow] No ticker data for ${sym}`);
+        if (this.priceCache.has(sym)) {
+            return this.priceCache.get(sym)!;
         }
-        return Number(ticker.mark_price);
+
+        const fetchPromise = (async () => {
+            const ticker = await deltaExchange.getTickerData(sym);
+            if (!ticker) {
+                throw new Error(`[workflow] No ticker data for ${sym}`);
+            }
+            return Number(ticker.mark_price);
+        })();
+
+        this.priceCache.set(sym, fetchPromise);
+        return fetchPromise;
     }
 
     /* =========================================================================

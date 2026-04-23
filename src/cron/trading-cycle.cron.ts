@@ -18,11 +18,15 @@ const tradingCycleCronJob = (): void => {
         let totalSucceeded = 0;
         let totalFailed = 0;
         let offset = 0;
-        const LIMIT = 500;
+        const LIMIT = 100; // Reduced for better stability
+        const CONCURRENCY = 20; // Max parallel bots
 
         tradingCronLogger.info(`${'='.repeat(80)}`);
         tradingCronLogger.info(`[TradingCron] ========== CYCLE START ==========`);
         tradingCronLogger.info(`${'='.repeat(80)}`);
+
+        // Clear market data caches for the new cycle
+        TradingV2.clearCaches();
 
         try {
             tradingCronLogger.info(`[TradingCron] Fetching trading configs with LIMIT=${LIMIT}, starting at offset=${offset}...`);
@@ -40,16 +44,31 @@ const tradingCycleCronJob = (): void => {
                     break;
                 }
 
-                tradingCronLogger.info(`[TradingCron] Processing batch of ${configs.length} configs...`);
-                const results = await Promise.allSettled(
-                    configs.map(cfg => {
-                        tradingCronLogger.info(`[TradingCron] Starting cycle for config: ${cfg.id} (${cfg.SYMBOL})`);
+                tradingCronLogger.info(`[TradingCron] Processing batch of ${configs.length} configs with CONCURRENCY=${CONCURRENCY}...`);
 
-                        return TradingConfig.configStore.run(cfg, async () => {
-                            return TradingV2.runTradingCycle(cfg);
-                        });
-                    })
-                );
+                // 🚀 Concurrency-limited execution pool
+                const processWithLimit = async (cfgs: any[]) => {
+                    const results: any[] = [];
+                    const executing = new Set<Promise<any>>();
+
+                    for (const cfg of cfgs) {
+                        const p: any = (async () => {
+                            tradingCronLogger.info(`[TradingCron] Starting cycle for config: ${cfg.id} (${cfg.SYMBOL})`);
+                            return TradingConfig.configStore.run(cfg, () => TradingV2.runTradingCycle(cfg));
+                        })();
+
+                        results.push(p);
+                        executing.add(p);
+                        p.finally(() => executing.delete(p));
+
+                        if (executing.size >= CONCURRENCY) {
+                            await Promise.race(executing);
+                        }
+                    }
+                    return Promise.allSettled(results);
+                };
+
+                const results = await processWithLimit(configs);
 
                 // Count successes and failures
                 results.forEach((result, index) => {
