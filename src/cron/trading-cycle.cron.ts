@@ -5,6 +5,7 @@ import { TradingV2 } from "../services/tradingV2";
 import { Data } from "../services/tradingV2/data";
 import { TradingConfig } from "../services/tradingV2/config";
 import { tradingCronLogger } from "../services/tradingV2/logger";
+import { BulkSyncService } from "../services/bulkSync.service";
 
 /* ============================================================================
  * Cron Scheduler
@@ -104,6 +105,12 @@ const tradingCycleCronJob = (): void => {
             tradingCronLogger.info(`[TradingCron] Total Processed: ${totalProcessed}`);
             tradingCronLogger.info(`[TradingCron] Succeeded: ${totalSucceeded} | Failed: ${totalFailed}`);
             tradingCronLogger.info(`[TradingCron] Duration: ${duration}ms (${(duration / 1000).toFixed(2)}s)`);
+            tradingCronLogger.info(`${'='.repeat(80)}`);
+            
+            // 🚀 Trigger Payload sync after the cycle finishes
+            tradingCronLogger.info(`[TradingCron] Chaining Payload synchronization...`);
+            await BulkSyncService.runFullSync();
+            
             tradingCronLogger.info(`${'='.repeat(80)}`);
         }
     });
