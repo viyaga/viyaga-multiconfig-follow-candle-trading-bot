@@ -103,7 +103,7 @@ export class Utils {
             : sl * (1 + c.SL_LIMIT_BUFFER_PERCENT / 100); // short → buy SL
 
         return {
-            product_id: c.PRODUCT_ID,
+            product_id: Number(c.PRODUCT_ID),
             product_symbol: c.SYMBOL,
             bracket_stop_trigger_method: "last_traded_price",
 

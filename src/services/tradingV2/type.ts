@@ -17,6 +17,11 @@ export interface ConfigType {
     LEVERAGE: number,
     INITIAL_BASE_QUANTITY: number,
     MAX_QUANTITY: number,
+    MIN_TRADE_SIZE: number,
+    MAX_TRADE_SIZE: number,
+    DAILY_LOSS_LIMIT: number,
+    MAX_CONCURRENT_TRADES: number,
+    CAPITAL_AMOUNT: number,
     TRADING_MODE: "conservative" | "balanced" | "aggressive" | "meme"
     SL_TRIGGER_BUFFER_PERCENT: number,
     SL_LIMIT_BUFFER_PERCENT: number;
@@ -262,4 +267,21 @@ export interface EditOrderPayload {
     // The user requirement specifically asked to update stop price and limit price ONLY.
     // However, the API might require other fields. The sample shows size, mmp, post_only etc.
     // Minimally we need what the user asked for.
+}
+
+export interface ActiveSubscribedBot {
+    id: string
+    USER_ID: string
+    API_KEY: string
+    SECRET_KEY: string
+    SYMBOL: string
+    PRODUCT_ID: string | number
+    LEVERAGE: number
+    MIN_TRADE_SIZE: number
+    MAX_TRADE_SIZE: number
+    TRADING_MODE: "conservative" | "balanced" | "aggressive" | "meme"
+    MIN_RR: number
+    DAILY_LOSS_LIMIT: number
+    MAX_CONCURRENT_TRADES: number
+    CAPITAL_AMOUNT: number
 }

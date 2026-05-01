@@ -134,6 +134,16 @@ export class TradingV2 {
             const currentPrice = await TradingV2.getCurrentPrice(symbol);
             cronLogger.info(`[MarketPrice] Current Mark Price: ${currentPrice}`);
 
+            // ───────────────── CONVERT USD TO LOTS ─────────────────
+            if (c.MIN_TRADE_SIZE && currentPrice > 0) {
+                c.INITIAL_BASE_QUANTITY = Math.max(1, Math.floor(c.MIN_TRADE_SIZE / (currentPrice * c.LOT_SIZE)));
+                cronLogger.info(`[Config] Converted MIN_TRADE_SIZE ($${c.MIN_TRADE_SIZE}) to INITIAL_BASE_QUANTITY (${c.INITIAL_BASE_QUANTITY} lots)`);
+            }
+            if (c.MAX_TRADE_SIZE && currentPrice > 0) {
+                c.MAX_QUANTITY = Math.max(1, Math.floor(c.MAX_TRADE_SIZE / (currentPrice * c.LOT_SIZE)));
+                cronLogger.info(`[Config] Converted MAX_TRADE_SIZE ($${c.MAX_TRADE_SIZE}) to MAX_QUANTITY (${c.MAX_QUANTITY} lots)`);
+            }
+
             // ───────────────── MULTI TIMEFRAME ALIGNMENT ─────────────────
             const configConfirmation: ConfigType = { ...c, TIMEFRAME: c.CONFIRMATION_TIMEFRAME };
             const configStructure: ConfigType = { ...c, TIMEFRAME: c.STRUCTURE_TIMEFRAME };
@@ -210,6 +220,13 @@ export class TradingV2 {
                     cronLogger.info(`State was closed. Fetching/Creating new active state...`);
                     state = await Data.getOrCreateState(c.id, c.USER_ID, c.SYMBOL, c.PRODUCT_ID);
                 }
+            }
+
+            // ───────────────── DAILY LOSS CHECK ─────────────────
+            const dailyLossLimitUSD = state.dailyLossLimitUSD || (c.CAPITAL_AMOUNT * (c.DAILY_LOSS_LIMIT / 100));
+            if (state.dailyPnl < 0 && Math.abs(state.dailyPnl) >= dailyLossLimitUSD && dailyLossLimitUSD > 0) {
+                skipLogger.warn(`[DailyLoss] SKIP: Daily loss limit reached for ${symbol}. Current Loss: $${Math.abs(state.dailyPnl).toFixed(2)}, Limit: $${dailyLossLimitUSD.toFixed(2)} (${c.DAILY_LOSS_LIMIT}%)`);
+                return;
             }
 
             const now = new Date();

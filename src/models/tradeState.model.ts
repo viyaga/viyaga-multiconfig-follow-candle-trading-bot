@@ -19,6 +19,8 @@ export interface ITradeState {
     tradeOutcome: 'win' | 'loss' | 'pending' | 'cancelled' | 'partialWin' | 'none';
     pnl: number;
     cumulativeFees: number;
+    dailyPnl: number;
+    dailyLossLimitUSD: number;
     allTimePnl: number;
     allTimeFees: number;
     side?: 'buy' | 'sell' | null;
@@ -65,6 +67,8 @@ const TradeStateSchema: Schema = new Schema(
         quantity: { type: Number, default: null },
         pnl: { type: Number, required: true, default: 0 },
         cumulativeFees: { type: Number, required: true, default: 0 },
+        dailyPnl: { type: Number, required: true, default: 0 },
+        dailyLossLimitUSD: { type: Number, required: true, default: 0 },
         allTimePnl: { type: Number, required: true, default: 0 },
         allTimeFees: { type: Number, required: true, default: 0 },
         lastTradeSettledAt: { type: Date, default: null },

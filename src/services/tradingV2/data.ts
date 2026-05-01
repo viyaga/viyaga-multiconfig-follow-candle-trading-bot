@@ -3,7 +3,7 @@ import { env } from "../../config";
 import { ITradeState, TradeState } from "../../models/tradeState.model";
 import { TradingConfig } from "./config";
 import { configDebugLogger, tradingCronLogger } from "./logger";
-import { ConfigType } from "./type";
+import { ConfigType, ActiveSubscribedBot } from "./type";
 import { ProcessPendingState } from "./ProcessPendingState";
 
 export class Data {
@@ -12,7 +12,7 @@ export class Data {
         tradingBotId: string, 
         userId: string, 
         sym: string, 
-        pid: number, 
+        pid: number | string, 
         multiplier: number = 0, 
         currentPrice: number = 0
     ): Promise<ITradeState> {
@@ -30,7 +30,7 @@ export class Data {
                     new: { symbol: sym, pid, userId }
                 });
                 st.symbol = sym;
-                st.productId = pid;
+                st.productId = Number(pid);
                 st.userId = userId;
                 await st.save();
             }
@@ -45,6 +45,19 @@ export class Data {
 
         const allTimePnl = lastClosed?.allTimePnl || 0;
         const allTimeFees = lastClosed?.allTimeFees || 0;
+
+        // 🗓 Daily PnL Reset Logic (UTC)
+        const now = new Date();
+        const lastUpdate = lastClosed?.updatedAt ? new Date(lastClosed.updatedAt) : null;
+        const isSameDay = lastUpdate &&
+            lastUpdate.getUTCDate() === now.getUTCDate() &&
+            lastUpdate.getUTCMonth() === now.getUTCMonth() &&
+            lastUpdate.getUTCFullYear() === now.getUTCFullYear();
+
+        const dailyPnl = isSameDay ? (lastClosed?.dailyPnl || 0) : 0;
+        
+        const cfg = TradingConfig.getConfig();
+        const dailyLossLimitUSD = cfg.CAPITAL_AMOUNT * (cfg.DAILY_LOSS_LIMIT / 100);
 
         // If the last session was a loss, we inherit its level and calculate next recovery quantity
         const isLoss = lastClosed?.tradeOutcome === 'loss';
@@ -68,12 +81,14 @@ export class Data {
             tradingBotId,
             userId,
             symbol: sym,
-            productId: pid,
+            productId: Number(pid),
             status: 'open',
             currentLevel,
             tradeOutcome: "none",
             pnl: sessionPnl,
             cumulativeFees: sessionFees,
+            dailyPnl,
+            dailyLossLimitUSD,
             allTimePnl,
             allTimeFees,
             quantity
@@ -106,7 +121,7 @@ export class Data {
             throw new Error(`[fetchTradingConfigs] Failed (${res.status})`);
         }
 
-        const bots: any = await res.json();
+        const bots = (await res.json()) as ActiveSubscribedBot[];
         tradingCronLogger.info(`[fetchTradingConfigs] API returned ${Array.isArray(bots) ? bots.length : 'non-array'} bots`);
 
         if (!Array.isArray(bots)) {
@@ -118,7 +133,7 @@ export class Data {
 
         // 1. Identify unique symbols to avoid redundant API calls
         const uniqueMappedSymbols = [...new Set(
-            bots.map((bot: Partial<ConfigType>) => this.mapSymbol(bot.SYMBOL || "")).filter(Boolean) as string[]
+            bots.map((bot) => this.mapSymbol(bot.SYMBOL || "")).filter(Boolean) as string[]
         )];
 
         tradingCronLogger.info(`[fetchTradingConfigs] Found ${uniqueMappedSymbols.length} unique symbols across ${bots.length} bots. Fetching product data...`);
@@ -147,15 +162,17 @@ export class Data {
         );
 
         // 3. Merge product data into each bot configuration
-        const mergedConfigs: ConfigType[] = bots.map((bot: any) => {
-            const rawSymbol = bot.SYMBOL || bot.symbol;
+        const mergedConfigs: ConfigType[] = bots.map((bot) => {
+            const rawSymbol = bot.SYMBOL;
             const mappedSymbol = this.mapSymbol(rawSymbol);
 
             const config: ConfigType = {
                 ...defaultConfig,
                 ...bot,
-                id: bot.id || bot._id
-            };
+                id: bot.id,
+                INITIAL_BASE_QUANTITY: 0, // Will be calculated in TradingV2.runTradingCycle
+                MAX_QUANTITY: 0,           // Will be calculated in TradingV2.runTradingCycle
+            } as ConfigType;
 
             const p = productDataMap.get(mappedSymbol);
             if (p) {
@@ -166,7 +183,7 @@ export class Data {
 
                 config.PRICE_DECIMAL_PLACES = decimals;
                 config.LOT_SIZE = Number(p.contract_value);
-                config.PRODUCT_ID = p.id;
+                config.PRODUCT_ID = Number(p.id || bot.PRODUCT_ID);
                 config.SYMBOL = p.symbol;
 
                 tradingCronLogger.info(`[fetchTradingConfigs] ✓ Applied product data to bot ${config.id} [${rawSymbol}] (ID: ${p.id}, Decimals: ${decimals}, Lot: ${config.LOT_SIZE})`);

@@ -56,7 +56,7 @@ export class DeltaExchange {
     async updateStopLossOrder(
         id: number | string,
         slPrice: number,
-        productId: number,
+        productId: number | string,
         productSymbol: string,
         orderSide: OrderSide,
         sl: number,
@@ -101,7 +101,7 @@ export class DeltaExchange {
 
         const payload = {
             id,
-            product_id: productId,
+            product_id: Number(productId),
             product_symbol: productSymbol,
             limit_price: limitPrice,
             stop_price: stopPrice,
@@ -119,7 +119,7 @@ export class DeltaExchange {
     async updateTakeProfitOrder(
         id: number | string,
         tpPrice: number,
-        productId: number,
+        productId: number | string,
         productSymbol: string,
         tp: number,
         logContext?: any
@@ -140,7 +140,7 @@ export class DeltaExchange {
 
         const payload = {
             id,
-            product_id: productId,
+            product_id: Number(productId),
             product_symbol: productSymbol,
             limit_price: tpLimitPrice,
             stop_price: tpLimitPrice,
@@ -157,7 +157,7 @@ export class DeltaExchange {
 
     async placeEntryOrder(symbol: string, side: OrderSide, qty: number, cid?: string) {
         const c = TradingConfig.getConfig();
-        return deltaExchange.signedRequest("POST", "/orders", { product_id: c.PRODUCT_ID, product_symbol: symbol, side, size: Math.floor(qty), order_type: "market_order", time_in_force: "gtc", client_order_id: cid || `viy-${Date.now()}` });
+        return deltaExchange.signedRequest("POST", "/orders", { product_id: Number(c.PRODUCT_ID), product_symbol: symbol, side, size: Math.floor(qty), order_type: "market_order", time_in_force: "gtc", client_order_id: cid || `viy-${Date.now()}` });
     }
 
     async cancelStopOrders(f: CancelAllOrdersFilter): Promise<{ success: boolean }> {
@@ -166,7 +166,7 @@ export class DeltaExchange {
         return (await this.signedRequest("DELETE", "/orders/all", p))?.success ? { success: true } : { success: false };
     }
 
-    async getPositions(pid?: number): Promise<Position | Position[] | null> {
+    async getPositions(pid?: number | string): Promise<Position | Position[] | null> {
         return (await this.signedRequest("GET", "/positions", undefined, pid ? new URLSearchParams({ product_id: String(pid) }) : undefined))?.result ?? null;
     }
 
