@@ -21,8 +21,13 @@ export class ProcessPendingState {
 
     static calculateMetrics(entryPrice: number, tpPrice: number, slPrice: number, leverage: number) {
         if (!entryPrice || !tpPrice || !slPrice) return {};
+        
+        const c = TradingConfig.getConfig();
         const tpDist = Math.abs(tpPrice - entryPrice);
-        const slDist = Math.abs(entryPrice - slPrice);
+        const rawSlDist = Math.abs(entryPrice - slPrice);
+        
+        // 🔥 Include SL buffer in risk for accurate metrics
+        const slDist = rawSlDist + (slPrice * c.SL_LIMIT_BUFFER_PERCENT / 100);
 
         return {
             tpPercentage: (tpDist / entryPrice) * 100 * leverage,

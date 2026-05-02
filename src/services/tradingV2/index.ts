@@ -158,6 +158,7 @@ export class TradingV2 {
                 c,
                 configConfirmation,
                 configStructure,
+                currentPrice,
                 { cycleId, tradingBotId }
             );
 

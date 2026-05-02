@@ -34,6 +34,7 @@ export class MultiTimeframeAlignment {
         entryConfig: ConfigType,
         confirmationConfig: ConfigType,
         structureConfig: ConfigType,
+        currentPriceParam?: number,
         logContext?: any
     ): TripleTFResult {
 
@@ -121,7 +122,8 @@ export class MultiTimeframeAlignment {
         let slPerc = 0;
         const leverage = entryConfig.LEVERAGE;
 
-        const entryPrice = entryTarget.close;
+        // 🔥 Use current price if provided, otherwise fallback to candle close
+        const entryPrice = currentPriceParam && currentPriceParam > 0 ? currentPriceParam : entryTarget.close;
         const atr = calculateATR(entryCandles, 14);
 
         if (atr > 0 && entryPrice > 0) {
@@ -169,13 +171,15 @@ export class MultiTimeframeAlignment {
                 sl = parseFloat((entryPrice + atr * slATR).toFixed(entryConfig.PRICE_DECIMAL_PLACES));
                 tp = parseFloat((entryPrice - atr * tpATR).toFixed(entryConfig.PRICE_DECIMAL_PLACES));
 
-                // 🔥 MAX SL PRICE MOVEMENT (1%)
-                const maxSlDist = entryPrice * 0.01;
+                // 🔥 MAX SL PRICE MOVEMENT (2%)
+                const maxSlDist = entryPrice * 0.02;
                 const maxSlPrice = parseFloat((entryPrice + maxSlDist).toFixed(entryConfig.PRICE_DECIMAL_PLACES));
                 sl = Math.min(sl, maxSlPrice);
             }
 
-            const risk = Math.abs(entryPrice - sl);
+            const rawRisk = Math.abs(entryPrice - sl);
+            // 🔥 Include SL buffer in risk calculation for accurate RR
+            const risk = rawRisk + (sl * entryConfig.SL_LIMIT_BUFFER_PERCENT / 100);
             const reward = Math.abs(tp - entryPrice);
 
             rr = risk > 0 ? reward / risk : 0;
