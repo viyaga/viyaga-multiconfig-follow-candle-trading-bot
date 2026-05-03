@@ -167,8 +167,7 @@ export class TradingV2 {
                 cronLogger.info(`[MTF] Price Levels target: TP=${mtf.tp}, SL=${mtf.sl}, RR=${mtf.rr.toFixed(2)}`);
             }
 
-            // const scoreMultiplier = mtf.finalScore > 85 ? 1.5 : mtf.finalScore > 80 ? 1 : mtf.finalScore > 75 ? 0.5 : 0;
-            const scoreMultiplier = 0;
+            const scoreMultiplier = mtf.finalScore > 85 ? 1.5 : mtf.finalScore > 80 ? 1 : mtf.finalScore > 75 ? 0.5 : 0;
 
             // ───────────────── STATE ─────────────────
             let state = await Data.getOrCreateState(
