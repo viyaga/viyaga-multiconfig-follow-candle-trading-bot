@@ -108,6 +108,9 @@ export class BulkSyncService {
             confirmationProbability: 1,
             structureProbability: 1,
             tradingMode: 1,
+            exitPrice: 1,
+            dailyPnl: 1,
+            tradeAmountInUse: 1,
             createdAt: 1,
             updatedAt: 1
         })
