@@ -7,6 +7,8 @@ import { ProcessPendingState } from "./ProcessPendingState";
 import { TradeState } from "../../models/tradeState.model";
 
 import { MultiTimeframeAlignment } from "./market-detector/multi-timeframe";
+import { BotError } from "../../models/botError.model";
+import errorLogger from "../../utils/errorLogger";
 
 export class TradingV2 {
     private static candleCache = new Map<string, Promise<{ target: TargetCandle; candles: Candle[] } | null>>();
@@ -374,7 +376,44 @@ export class TradingV2 {
                 `✓ TRADE COMPLETED SUCCESSFULLY\n`
             );
 
+            // ───────────────── CLEAR LOCAL ERROR ─────────────────
+            // Mark the bot as error-free locally so it gets synced to clear on server
+            await BotError.findOneAndUpdate(
+                { botId: tradingBotId },
+                { message: "", updatedAt: new Date() },
+                { upsert: true }
+            );
+
         } catch (err) {
+            const errorStr = String(err).toLowerCase();
+            let errorMessage = "";
+            let shouldStop = false;
+
+            if (errorStr.includes("insufficient_balance") || errorStr.includes("insufficient balance")) {
+                errorMessage = "Insufficient Balance: Please add funds to your Delta Exchange account.";
+                shouldStop = true;
+            } else if (errorStr.includes("ip_not_whitelisted") || errorStr.includes("ip not whitelisted")) {
+                errorMessage = "IP Not Whitelisted: Ensure your Delta API key allows our server IP.";
+                shouldStop = true;
+            } else if (errorStr.includes("api_key_invalid") || errorStr.includes("invalid api key")) {
+                errorMessage = "Invalid API Key: Please check your exchange connection settings.";
+                shouldStop = true;
+            }
+
+            if (errorMessage) {
+                cronLogger.error(`[TradingCycle] Specific Error Detected: ${errorMessage}`);
+                await BotError.findOneAndUpdate(
+                    { botId: tradingBotId },
+                    { 
+                        message: errorMessage, 
+                        status: shouldStop ? 'stopped' : undefined, 
+                        isActive: shouldStop ? false : undefined,
+                        updatedAt: new Date()
+                    },
+                    { upsert: true }
+                );
+            }
+
             errorLogger.error(
                 `✗ ERROR in trading cycle:`,
                 err as any

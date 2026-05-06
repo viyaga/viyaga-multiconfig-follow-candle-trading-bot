@@ -1,5 +1,6 @@
 import { SyncStatus } from '../models/syncStatus.model';
 import { TradeState } from '../models/tradeState.model';
+import { BotError } from '../models/botError.model';
 import { PayloadClient } from './payload.client';
 
 export class BulkSyncService {
@@ -152,13 +153,65 @@ export class BulkSyncService {
         }
     }
 
+    static async syncBotStates() {
+        const collectionKey = 'bot-states';
+        const now = new Date();
+
+        let status = await SyncStatus.findOne({ collectionName: collectionKey });
+        if (!status) {
+            status = await SyncStatus.create({
+                collectionName: collectionKey,
+                lastSyncedAt: new Date(0)
+            });
+        }
+
+        const lastSync = status.lastSyncedAt;
+
+        // Find bot errors updated since last sync
+        const pendingUpdates = await BotError.find({
+            updatedAt: { $gt: lastSync, $lte: now }
+        }).lean();
+
+        if (pendingUpdates.length === 0) {
+            status.lastSyncedAt = now;
+            await status.save();
+            return 0;
+        }
+
+        const updates = pendingUpdates.map(u => ({
+            botId: u.botId,
+            errorMessage: u.message,
+            status: u.status,
+            isActive: u.isActive
+        }));
+
+        try {
+            const chunkSize = 500;
+            for (let i = 0; i < updates.length; i += chunkSize) {
+                await PayloadClient.bulkUpdateBots(
+                    updates.slice(i, i + chunkSize)
+                );
+            }
+
+            status.lastSyncedAt = now;
+            await status.save();
+
+            return updates.length;
+
+        } catch (err: any) {
+            console.error('[BulkSync] BotStates Failed:', err.message);
+            return 0;
+        }
+    }
+
     static async runFullSync() {
         try {
             const pnlCount = await this.syncBotPnl();
             const tradeCount = await this.syncTradeStates();
+            const stateCount = await this.syncBotStates();
 
-            if (pnlCount > 0 || tradeCount > 0) {
-                console.log(`[BulkSync] Synced: ${pnlCount} PNL updates, ${tradeCount} trade states`);
+            if (pnlCount > 0 || tradeCount > 0 || stateCount > 0) {
+                console.log(`[BulkSync] Synced: ${pnlCount} PNL, ${tradeCount} trades, ${stateCount} bot states`);
             }
         } catch (err) {
             console.error('[BulkSync] Error:', err);
