@@ -4,7 +4,11 @@ import { BotError } from '../models/botError.model';
 import { PayloadClient } from './payload.client';
 
 export class BulkSyncService {
+    private static isSyncing = false;
 
+    /**
+     * Syncs latest PNL values for all active bots using DB-level aggregation streaming.
+     */
     static async syncBotPnl() {
         const collectionKey = 'trading-bot-pnl';
         const now = new Date();
@@ -19,56 +23,62 @@ export class BulkSyncService {
 
         const lastSync = status.lastSyncedAt;
 
-        // 🚀 DB-level aggregation (NO in-memory dedupe)
-        const stats = await TradeState.aggregate([
+        // 🚀 Stream aggregation to avoid loading all stats into memory
+        const cursor = TradeState.aggregate([
             {
                 $match: {
                     updatedAt: { $gt: lastSync, $lte: now }
                 }
             },
             {
-                $sort: { updatedAt: -1 } // latest first
+                $sort: { updatedAt: -1 } // Latest first for each group
             },
             {
                 $group: {
                     _id: "$tradingBotId",
-                    allTimePnl: { $first: "$allTimePnl" }, // latest value
+                    allTimePnl: { $first: "$allTimePnl" },
                 }
             }
-        ]);
+        ]).cursor();
 
-        if (stats.length === 0) {
-            status.lastSyncedAt = now;
-            await status.save();
-            return 0;
-        }
-
-        const updates = stats.map(s => ({
-            botId: s._id,
-            allTimePnl: s.allTimePnl
-        }));
+        const chunkSize = 1000;
+        let batch: any[] = [];
+        const syncPromises: Promise<any>[] = [];
 
         try {
-            // 🚀 Chunking for safety (still important)
-            const chunkSize = 500;
+            for await (const doc of cursor) {
+                batch.push({
+                    botId: doc._id,
+                    allTimePnl: doc.allTimePnl
+                });
 
-            for (let i = 0; i < updates.length; i += chunkSize) {
-                await PayloadClient.updatePnl(
-                    updates.slice(i, i + chunkSize)
-                );
+                if (batch.length === chunkSize) {
+                    syncPromises.push(PayloadClient.updatePnl([...batch]));
+                    batch = [];
+                }
             }
+
+            if (batch.length > 0) {
+                syncPromises.push(PayloadClient.updatePnl(batch));
+            }
+
+            // 🚀 Parallelize chunk updates to the backend
+            await Promise.all(syncPromises);
 
             status.lastSyncedAt = now;
             await status.save();
 
-            return updates.length;
+            return syncPromises.length * chunkSize; // Approximation for logging
 
         } catch (err: any) {
-            console.error('[BulkSync] Failed:', err.message);
+            console.error('[BulkSync] PNL Sync Failed:', err.message);
             return 0;
         }
     }
 
+    /**
+     * Syncs full trade states with the backend using a high-performance cursor.
+     */
     static async syncTradeStates() {
         const collectionKey = 'trade-states';
         const now = new Date();
@@ -83,7 +93,6 @@ export class BulkSyncService {
 
         const lastSync = status.lastSyncedAt;
 
-        // 🚀 STREAM instead of loading everything
         const cursor = TradeState.find({
             updatedAt: { $gt: lastSync, $lte: now }
         })
@@ -118,29 +127,31 @@ export class BulkSyncService {
         .lean()
         .cursor();
 
-        const chunkSize = 500;
+        const chunkSize = 500; // Smaller chunk for larger payloads
         let batch: any[] = [];
+        const syncPromises: Promise<any>[] = [];
         let total = 0;
 
         try {
             for await (const doc of cursor) {
                 batch.push({
-                    tradeId: String(doc._id), // 🔥 use Mongo _id
+                    tradeId: String(doc._id),
                     ...doc
                 });
+                total++;
 
                 if (batch.length === chunkSize) {
-                    await PayloadClient.bulkUpsertTradeStates(batch);
-                    total += batch.length;
+                    syncPromises.push(PayloadClient.bulkUpsertTradeStates([...batch]));
                     batch = [];
                 }
             }
 
-            // flush remaining
             if (batch.length > 0) {
-                await PayloadClient.bulkUpsertTradeStates(batch);
-                total += batch.length;
+                syncPromises.push(PayloadClient.bulkUpsertTradeStates(batch));
             }
+
+            // 🚀 Flush all chunks in parallel
+            await Promise.all(syncPromises);
 
             status.lastSyncedAt = now;
             await status.save();
@@ -148,11 +159,14 @@ export class BulkSyncService {
             return total;
 
         } catch (err: any) {
-            console.error('[BulkSync] TradeStates Failed:', err.message);
+            console.error('[BulkSync] TradeStates Sync Failed:', err.message);
             return 0;
         }
     }
 
+    /**
+     * Syncs bot error states and activation status.
+     */
     static async syncBotStates() {
         const collectionKey = 'bot-states';
         const now = new Date();
@@ -167,54 +181,76 @@ export class BulkSyncService {
 
         const lastSync = status.lastSyncedAt;
 
-        // Find bot errors updated since last sync
-        const pendingUpdates = await BotError.find({
+        const cursor = BotError.find({
             updatedAt: { $gt: lastSync, $lte: now }
-        }).lean();
+        }).lean().cursor();
 
-        if (pendingUpdates.length === 0) {
-            status.lastSyncedAt = now;
-            await status.save();
-            return 0;
-        }
-
-        const updates = pendingUpdates.map(u => ({
-            botId: u.botId,
-            errorMessage: u.message,
-            status: u.status,
-            isActive: u.isActive
-        }));
+        const chunkSize = 1000;
+        let batch: any[] = [];
+        const syncPromises: Promise<any>[] = [];
+        let total = 0;
 
         try {
-            const chunkSize = 500;
-            for (let i = 0; i < updates.length; i += chunkSize) {
-                await PayloadClient.bulkUpdateBots(
-                    updates.slice(i, i + chunkSize)
-                );
+            for await (const doc of cursor) {
+                batch.push({
+                    botId: doc.botId,
+                    errorMessage: doc.message,
+                    status: doc.status,
+                    isActive: doc.isActive
+                });
+                total++;
+
+                if (batch.length === chunkSize) {
+                    syncPromises.push(PayloadClient.bulkUpdateBots([...batch]));
+                    batch = [];
+                }
             }
+
+            if (batch.length > 0) {
+                syncPromises.push(PayloadClient.bulkUpdateBots(batch));
+            }
+
+            await Promise.all(syncPromises);
 
             status.lastSyncedAt = now;
             await status.save();
 
-            return updates.length;
+            return total;
 
         } catch (err: any) {
-            console.error('[BulkSync] BotStates Failed:', err.message);
+            console.error('[BulkSync] BotStates Sync Failed:', err.message);
             return 0;
         }
     }
 
+    /**
+     * Executes all sync tasks in parallel with concurrency locking.
+     */
     static async runFullSync() {
+        if (this.isSyncing) {
+            console.log('[BulkSync] Sync already in progress, skipping...');
+            return;
+        }
+
+        this.isSyncing = true;
+        const startTime = Date.now();
+
         try {
-            const pnlCount = await this.syncBotPnl();
-            const tradeCount = await this.syncTradeStates();
-            const stateCount = await this.syncBotStates();
+            // 🚀 Run all sync methods in parallel for maximum throughput
+            const [pnlCount, tradeCount, stateCount] = await Promise.all([
+                this.syncBotPnl(),
+                this.syncTradeStates(),
+                this.syncBotStates()
+            ]);
 
             if (pnlCount > 0 || tradeCount > 0 || stateCount > 0) {
-                console.log(`[BulkSync] Synced: ${pnlCount} PNL, ${tradeCount} trades, ${stateCount} bot states`);
+                const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+                console.log(`[BulkSync] Success: ${pnlCount} PNL, ${tradeCount} trades, ${stateCount} bot states in ${duration}s`);
             }
         } catch (err) {
-            console.error('[BulkSync] Error:', err);
+            console.error('[BulkSync] Critical Error:', err);
+        } finally {
+            this.isSyncing = false;
         }
     }
-}
+}
