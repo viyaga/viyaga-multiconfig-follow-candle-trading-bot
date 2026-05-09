@@ -389,14 +389,26 @@ export class TradingV2 {
             let errorMessage = "";
             let shouldStop = false;
 
-            if (errorStr.includes("insufficient_balance") || errorStr.includes("insufficient balance")) {
-                errorMessage = "Insufficient Balance: Please add funds to your Delta Exchange account.";
+            if (errorStr.includes("insufficient_balance") || errorStr.includes("insufficient balance") || errorStr.includes("insufficient_margin")) {
+                errorMessage = "Insufficient Balance/Margin: Please add funds to your Delta Exchange account.";
                 shouldStop = true;
             } else if (errorStr.includes("ip_not_whitelisted") || errorStr.includes("ip not whitelisted")) {
                 errorMessage = "IP Not Whitelisted: Ensure your Delta API key allows our server IP.";
                 shouldStop = true;
-            } else if (errorStr.includes("api_key_invalid") || errorStr.includes("invalid api key")) {
+            } else if (errorStr.includes("api_key_invalid") || errorStr.includes("invalid api key") || errorStr.includes("invalid_api_key")) {
                 errorMessage = "Invalid API Key: Please check your exchange connection settings.";
+                shouldStop = true;
+            } else if (errorStr.includes("order_size_too_small")) {
+                errorMessage = "Order Size Too Small: Your trade size is below the exchange minimum.";
+                shouldStop = false; // Maybe just a temporary config issue
+            } else if (errorStr.includes("account_locked")) {
+                errorMessage = "Account Locked: Your Delta Exchange account is restricted.";
+                shouldStop = true;
+            } else if (errorStr.includes("leverage_too_high")) {
+                errorMessage = "Leverage Too High: The selected leverage exceeds the allowed limit for this product.";
+                shouldStop = true;
+            } else if (errorStr.includes("product_not_tradable")) {
+                errorMessage = "Product Not Tradable: This symbol is currently not available for trading.";
                 shouldStop = true;
             }
 
@@ -408,6 +420,17 @@ export class TradingV2 {
                         message: errorMessage, 
                         status: shouldStop ? 'stopped' : undefined, 
                         isActive: shouldStop ? false : undefined,
+                        updatedAt: new Date()
+                    },
+                    { upsert: true }
+                );
+            } else {
+                // For unknown errors, we still want to log them but maybe not stop the bot
+                cronLogger.error(`[TradingCycle] Unknown Error: ${errorStr}`);
+                await BotError.findOneAndUpdate(
+                    { botId: tradingBotId },
+                    { 
+                        message: `System Error: ${errorStr.substring(0, 100)}...`, 
                         updatedAt: new Date()
                     },
                     { upsert: true }

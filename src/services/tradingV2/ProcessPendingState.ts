@@ -386,7 +386,7 @@ export class ProcessPendingState {
 
         } catch (err) {
             logger.error("Error in manageOpenPosition", { error: err });
-            return s;
+            throw err;
         }
     }
 
@@ -457,7 +457,7 @@ export class ProcessPendingState {
 
         } catch (err) {
             logger.error("Error in processStateOfPendingTrade", { error: err });
-            return state;
+            throw err;
         }
     }
 
