@@ -92,6 +92,7 @@ const createLogger = (
 // Logger instances
 export const tradingCycleErrorLogger = createLogger('trading-error', 'error.log', 'error');
 export const marketDetectorLogger = createLogger('market-detector', 'market-detector.log', 'info', false, 1048576, 2); // 1MB, 2 files
+export const marketSkipLogger = createLogger('market-skip', 'market-detector.log', 'info', false, 1048576, 2);
 export const skipTradingLogger = createLogger('skip-trading', 'skip-trading.log', 'info', true, 1048576, 2); // 1MB, 2 files
 export const tradingCronLogger = createLogger('trading-cron', 'trading-cron.log', 'debug');
 export const configDebugLogger = createLogger('config-debug', 'config-debug.log', 'debug', true, 524288, 1); // 0.5MB, 1 file

@@ -1,6 +1,6 @@
 import { Data } from "./data";
 import { deltaExchange } from "./delta-exchange";
-import { tradingCycleErrorLogger, skipTradingLogger, tradingCronLogger, getContextualLogger } from "./logger";
+import { tradingCycleErrorLogger, skipTradingLogger, tradingCronLogger, marketDetectorLogger, marketSkipLogger, getContextualLogger } from "./logger";
 import { ConfigType, TargetCandle, Candle, OrderSide } from "./type";
 import { Utils } from "./utils";
 import { ProcessPendingState } from "./ProcessPendingState";
@@ -106,6 +106,8 @@ export class TradingV2 {
         const cronLogger = getContextualLogger(tradingCronLogger, { cycleId, symbol, tradingBotId });
         const skipLogger = getContextualLogger(skipTradingLogger, { cycleId, symbol, tradingBotId });
         const errorLogger = getContextualLogger(tradingCycleErrorLogger, { cycleId, symbol, tradingBotId });
+        const detectorLogger = getContextualLogger(marketDetectorLogger, { cycleId, symbol, tradingBotId });
+        const detectorSkipLogger = getContextualLogger(marketSkipLogger, { cycleId, symbol, tradingBotId });
 
         cronLogger.info(`[TradingCycle] ========== START PROCESSING BOT: ${symbol} (ID: ${tradingBotId}) ==========`);
 
@@ -169,8 +171,10 @@ export class TradingV2 {
                 { cycleId, tradingBotId }
             );
 
+            detectorLogger.info(`[MTF-RESULT] ${symbol}: Score=${mtf.finalScore}, Direction=${mtf.direction}, Decision=${mtf.decision}, Allowed=${mtf.isAllowed}`);
             cronLogger.info(`[MTF] Result: Score=${mtf.finalScore}, Direction=${mtf.direction}, Decision=${mtf.decision}, Allowed=${mtf.isAllowed}`);
             if (mtf.isAllowed) {
+                detectorLogger.info(`[MTF-ALLOWED] ${symbol}: Price Levels target: TP=${mtf.tp} (${mtf.tpPerc.toFixed(2)}%), SL=${mtf.sl} (${mtf.slPerc.toFixed(2)}%), Net RR=${mtf.rr.toFixed(2)}`);
                 cronLogger.info(`[MTF] Price Levels target: TP=${mtf.tp} (${mtf.tpPerc.toFixed(2)}%), SL=${mtf.sl} (${mtf.slPerc.toFixed(2)}%), Net RR=${mtf.rr.toFixed(2)}`);
             }
 
@@ -259,6 +263,7 @@ export class TradingV2 {
             }
 
             if (!mtf.isAllowed) {
+                detectorSkipLogger.info(`[MTF-REJECTED] ${symbol}: MTF evaluation result is not allowed (Score: ${mtf.finalScore}, Decision: ${mtf.decision})`);
                 skipLogger.info(`[SKIP] ${symbol}: MTF evaluation result is not allowed (Score: ${mtf.finalScore}, Decision: ${mtf.decision})`);
                 return;
             }
