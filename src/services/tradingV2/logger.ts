@@ -55,13 +55,20 @@ const fileFormat = winston.format.combine(
 );
 
 // Generic logger creator
-const createLogger = (serviceName: string, fileName: string, level: string = 'info', useConsole: boolean = true) => {
+const createLogger = (
+    serviceName: string, 
+    fileName: string, 
+    level: string = 'info', 
+    useConsole: boolean = true,
+    maxsize: number = 5242880, // Default 5MB
+    maxFiles: number = 5
+) => {
     const transports: winston.transport[] = [
         new winston.transports.File({
             filename: `logs/${fileName}`,
             level,
-            maxsize: 5242880, // 5MB
-            maxFiles: 5,
+            maxsize,
+            maxFiles,
             tailable: true,
             format: fileFormat
         })
@@ -84,10 +91,10 @@ const createLogger = (serviceName: string, fileName: string, level: string = 'in
 
 // Logger instances
 export const tradingCycleErrorLogger = createLogger('trading-error', 'error.log', 'error');
-export const marketDetectorLogger = createLogger('market-detector', 'market-detector.log', 'info', false);
-export const skipTradingLogger = createLogger('skip-trading', 'skip-trading.log', 'info');
+export const marketDetectorLogger = createLogger('market-detector', 'market-detector.log', 'info', false, 1048576, 2); // 1MB, 2 files
+export const skipTradingLogger = createLogger('skip-trading', 'skip-trading.log', 'info', true, 1048576, 2); // 1MB, 2 files
 export const tradingCronLogger = createLogger('trading-cron', 'trading-cron.log', 'debug');
-export const configDebugLogger = createLogger('config-debug', 'config-debug.log', 'debug');
+export const configDebugLogger = createLogger('config-debug', 'config-debug.log', 'debug', true, 524288, 1); // 0.5MB, 1 file
 
 /**
  * Contextual Logger Helper
