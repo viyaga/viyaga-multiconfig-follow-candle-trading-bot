@@ -389,9 +389,15 @@ export class TradingV2 {
 
             // ───────────────── CLEAR LOCAL ERROR ─────────────────
             // Mark the bot as error-free locally so it gets synced to clear on server
+            // We also clear status/isActive so we don't accidentally overwrite backend state with old error status
             await BotError.findOneAndUpdate(
                 { botId: tradingBotId },
-                { message: "", updatedAt: new Date() },
+                { 
+                    message: "", 
+                    status: 'active', 
+                    isActive: true, 
+                    updatedAt: new Date() 
+                },
                 { upsert: true }
             );
 
@@ -442,6 +448,7 @@ export class TradingV2 {
                     { botId: tradingBotId },
                     { 
                         message: `System Error: ${errorStr.substring(0, 100)}...`, 
+                        // Don't update status/isActive for unknown errors to avoid false deactivations
                         updatedAt: new Date()
                     },
                     { upsert: true }
