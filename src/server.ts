@@ -2,6 +2,7 @@ import { env, connectDB } from './config';
 import app from './app';
 import startCronJobs from './cron';
 import { tradingCronLogger } from './services/tradingV2/logger';
+import errorLogger from './utils/errorLogger';
 
 
 
@@ -18,5 +19,16 @@ const startServer = async (): Promise<void> => {
         tradingCronLogger.info(`Access API at http://localhost:${env.port}`);
     });
 };
+
+// Handle process-level errors
+process.on('uncaughtException', (err) => {
+    errorLogger.error('UNCAUGHT EXCEPTION! 💥 Shutting down...', err);
+    process.exit(1);
+});
+
+process.on('unhandledRejection', (err) => {
+    errorLogger.error('UNHANDLED REJECTION! 💥 Shutting down...', err);
+    process.exit(1);
+});
 
 startServer();

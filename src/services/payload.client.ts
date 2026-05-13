@@ -1,6 +1,7 @@
 import axios, { AxiosInstance } from 'axios';
 import env from '../config/env';
 import zlib from 'zlib';
+import errorLogger from '../utils/errorLogger';
 
 export class PayloadClient {
     private static baseUrl = env.payloadUrl;
@@ -45,7 +46,7 @@ export class PayloadClient {
             const response = await this.instance.post('/api/trading-bots/update-pnl', updates);
             return response.data;
         } catch (error: any) {
-            console.error(`[PayloadClient] PNL update failed:`, error.response?.data || error.message);
+            errorLogger.error(`[PayloadClient] PNL update failed:`, error.response?.data || error.message);
             throw error;
         }
     }
@@ -55,7 +56,7 @@ export class PayloadClient {
             const response = await this.instance.post('/api/trade-states/bulk', data);
             return response.data;
         } catch (error: any) {
-            console.error(`[PayloadClient] Trade states bulk sync failed:`, error.response?.data || error.message);
+            errorLogger.error(`[PayloadClient] Trade states bulk sync failed:`, error.response?.data || error.message);
             throw error;
         }
     }
@@ -65,7 +66,7 @@ export class PayloadClient {
             const response = await this.instance.post('/api/trading-bots/bulk-update', updates);
             return response.data;
         } catch (error: any) {
-            console.error(`[PayloadClient] Bulk bot update failed:`, error.response?.data || error.message);
+            errorLogger.error(`[PayloadClient] Bulk bot update failed:`, error.response?.data || error.message);
             throw error;
         }
     }

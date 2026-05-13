@@ -2,6 +2,7 @@ import { SyncStatus } from '../models/syncStatus.model';
 import { TradeState } from '../models/tradeState.model';
 import { BotError } from '../models/botError.model';
 import { PayloadClient } from './payload.client';
+import errorLogger from '../utils/errorLogger';
 
 export class BulkSyncService {
     private static isSyncing = false;
@@ -71,7 +72,7 @@ export class BulkSyncService {
             return syncPromises.length * chunkSize; // Approximation for logging
 
         } catch (err: any) {
-            console.error('[BulkSync] PNL Sync Failed:', err.message);
+            errorLogger.error('[BulkSync] PNL Sync Failed:', err);
             return 0;
         }
     }
@@ -159,7 +160,7 @@ export class BulkSyncService {
             return total;
 
         } catch (err: any) {
-            console.error('[BulkSync] TradeStates Sync Failed:', err.message);
+            errorLogger.error('[BulkSync] TradeStates Sync Failed:', err);
             return 0;
         }
     }
@@ -218,7 +219,7 @@ export class BulkSyncService {
             return total;
 
         } catch (err: any) {
-            console.error('[BulkSync] BotStates Sync Failed:', err.message);
+            errorLogger.error('[BulkSync] BotStates Sync Failed:', err);
             return 0;
         }
     }
@@ -248,7 +249,7 @@ export class BulkSyncService {
                 console.log(`[BulkSync] Success: ${pnlCount} PNL, ${tradeCount} trades, ${stateCount} bot states in ${duration}s`);
             }
         } catch (err) {
-            console.error('[BulkSync] Critical Error:', err);
+            errorLogger.error('[BulkSync] Critical Error:', err);
         } finally {
             this.isSyncing = false;
         }
