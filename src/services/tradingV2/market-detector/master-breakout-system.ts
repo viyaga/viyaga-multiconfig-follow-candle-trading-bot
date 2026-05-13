@@ -23,6 +23,7 @@ export interface MasterScoreResult {
     score: number;
     direction: TradeDirection;
     isTrade: boolean;
+    reason?: string;
 }
 
 function clamp(v: number, min: number, max: number) {
@@ -64,7 +65,7 @@ export function evaluateBreakoutTrade(
     const cfg = getInternalConfig(config);
 
     if (candles.length < cfg.MIN_REQUIRED_CANDLES) {
-        return { score: 0, direction: "NONE", isTrade: false };
+        return { score: 0, direction: "NONE", isTrade: false, reason: "INSUFFICIENT_CANDLES" };
     }
 
     const history = candles.slice(0, -1);
@@ -249,5 +250,6 @@ export function evaluateBreakoutTrade(
         score,
         direction,
         isTrade: score >= 55,
+        reason: breakout ? (breakout.breakoutUp ? "BREAKOUT_UP" : "BREAKOUT_DOWN") : "NO_BREAKOUT"
     };
 }

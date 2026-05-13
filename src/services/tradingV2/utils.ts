@@ -44,7 +44,9 @@ export class Utils {
             );
         }
 
-        return Number(price);
+        const resolvedPrice = Number(price);
+        // console.debug(`[utils] Resolved entry price: ${resolvedPrice}`);
+        return resolvedPrice;
     }
 
     static async isPriceMovingInOrderSideDirection(
@@ -102,7 +104,7 @@ export class Utils {
             ? sl * (1 - c.SL_LIMIT_BUFFER_PERCENT / 100) // long → sell SL
             : sl * (1 + c.SL_LIMIT_BUFFER_PERCENT / 100); // short → buy SL
 
-        return {
+        const payload = {
             product_id: Number(c.PRODUCT_ID),
             product_symbol: c.SYMBOL,
             bracket_stop_trigger_method: "last_traded_price",
@@ -123,6 +125,9 @@ export class Utils {
                 },
             }),
         };
+
+        // console.debug(`[utils] Constructed bracket order payload:`, JSON.stringify(payload));
+        return payload;
     }
 
     static getBodyPercent(c: Candle): number {

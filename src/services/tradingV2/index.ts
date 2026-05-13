@@ -126,7 +126,10 @@ export class TradingV2 {
                 return;
             }
 
-            cronLogger.debug(`[MarketData] Fetched candles: ENTRY(${targetDataEntry.candles.length}), CONF(${targetDataConfirmation.candles.length}), STRUCT(${targetDataStructure.candles.length})`);
+            cronLogger.info(`[MarketData] Candlestick Data Fetched:
+              ENTRY (${c.TIMEFRAME}): ${targetDataEntry.candles.length} candles, Target: [O:${targetDataEntry.target.open}, H:${targetDataEntry.target.high}, L:${targetDataEntry.target.low}, C:${targetDataEntry.target.close}, Color:${targetDataEntry.target.color}]
+              CONFIRMATION (${c.CONFIRMATION_TIMEFRAME}): ${targetDataConfirmation.candles.length} candles, Target: [O:${targetDataConfirmation.target.open}, H:${targetDataConfirmation.target.high}, L:${targetDataConfirmation.target.low}, C:${targetDataConfirmation.target.close}, Color:${targetDataConfirmation.target.color}]
+              STRUCTURE (${c.STRUCTURE_TIMEFRAME}): ${targetDataStructure.candles.length} candles, Target: [O:${targetDataStructure.target.open}, H:${targetDataStructure.target.high}, L:${targetDataStructure.target.low}, C:${targetDataStructure.target.close}, Color:${targetDataStructure.target.color}]`);
 
             const { target: targetCandle, candles: entryCandles } = targetDataEntry;
             const { target: confirmationTargetCandle, candles: confirmationCandles } = targetDataConfirmation;
@@ -138,12 +141,14 @@ export class TradingV2 {
 
             // ───────────────── CONVERT USD TO LOTS ─────────────────
             if (c.MIN_TRADE_SIZE && currentPrice > 0) {
+                const oldQty = c.INITIAL_BASE_QUANTITY;
                 c.INITIAL_BASE_QUANTITY = Math.max(1, Math.floor(c.MIN_TRADE_SIZE / (currentPrice * c.LOT_SIZE)));
-                cronLogger.info(`[Config] Converted MIN_TRADE_SIZE ($${c.MIN_TRADE_SIZE}) to INITIAL_BASE_QUANTITY (${c.INITIAL_BASE_QUANTITY} lots)`);
+                cronLogger.info(`[Config] Converted MIN_TRADE_SIZE ($${c.MIN_TRADE_SIZE}) to INITIAL_BASE_QUANTITY (${c.INITIAL_BASE_QUANTITY} lots). Previous: ${oldQty}`);
             }
             if (c.MAX_TRADE_SIZE && currentPrice > 0) {
+                const oldMaxQty = c.MAX_QUANTITY;
                 c.MAX_QUANTITY = Math.max(1, Math.floor(c.MAX_TRADE_SIZE / (currentPrice * c.LOT_SIZE)));
-                cronLogger.info(`[Config] Converted MAX_TRADE_SIZE ($${c.MAX_TRADE_SIZE}) to MAX_QUANTITY (${c.MAX_QUANTITY} lots)`);
+                cronLogger.info(`[Config] Converted MAX_TRADE_SIZE ($${c.MAX_TRADE_SIZE}) to MAX_QUANTITY (${c.MAX_QUANTITY} lots). Previous: ${oldMaxQty}`);
             }
 
             // ───────────────── MULTI TIMEFRAME ALIGNMENT ─────────────────
@@ -166,7 +171,7 @@ export class TradingV2 {
 
             cronLogger.info(`[MTF] Result: Score=${mtf.finalScore}, Direction=${mtf.direction}, Decision=${mtf.decision}, Allowed=${mtf.isAllowed}`);
             if (mtf.isAllowed) {
-                cronLogger.info(`[MTF] Price Levels target: TP=${mtf.tp}, SL=${mtf.sl}, RR=${mtf.rr.toFixed(2)}`);
+                cronLogger.info(`[MTF] Price Levels target: TP=${mtf.tp} (${mtf.tpPerc.toFixed(2)}%), SL=${mtf.sl} (${mtf.slPerc.toFixed(2)}%), Net RR=${mtf.rr.toFixed(2)}`);
             }
 
             const scoreMultiplier = mtf.finalScore > 85 ? 1.5 : mtf.finalScore > 80 ? 1 : mtf.finalScore > 75 ? 0.5 : 0;
@@ -180,6 +185,8 @@ export class TradingV2 {
                 scoreMultiplier,
                 currentPrice
             );
+
+            cronLogger.info(`[State] Loaded state: ID=${state.id}, Level=${state.currentLevel}, DailyPnL=$${state.dailyPnl.toFixed(2)}, Outcome=${state.tradeOutcome}, Status=${state.status}`);
 
             // ───────────────── HANDLE PENDING TRADE ─────────────────
             if (state.entryOrderId && Utils.isTradePending(state)) {
@@ -309,10 +316,11 @@ export class TradingV2 {
             }
 
             // ───────────────── ENTRY ORDER ─────────────────
+            cronLogger.info(`[Trade] Placing ${side.toUpperCase()} entry order for ${qty} lots on ${symbol}...`);
             const entry = await deltaExchange.placeEntryOrder(symbol, side, qty);
 
             cronLogger.info(
-                `Entry order placed successfully: OrderID=${entry.result?.id}`
+                `[Trade] Entry order response: success=${!!entry.result?.id}, OrderID=${entry.result?.id}, Status=${entry.result?.status}, AveragePrice=${entry.result?.average_fill_price}`
             );
 
             const entryPrice = Utils.resolveEntryPrice(entry);
@@ -320,11 +328,12 @@ export class TradingV2 {
             const sl = mtf.sl;
 
             if (!tp || !sl) {
+                cronLogger.error(`[Trade] INVALID TP/SL values generated: TP=${tp}, SL=${sl}`);
                 throw new Error(`[Trade] Invalid TP/SL from MTF: TP=${tp}, SL=${sl}`);
             }
 
             cronLogger.info(
-                `Price levels - Entry: ${entryPrice}, TP: ${tp}, SL: ${sl}`
+                `Price levels - Entry: ${entryPrice}, TP: ${tp} (${mtf.tpPerc.toFixed(2)}%), SL: ${sl} (${mtf.slPerc.toFixed(2)}%)`
             );
 
             // ───────────────── TP / SL ─────────────────
@@ -335,10 +344,11 @@ export class TradingV2 {
             }
 
             cronLogger.info(
-                `TP/SL orders placed: TP_ID=${tpSlResult.ids.tp}, SL_ID=${tpSlResult.ids.sl}`
+                `[Trade] TP/SL orders placed: TP_ID=${tpSlResult.ids.tp}, SL_ID=${tpSlResult.ids.sl}`
             );
 
             // ───────────────── UPDATE STATE ─────────────────
+            cronLogger.info(`[State] Updating trade state with order IDs and price levels...`);
             const updatedState = await TradeState.findOneAndUpdate(
                 { tradingBotId: c.id, status: 'open' },
                 {
@@ -363,11 +373,12 @@ export class TradingV2 {
             );
 
             if (!updatedState) {
+                cronLogger.error(`[State] FAILED to update trade state for bot ${c.id}`);
                 throw new Error("Failed to update trade state");
             }
 
             cronLogger.info(
-                `Trade state updated successfully`
+                `[State] Trade state updated successfully: Outcome=pending, Level=${updatedState.currentLevel}`
             );
 
 

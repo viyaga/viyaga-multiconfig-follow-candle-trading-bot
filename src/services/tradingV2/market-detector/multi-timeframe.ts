@@ -61,6 +61,9 @@ export class MultiTimeframeAlignment {
         let direction = breakout.direction;
         const entryScore = breakout.score;
 
+        marketDetectorLogger.info(`[MTF] Sub-scores for ${entryConfig.SYMBOL}: Entry=${entryScore}, Confirmation=${confirmationProbability}, Structure=${structureProbability}`);
+        marketDetectorLogger.debug(`[MTF] Breakout details for ${entryConfig.SYMBOL}: Direction=${breakout.direction}, Score=${breakout.score}, Reason=${breakout.reason}`);
+
         const symbol = entryConfig.SYMBOL;
 
         // 🔥 TESTING OVERRIDE: If testing and no breakout, force BUY
@@ -93,6 +96,8 @@ export class MultiTimeframeAlignment {
             (confirmationProbability * 0.25) +
             (structureProbability * 0.25)
         );
+
+        marketDetectorLogger.info(`[MTF] Final Score Calculation: (${entryScore} * 0.5) + (${confirmationProbability} * 0.25) + (${structureProbability} * 0.25) = ${finalScore}`);
 
         let decision: TradeDecision = "SKIP";
 
@@ -145,15 +150,18 @@ export class MultiTimeframeAlignment {
                 slATR = 1.0;
                 tpATR = 1.6;
             }
+            marketDetectorLogger.debug(`[MTF] Base TP/SL ATR multipliers: TP=${tpATR}, SL=${slATR} (Score: ${finalScore})`);
 
             /* ================= CONFIRMATION BOOST ================= */
 
             if (confirmationProbability > 70) {
                 tpATR += 0.4;
+                marketDetectorLogger.debug(`[MTF] Confirmation probability boost applied: +0.4 TP ATR`);
             }
 
             if (structureProbability < 55) {
                 tpATR -= 0.3;
+                marketDetectorLogger.debug(`[MTF] Weak structure penalty applied: -0.3 TP ATR`);
             }
 
             /* ================= CALC ================= */
@@ -179,13 +187,24 @@ export class MultiTimeframeAlignment {
 
             const rawRisk = Math.abs(entryPrice - sl);
             // 🔥 Include SL buffer in risk calculation for accurate RR
-            const risk = rawRisk + (sl * entryConfig.SL_LIMIT_BUFFER_PERCENT / 100);
-            const reward = Math.abs(tp - entryPrice);
+            const riskPriceDist = rawRisk + (sl * entryConfig.SL_LIMIT_BUFFER_PERCENT / 100);
+            const rewardPriceDist = Math.abs(tp - entryPrice);
 
-            rr = risk > 0 ? reward / risk : 0;
+            // 🔥 Include Estimated Fees in RR (Conservative)
+            const feePercent = entryConfig.ESTIMATED_FEE_PERCENT / 100;
+            const entryFee = entryPrice * (feePercent / 2);
+            const exitFeeTp = tp * (feePercent / 2);
+            const exitFeeSl = sl * (feePercent / 2);
 
-            tpPerc = entryPrice > 0 ? (reward / entryPrice) * 100 * leverage : 0;
-            slPerc = entryPrice > 0 ? (risk / entryPrice) * 100 * leverage : 0;
+            const netReward = rewardPriceDist - (entryFee + exitFeeTp);
+            const netRisk = riskPriceDist + (entryFee + exitFeeSl);
+
+            rr = netRisk > 0 ? netReward / netRisk : 0;
+
+            tpPerc = entryPrice > 0 ? (rewardPriceDist / entryPrice) * 100 * leverage : 0;
+            slPerc = entryPrice > 0 ? (riskPriceDist / entryPrice) * 100 * leverage : 0;
+
+            marketDetectorLogger.info(`[MTF] Dynamic TP/SL for ${symbol}: ATR=${atr.toFixed(4)}, Entry=${entryPrice}, TP=${tp} (${tpPerc.toFixed(2)}%), SL=${sl} (${slPerc.toFixed(2)}%), Net RR=${rr.toFixed(2)} (Fees incl.)`);
 
         } else if (entryConfig.IS_TESTING && entryPrice > 0) {
             // 🔥 TESTING FALLBACK: If ATR is 0, use 0.5% fixed move

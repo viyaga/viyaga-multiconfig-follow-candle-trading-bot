@@ -18,15 +18,34 @@ export class DeltaExchange {
     }
 
     async signedRequest(method: string, endpoint: string, bodyObj?: any, query?: URLSearchParams): Promise<any> {
+        const c = TradingConfig.getConfig();
+        const qStr = query?.toString() ? `?${query.toString()}` : "";
+        const ts = Math.floor(Date.now() / 1000) - 2;
+        const body = bodyObj ? Utils.compactJson(bodyObj) : "";
+        const sig = this.generateSignature(method, `/v2${endpoint}${qStr}`, ts, body);
+        const url = `${c.BASE_URL}${endpoint}${qStr}`;
+
+        // tradingCronLogger.debug(`[delta-api] REQUEST: ${method} ${url} | Payload: ${body}`);
+
         try {
-            const c = TradingConfig.getConfig(), qStr = query?.toString() ? `?${query.toString()}` : "", ts = Math.floor(Date.now() / 1000) - 2, body = bodyObj ? Utils.compactJson(bodyObj) : "";
-            const sig = this.generateSignature(method, `/v2${endpoint}${qStr}`, ts, body);
-            const r = await fetch(`${c.BASE_URL}${endpoint}${qStr}`, { method, headers: this.buildSignedHeaders(method, sig, ts), body: (body && ["POST", "PUT", "PATCH", "DELETE"].includes(method)) ? body : undefined });
-            const json = Utils.parseJsonSafe(await r.text());
-            if (!r.ok) throw new Error(`Delta API error ${r.status}: ${JSON.stringify(json)}`);
+            const r = await fetch(url, {
+                method,
+                headers: this.buildSignedHeaders(method, sig, ts),
+                body: (body && ["POST", "PUT", "PATCH", "DELETE"].includes(method)) ? body : undefined
+            });
+
+            const text = await r.text();
+            const json = Utils.parseJsonSafe(text);
+
+            if (!r.ok) {
+                tradingCycleErrorLogger.error(`[delta-api] ERROR RESPONSE: ${r.status} ${method} ${endpoint}`, { response: json, payload: bodyObj });
+                throw new Error(`Delta API error ${r.status}: ${JSON.stringify(json)}`);
+            }
+
+            // tradingCronLogger.debug(`[delta-api] SUCCESS RESPONSE: ${method} ${endpoint}`, { status: r.status });
             return json;
         } catch (err) {
-            tradingCycleErrorLogger.error(`[delta] Failed request: ${method} ${endpoint}`, err);
+            tradingCycleErrorLogger.error(`[delta-api] REQUEST FAILED: ${method} ${endpoint}`, { error: err, payload: bodyObj });
             throw err;
         }
     }

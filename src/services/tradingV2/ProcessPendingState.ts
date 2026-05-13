@@ -29,10 +29,19 @@ export class ProcessPendingState {
         // 🔥 Include SL buffer in risk for accurate metrics
         const slDist = rawSlDist + (slPrice * c.SL_LIMIT_BUFFER_PERCENT / 100);
 
+        // 🔥 Include Estimated Fees in RR (Net RR)
+        const feePercent = (c as any).ESTIMATED_FEE_PERCENT / 100 || 0.001;
+        const entryFee = entryPrice * (feePercent / 2);
+        const exitFeeTp = tpPrice * (feePercent / 2);
+        const exitFeeSl = slPrice * (feePercent / 2);
+
+        const netReward = tpDist - (entryFee + exitFeeTp);
+        const netRisk = slDist + (entryFee + exitFeeSl);
+
         return {
             tpPercentage: (tpDist / entryPrice) * 100 * leverage,
             slPercentage: (slDist / entryPrice) * 100 * leverage,
-            riskRewardRatio: slDist > 0 ? tpDist / slDist : 0
+            riskRewardRatio: netRisk > 0 ? netReward / netRisk : 0
         };
     }
 
@@ -202,7 +211,7 @@ export class ProcessPendingState {
             const fees = s.cumulativeFees + incrementalFees;
             const exitPrice = Number(tp.average_fill_price || tp.limit_price || 0);
 
-            getContextualLogger(tradingCronLogger, logContext).info(`[PositionOutcome] TAKE PROFIT reached for ${s.symbol}`);
+            logger.info(`[PositionOutcome] TAKE PROFIT reached for ${s.symbol}. Incremental PnL: ${incrementalPnl}, Fees: ${incrementalFees}, Exit Price: ${exitPrice}`);
 
             return await this.handleWin(s, netPnl, fees, incrementalPnl, incrementalFees, exitPrice, logContext);
         }
@@ -217,7 +226,7 @@ export class ProcessPendingState {
             const netDebt = netPnl - fees;
             const exitPrice = Number(sl.average_fill_price || sl.limit_price || 0);
 
-            getContextualLogger(tradingCronLogger, logContext).info(`[PositionOutcome] STOP LOSS hit for ${s.symbol}`);
+            logger.info(`[PositionOutcome] STOP LOSS hit for ${s.symbol}. Incremental PnL: ${incrementalPnl}, Fees: ${incrementalFees}, Exit Price: ${exitPrice}, Net Debt: ${netDebt}`);
 
             return netDebt >= 0
                 ? await this.handleWin(s, netPnl, fees, incrementalPnl, incrementalFees, exitPrice, logContext)
@@ -476,7 +485,11 @@ export class ProcessPendingState {
             ? positions.some(p => Number(p.size) !== 0)
             : positions && Number(positions.size) !== 0;
 
-        getContextualLogger(tradingCronLogger, logContext).debug("Checking for open positions after entry order close", { hasOpenPosition });
+        const cronLogger = getContextualLogger(tradingCronLogger, logContext);
+        cronLogger.info(`[PendingState] Checking for open positions for ${sym}. hasOpenPosition: ${hasOpenPosition}`);
+        if (!hasOpenPosition) {
+            cronLogger.debug(`[PendingState] No open positions found for ${sym}. Raw positions data: ${JSON.stringify(positions)}`);
+        }
 
         if (hasOpenPosition) {
             const entryPrice = Number(e.average_fill_price || e.limit_price || 0);
@@ -509,6 +522,7 @@ export class ProcessPendingState {
                 s.slPrice === slPrice;
 
             if (isUnchanged && (s.stopLossOrderId && s.takeProfitOrderId)) {
+                cronLogger.info(`[PendingState] Core state unchanged for ${sym}, proceeding to manage open position (trailing).`);
                 // If core data is unchanged, still attempt price trailing
                 return this.manageOpenPosition(sym, s, e, mtf, logContext);
             }

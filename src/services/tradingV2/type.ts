@@ -29,6 +29,7 @@ export interface ConfigType {
     IS_TESTING: boolean;
     LOOKBACK?: number;
     MIN_RR: number;
+    ESTIMATED_FEE_PERCENT: number;
 }
 
 export type MarketEvaluationMode = "structure" | "confirmation" | "entry";
