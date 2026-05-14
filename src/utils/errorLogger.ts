@@ -1,5 +1,6 @@
 import winston from 'winston';
 import { getIstTime } from './timeUtils';
+import util from 'util';
 
 // Create a dedicated logger for errors
 const errorLogger = winston.createLogger({
@@ -25,7 +26,7 @@ const errorLogger = winston.createLogger({
                         msg += `\n${stack}`;
                     }
                     if (Object.keys(meta).length > 0) {
-                        msg += ` ${JSON.stringify(meta, null, 2)}`;
+                        msg += ` ${util.inspect(meta, { depth: 4 })}`;
                     }
                     return msg;
                 })
@@ -43,7 +44,7 @@ const errorLogger = winston.createLogger({
                 winston.format.printf(({ timestamp, level, message, stack, ...meta }) => {
                     let msg = `${timestamp} [${level}]: ${message}`;
                     if (stack) msg += `\n${stack}`;
-                    if (Object.keys(meta).length > 0) msg += ` ${JSON.stringify(meta)}`;
+                    if (Object.keys(meta).length > 0) msg += ` ${util.inspect(meta, { depth: 4 })}`;
                     return msg;
                 })
             )

@@ -1,6 +1,6 @@
 import axios, { AxiosInstance } from 'axios';
 import env from '../config/env';
-import zlib from 'zlib';
+
 import errorLogger from '../utils/errorLogger';
 
 export class PayloadClient {
@@ -26,17 +26,6 @@ export class PayloadClient {
                 httpsAgent: new (require('https').Agent)({ keepAlive: true }),
             });
 
-            // 🚀 Add request compression interceptor
-            this._instance.interceptors.request.use((config) => {
-                if (config.data && typeof config.data === 'object') {
-                    const jsonString = JSON.stringify(config.data);
-                    const buffer = zlib.gzipSync(jsonString);
-                    config.data = buffer;
-                    config.headers['Content-Encoding'] = 'gzip';
-                    config.headers['Content-Length'] = buffer.length;
-                }
-                return config;
-            });
         }
         return this._instance;
     }
