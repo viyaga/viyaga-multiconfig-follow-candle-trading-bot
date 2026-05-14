@@ -1,3 +1,6 @@
+import dns from 'dns';
+dns.setDefaultResultOrder('ipv4first');
+
 import { env, connectDB } from './config';
 import app from './app';
 import startCronJobs from './cron';
@@ -27,8 +30,7 @@ process.on('uncaughtException', (err) => {
 });
 
 process.on('unhandledRejection', (err) => {
-    errorLogger.error('UNHANDLED REJECTION! 💥 Shutting down...', err);
-    process.exit(1);
+    errorLogger.error('UNHANDLED REJECTION! (Process kept alive)', err);
 });
 
 startServer();

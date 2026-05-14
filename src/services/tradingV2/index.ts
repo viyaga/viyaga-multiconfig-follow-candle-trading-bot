@@ -1,6 +1,6 @@
 import { Data } from "./data";
 import { deltaExchange } from "./delta-exchange";
-import { tradingCycleErrorLogger, skipTradingLogger, tradingCronLogger, marketDetectorLogger, marketSkipLogger, getContextualLogger, tradesLogger } from "./logger";
+import { tradingCycleErrorLogger, skipTradingLogger, tradingCronLogger, marketDetectorLogger, marketSkipLogger, getContextualLogger, tradesLogger, mtfAllowedLogger } from "./logger";
 import { ConfigType, TargetCandle, Candle, OrderSide } from "./type";
 import { Utils } from "./utils";
 import { ProcessPendingState } from "./ProcessPendingState";
@@ -109,6 +109,7 @@ export class TradingV2 {
         const detectorLogger = getContextualLogger(marketDetectorLogger, { cycleId, symbol, tradingBotId });
         const detectorSkipLogger = getContextualLogger(marketSkipLogger, { cycleId, symbol, tradingBotId });
         const tradeLogger = getContextualLogger(tradesLogger, { cycleId, symbol, tradingBotId });
+        const mtfAllowedFileLogger = getContextualLogger(mtfAllowedLogger, { cycleId, symbol, tradingBotId });
 
         cronLogger.info(`[TradingCycle] ========== START PROCESSING BOT: ${symbol} (ID: ${tradingBotId}) ==========`);
 
@@ -177,6 +178,9 @@ export class TradingV2 {
             if (mtf.isAllowed) {
                 detectorLogger.info(`[MTF-ALLOWED] ${symbol}: Price Levels target: TP=${mtf.tp} (${mtf.tpPerc.toFixed(2)}%), SL=${mtf.sl} (${mtf.slPerc.toFixed(2)}%), Net RR=${mtf.rr.toFixed(2)}`);
                 cronLogger.info(`[MTF] Price Levels target: TP=${mtf.tp} (${mtf.tpPerc.toFixed(2)}%), SL=${mtf.sl} (${mtf.slPerc.toFixed(2)}%), Net RR=${mtf.rr.toFixed(2)}`);
+                
+                // Log to separate file for MTF allowed trades
+                mtfAllowedFileLogger.info(`[ALLOWED] ${symbol} | Score: ${mtf.finalScore} (Entry:${mtf.entryScore}, Conf:${mtf.confirmationProbability}, Struct:${mtf.structureProbability}) | TP: ${mtf.tp} (${mtf.tpPerc.toFixed(2)}%) | SL: ${mtf.sl} (${mtf.slPerc.toFixed(2)}%) | RR: ${mtf.rr.toFixed(2)} | Dir: ${mtf.direction}`);
             }
 
             const scoreMultiplier = mtf.finalScore > 85 ? 1.5 : mtf.finalScore > 80 ? 1 : mtf.finalScore > 75 ? 0.5 : 0;

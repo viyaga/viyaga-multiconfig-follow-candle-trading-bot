@@ -20,7 +20,7 @@ const tradingCycleCronJob = (): void => {
         let totalFailed = 0;
         let offset = 0;
         const LIMIT = 100; // Reduced for better stability
-        const CONCURRENCY = 20; // Max parallel bots
+        const CONCURRENCY = 2; // Max parallel bots (Reduced to prevent API timeouts)
 
         tradingCronLogger.info(`${'='.repeat(80)}`);
         tradingCronLogger.info(`[TradingCron] ========== CYCLE START ==========`);

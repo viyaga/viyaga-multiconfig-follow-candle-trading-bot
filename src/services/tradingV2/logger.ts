@@ -101,6 +101,7 @@ export const configDebugLogger = createLogger('config-debug', 'config-debug.log'
 // New loggers for efficient debugging
 export const tradesLogger = createLogger('trades', 'trades.log', 'info', false, 5242880, 5);
 export const syncLogger = createLogger('sync', 'sync.log', 'info', false, 5242880, 5);
+export const mtfAllowedLogger = createLogger('mtf-allowed', 'mtf-allowed.log', 'info', false, 5242880, 5);
 
 /**
  * Contextual Logger Helper

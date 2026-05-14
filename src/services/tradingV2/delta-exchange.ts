@@ -17,6 +17,35 @@ export class DeltaExchange {
         return h;
     }
 
+    private async fetchWithRetry(url: string, options: RequestInit = {}, retries = 3): Promise<Response> {
+        for (let attempt = 1; attempt <= retries; attempt++) {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => {
+                controller.abort();
+            }, 30000); // 30 seconds
+
+            try {
+                const response = await fetch(url, {
+                    ...options,
+                    signal: controller.signal,
+                });
+
+                clearTimeout(timeout);
+                return response;
+            } catch (error: any) {
+                clearTimeout(timeout);
+                tradingCronLogger.warn(`[delta-api] Fetch attempt ${attempt} failed: ${error.message}`);
+
+                if (attempt === retries) {
+                    throw error;
+                }
+
+                await new Promise(resolve => setTimeout(resolve, attempt * 2000));
+            }
+        }
+        throw new Error("Fetch failed after retries");
+    }
+
     async signedRequest(method: string, endpoint: string, bodyObj?: any, query?: URLSearchParams): Promise<any> {
         const c = TradingConfig.getConfig();
         const qStr = query?.toString() ? `?${query.toString()}` : "";
@@ -28,7 +57,7 @@ export class DeltaExchange {
         // tradingCronLogger.debug(`[delta-api] REQUEST: ${method} ${url} | Payload: ${body}`);
 
         try {
-            const r = await fetch(url, {
+            const r = await this.fetchWithRetry(url, {
                 method,
                 headers: this.buildSignedHeaders(method, sig, ts),
                 body: (body && ["POST", "PUT", "PATCH", "DELETE"].includes(method)) ? body : undefined
