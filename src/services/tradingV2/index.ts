@@ -74,6 +74,9 @@ export class TradingV2 {
             };
         })();
 
+        fetchPromise.catch(() => {
+            this.candleCache.delete(cacheKey);
+        });
         this.candleCache.set(cacheKey, fetchPromise);
         return fetchPromise;
     }
@@ -91,6 +94,9 @@ export class TradingV2 {
             return Number(ticker.mark_price);
         })();
 
+        fetchPromise.catch(() => {
+            this.priceCache.delete(sym);
+        });
         this.priceCache.set(sym, fetchPromise);
         return fetchPromise;
     }
