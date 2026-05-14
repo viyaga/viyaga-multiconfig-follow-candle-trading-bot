@@ -1,5 +1,6 @@
 import winston from "winston";
 import { getIstTime } from "../../utils/timeUtils";
+import util from "util";
 
 // Standard format for all loggers
 const serializeError = (err: any) => {
@@ -31,7 +32,7 @@ const consoleFormat = winston.format.combine(
             const sanitizedMeta = Object.fromEntries(
                 Object.entries(meta).map(([k, v]) => [k, serializeError(v)])
             );
-            msg += ` ${JSON.stringify(sanitizedMeta, null, 2)}`;
+            msg += ` ${util.inspect(sanitizedMeta, { depth: 4 })}`;
         }
         return msg;
     })
@@ -48,7 +49,7 @@ const fileFormat = winston.format.combine(
             const sanitizedMeta = Object.fromEntries(
                 Object.entries(meta).map(([k, v]) => [k, serializeError(v)])
             );
-            msg += ` ${JSON.stringify(sanitizedMeta)}`;
+            msg += ` ${util.inspect(sanitizedMeta, { depth: 4 })}`;
         }
         return msg;
     })
@@ -91,11 +92,15 @@ const createLogger = (
 
 // Logger instances
 export const tradingCycleErrorLogger = createLogger('trading-error', 'error.log', 'error');
-export const marketDetectorLogger = createLogger('market-detector', 'market-detector.log', 'info', false, 1048576, 2); // 1MB, 2 files
-export const marketSkipLogger = createLogger('market-skip', 'market-detector.log', 'info', false, 1048576, 2);
-export const skipTradingLogger = createLogger('skip-trading', 'skip-trading.log', 'info', true, 1048576, 2); // 1MB, 2 files
-export const tradingCronLogger = createLogger('trading-cron', 'trading-cron.log', 'debug');
+export const marketDetectorLogger = createLogger('market-detector', 'market.log', 'info', false, 5242880, 5); // 5MB, 5 files
+export const marketSkipLogger = createLogger('market-skip', 'market.log', 'info', false, 5242880, 5);
+export const skipTradingLogger = createLogger('skip-trading', 'market.log', 'info', true, 5242880, 5);
+export const tradingCronLogger = createLogger('trading-cron', 'cron.log', 'debug');
 export const configDebugLogger = createLogger('config-debug', 'config-debug.log', 'debug', true, 524288, 1); // 0.5MB, 1 file
+
+// New loggers for efficient debugging
+export const tradesLogger = createLogger('trades', 'trades.log', 'info', false, 5242880, 5);
+export const syncLogger = createLogger('sync', 'sync.log', 'info', false, 5242880, 5);
 
 /**
  * Contextual Logger Helper

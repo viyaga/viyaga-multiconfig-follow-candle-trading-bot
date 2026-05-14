@@ -1,7 +1,7 @@
 import axios, { AxiosInstance } from 'axios';
 import env from '../config/env';
 
-import errorLogger from '../utils/errorLogger';
+import { syncLogger } from './tradingV2/logger';
 
 export class PayloadClient {
     private static baseUrl = env.payloadUrl;
@@ -33,9 +33,10 @@ export class PayloadClient {
     static async updatePnl(updates: { botId: string; allTimePnl: number }[]) {
         try {
             const response = await this.instance.post('/api/trading-bots/update-pnl', updates);
+            syncLogger.info(`[PayloadClient] PNL updated successfully for ${updates.length} bots`);
             return response.data;
         } catch (error: any) {
-            errorLogger.error(`[PayloadClient] PNL update failed:`, error.response?.data || error.message);
+            syncLogger.error(`[PayloadClient] PNL update failed:`, error.response?.data || error.message);
             throw error;
         }
     }
@@ -43,9 +44,10 @@ export class PayloadClient {
     static async bulkUpsertTradeStates(data: any[]) {
         try {
             const response = await this.instance.post('/api/trade-states/bulk', data);
+            syncLogger.info(`[PayloadClient] Trade states synced successfully: ${data.length} records`);
             return response.data;
         } catch (error: any) {
-            errorLogger.error(`[PayloadClient] Trade states bulk sync failed:`, error.response?.data || error.message);
+            syncLogger.error(`[PayloadClient] Trade states bulk sync failed:`, error.response?.data || error.message);
             throw error;
         }
     }
@@ -53,9 +55,10 @@ export class PayloadClient {
     static async bulkUpdateBots(updates: { botId: string; errorMessage?: string; status?: string; isActive?: boolean }[]) {
         try {
             const response = await this.instance.post('/api/trading-bots/bulk-update', updates);
+            syncLogger.info(`[PayloadClient] Bots bulk updated successfully: ${updates.length} bots`);
             return response.data;
         } catch (error: any) {
-            errorLogger.error(`[PayloadClient] Bulk bot update failed:`, error.response?.data || error.message);
+            syncLogger.error(`[PayloadClient] Bulk bot update failed:`, error.response?.data || error.message);
             throw error;
         }
     }

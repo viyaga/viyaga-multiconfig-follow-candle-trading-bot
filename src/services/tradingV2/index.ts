@@ -1,6 +1,6 @@
 import { Data } from "./data";
 import { deltaExchange } from "./delta-exchange";
-import { tradingCycleErrorLogger, skipTradingLogger, tradingCronLogger, marketDetectorLogger, marketSkipLogger, getContextualLogger } from "./logger";
+import { tradingCycleErrorLogger, skipTradingLogger, tradingCronLogger, marketDetectorLogger, marketSkipLogger, getContextualLogger, tradesLogger } from "./logger";
 import { ConfigType, TargetCandle, Candle, OrderSide } from "./type";
 import { Utils } from "./utils";
 import { ProcessPendingState } from "./ProcessPendingState";
@@ -108,6 +108,7 @@ export class TradingV2 {
         const errorLogger = getContextualLogger(tradingCycleErrorLogger, { cycleId, symbol, tradingBotId });
         const detectorLogger = getContextualLogger(marketDetectorLogger, { cycleId, symbol, tradingBotId });
         const detectorSkipLogger = getContextualLogger(marketSkipLogger, { cycleId, symbol, tradingBotId });
+        const tradeLogger = getContextualLogger(tradesLogger, { cycleId, symbol, tradingBotId });
 
         cronLogger.info(`[TradingCycle] ========== START PROCESSING BOT: ${symbol} (ID: ${tradingBotId}) ==========`);
 
@@ -321,7 +322,7 @@ export class TradingV2 {
             }
 
             // ───────────────── ENTRY ORDER ─────────────────
-            cronLogger.info(`[Trade] Placing ${side.toUpperCase()} entry order for ${qty} lots on ${symbol}...`);
+            tradeLogger.info(`[Trade] Placing ${side.toUpperCase()} entry order for ${qty} lots on ${symbol}...`);
             const entry = await deltaExchange.placeEntryOrder(symbol, side, qty);
 
             cronLogger.info(
@@ -337,7 +338,7 @@ export class TradingV2 {
                 throw new Error(`[Trade] Invalid TP/SL from MTF: TP=${tp}, SL=${sl}`);
             }
 
-            cronLogger.info(
+            tradeLogger.info(
                 `Price levels - Entry: ${entryPrice}, TP: ${tp} (${mtf.tpPerc.toFixed(2)}%), SL: ${sl} (${mtf.slPerc.toFixed(2)}%)`
             );
 
@@ -353,7 +354,7 @@ export class TradingV2 {
             );
 
             // ───────────────── UPDATE STATE ─────────────────
-            cronLogger.info(`[State] Updating trade state with order IDs and price levels...`);
+            tradeLogger.info(`[State] Updating trade state with order IDs and price levels...`);
             const updatedState = await TradeState.findOneAndUpdate(
                 { tradingBotId: c.id, status: 'open' },
                 {
@@ -382,13 +383,13 @@ export class TradingV2 {
                 throw new Error("Failed to update trade state");
             }
 
-            cronLogger.info(
+            tradeLogger.info(
                 `[State] Trade state updated successfully: Outcome=pending, Level=${updatedState.currentLevel}`
             );
 
 
 
-            cronLogger.info(
+            tradeLogger.info(
                 `✓ TRADE COMPLETED SUCCESSFULLY\n`
             );
 

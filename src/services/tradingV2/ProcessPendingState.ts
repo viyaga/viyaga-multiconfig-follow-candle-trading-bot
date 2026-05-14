@@ -3,7 +3,7 @@ import { ITradeState, TradeState } from "../../models/tradeState.model";
 
 import { TradingConfig } from "./config";
 import { deltaExchange } from "./delta-exchange";
-import { tradingCycleErrorLogger, tradingCronLogger, getContextualLogger } from "./logger";
+import { tradingCycleErrorLogger, tradesLogger, getContextualLogger } from "./logger";
 import { Candle, OrderDetails, TargetCandle } from "./type";
 import { Utils } from "./utils";
 import { TripleTFResult } from "./market-detector/multi-timeframe";
@@ -91,7 +91,7 @@ export class ProcessPendingState {
         exitPrice: number,
         logContext?: any
     ): Promise<ITradeState> {
-        const logger = getContextualLogger(tradingCronLogger, logContext);
+        const logger = getContextualLogger(tradesLogger, logContext);
         logger.info(`[StateTransition] Outcome: WIN | Symbol: ${s.symbol} | Net PnL (Session): ${winPnl.toFixed(2)} | Total Fees (Session): ${tempFees.toFixed(2)}`);
         logger.info(`[StateTransition] WIN Details: Incremental PnL: ${incrementalPnl.toFixed(2)}, Incremental Fees: ${incrementalFees.toFixed(2)}`);
 
@@ -128,7 +128,7 @@ export class ProcessPendingState {
         exitPrice: number,
         logContext?: any
     ): Promise<ITradeState> {
-        const logger = getContextualLogger(tradingCronLogger, logContext);
+        const logger = getContextualLogger(tradesLogger, logContext);
 
         const c = TradingConfig.getConfig();
 
@@ -187,7 +187,7 @@ export class ProcessPendingState {
         multiplier: number,
         logContext?: any
     ): Promise<ITradeState> {
-        const logger = getContextualLogger(tradingCronLogger, logContext);
+        const logger = getContextualLogger(tradesLogger, logContext);
 
         if (!s.stopLossOrderId || !s.takeProfitOrderId) {
             logger.warn(`[PositionOutcome] Missing TP/SL order IDs for ${s.symbol} in state. Entry was CLOSED but bracket orders are unknown. Recovering status while PRESERVING trade metrics (Level, PnL, Fees).`);
@@ -234,7 +234,7 @@ export class ProcessPendingState {
         }
 
         if (tp?.status === "CANCELLED" && sl?.status === "CANCELLED") {
-            const logger = getContextualLogger(tradingCronLogger, logContext);
+            const logger = getContextualLogger(tradesLogger, logContext);
             logger.warn("TP and SL orders were cancelled by user. Treating as LOSS.");
 
             const incrementalPnl = 0;
@@ -266,7 +266,7 @@ export class ProcessPendingState {
         const cancelRes = await deltaExchange.cancelStopOrders({
             product_id: TradingConfig.getConfig().PRODUCT_ID,
         });
-        getContextualLogger(tradingCronLogger, logContext).debug("Cancelled existing stop orders during bracket replacement", { cancelRes });
+        getContextualLogger(tradesLogger, logContext).debug("Cancelled existing stop orders during bracket replacement", { cancelRes });
 
         const entryPriceValue = Number(e.average_fill_price ?? e.meta_data?.entry_price ?? 0);
 
@@ -346,7 +346,7 @@ export class ProcessPendingState {
         logContext?: any
     ): Promise<ITradeState> {
 
-        const logger = getContextualLogger(tradingCronLogger, logContext);
+        const logger = getContextualLogger(tradesLogger, logContext);
         try {
 
             if (!s.stopLossOrderId || !s.slPrice) throw new Error("SL order or price missing in state");
@@ -406,7 +406,7 @@ export class ProcessPendingState {
         mtf: TripleTFResult,
         logContext?: any
     ): Promise<ITradeState> {
-        const logger = getContextualLogger(tradingCronLogger, logContext);
+        const logger = getContextualLogger(tradesLogger, logContext);
         logger.info(`[Recovery] Detected open position for ${s.symbol} but missing TP/SL IDs in state. Re-placing bracket orders...`);
 
         // Use existing prices from state if available, otherwise fallback to MTF
@@ -485,7 +485,7 @@ export class ProcessPendingState {
             ? positions.some(p => Number(p.size) !== 0)
             : positions && Number(positions.size) !== 0;
 
-        const cronLogger = getContextualLogger(tradingCronLogger, logContext);
+        const cronLogger = getContextualLogger(tradesLogger, logContext);
         cronLogger.info(`[PendingState] Checking for open positions for ${sym}. hasOpenPosition: ${hasOpenPosition}`);
         if (!hasOpenPosition) {
             cronLogger.debug(`[PendingState] No open positions found for ${sym}. Raw positions data: ${JSON.stringify(positions)}`);
